@@ -1,0 +1,18 @@
+server: http://127.0.0.1:4096
+sessions:
+  - name: Coordinator
+    role: lead
+    session: REPLACE_LEAD_SESSION_ID
+    dir: /absolute/path/to/project
+    base: origin/main
+  - name: Tests
+    session: REPLACE_TESTS_SESSION_ID
+    dir: /absolute/path/to/project-tests
+    branch: feature/tests
+  - name: Runtime
+    session: REPLACE_RUNTIME_SESSION_ID
+    dir: /absolute/path/to/project-runtime
+  - name: Research child
+    session: REPLACE_CHILD_SESSION_ID
+    parent: REPLACE_RUNTIME_SESSION_ID
+    dir: /absolute/path/to/project-runtime

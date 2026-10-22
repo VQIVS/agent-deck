@@ -16,6 +16,7 @@ cli → config / team → ui
 | --- | --- |
 | `cli` | Flags, subcommands, process exit status and boundary errors |
 | `opencode` | Directory-scoped requests, discovery and reconnecting SSE |
+| `server` | Detached loopback supervisor, ownership lock, health and bounded crash restart |
 | `config` | Legacy deck parsing and validation |
 | `team` | Managed configuration, atomic persistence, backups and member/worktree lifecycle |
 | `state` | Session snapshots, incremental events and waiting-request state |

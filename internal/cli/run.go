@@ -60,6 +60,8 @@ func run(args []string) error {
 			return newSession(args[1:])
 		case "doctor":
 			return doctor(args[1:])
+		case "up", "down", "status", "supervise":
+			return serverCommand(args[0], args[1:])
 		case "run":
 			args = args[1:]
 		}
@@ -131,7 +133,9 @@ func dashboard(args []string) error {
 		model.EnableTeams(team.DefaultRoot())
 	}
 	if printFindingsOnFailure(ctx, deck.Server) {
-		return fmt.Errorf("complete setup above, then run agent-deck again")
+		if !offerServer(ctx, deck.Server, flags.options.ReadOnly) {
+			return fmt.Errorf("complete setup above, then run agent-deck again")
+		}
 	}
 	if _, err := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 		return fmt.Errorf("run terminal: %w", err)

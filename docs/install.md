@@ -87,10 +87,10 @@ make install
 
 ## First run
 
-Start the local server in one terminal, then run agent-deck in another:
+Start the managed local server, then run the dashboard:
 
 ```sh
-opencode serve --hostname 127.0.0.1 --port 4096
+agent-deck up
 ```
 
 ```sh
@@ -98,15 +98,21 @@ agent-deck doctor
 agent-deck
 ```
 
-Create a team from the picker or import a deck. Server lifecycle (`agent-deck up`)
-and repository setup (`agent-deck init`) are planned commands, not available in this
-version. Until implemented, use the explicit server command and team forms above.
+Create a team from the picker or import a deck. Repository setup (`agent-deck init`)
+is not available yet; use the team forms. `agent-deck status` checks the managed server,
+and `agent-deck down` stops it without deleting OpenCode sessions. The supervisor restarts
+a crashed child with 1–30 second backoff. Logs and PID metadata are under
+`$XDG_STATE_HOME/agent-deck` or `~/.local/state/agent-deck`.
+
+To manage the server yourself instead, run
+`opencode serve --hostname 127.0.0.1 --port 4096` in another terminal. Healthy external
+servers are detected and never stopped by `agent-deck down`.
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
-| Server not running | `opencode serve --hostname 127.0.0.1 --port 4096` |
+| Server not running | `agent-deck up` (or run `opencode serve --hostname 127.0.0.1 --port 4096` manually) |
 | Port in use | Check the existing local server, or use `--port 4097` and `agent-deck --server http://127.0.0.1:4097` |
 | Permission prompts | Review the request and approve/reject; inherited session rules remain owned by OpenCode |
 | No models | `opencode auth login`, then `opencode models`; restart the server after changing provider configuration |

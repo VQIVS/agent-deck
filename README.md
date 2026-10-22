@@ -63,7 +63,7 @@ download the matching archive, verify it against `checksums.txt`, extract it, an
 Start your local OpenCode server, then launch the team picker:
 
 ```sh
-opencode serve --hostname 127.0.0.1 --port 4096
+agent-deck up
 agent-deck
 ```
 
@@ -79,6 +79,13 @@ agent-deck --version
 ```
 
 `opencode` must be on `PATH` for attach. An HTTP server is sufficient for observation.
+
+`agent-deck up --port 4096` starts a detached loopback-only server with crash restart
+and bounded backoff. `agent-deck status` reports health and ownership; `agent-deck down`
+stops only its managed server. PID metadata and logs live in `$XDG_STATE_HOME/agent-deck`
+(default `~/.local/state/agent-deck`). A healthy existing server is left running as external.
+When offline, interactive dashboard startup offers to start the server; read-only mode
+never starts one. You can also run `opencode serve --hostname 127.0.0.1 --port 4096` yourself.
 
 ## Teams
 

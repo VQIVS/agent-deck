@@ -25,6 +25,9 @@ package state and `init`. Keep read-only checks at mutation boundaries.
 Prefer isolated HTTP servers and temporary Git repositories in tests. Do not use personal
 paths, real session identifiers, or running sessions in fixtures. `make smoke-live` is an
 explicit, read-only check against a local OpenCode server.
+After `make build`, `python3 scripts/smoke_pty.py` verifies terminal launch/quit and
+`python3 scripts/smoke_server.py` verifies detached lifecycle and crash recovery with an
+isolated fake server. Neither smoke script mutates existing sessions.
 
 ## Commits and pull requests
 

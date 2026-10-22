@@ -1,0 +1,180 @@
+package team
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+
+	api "github.com/qivs/agent-deck/internal/opencode"
+)
+
+// Manager coordinates a team's local persistence and explicit live-session operations.
+type Manager struct {
+	Store    Store
+	Team     Team
+	Version  []byte
+	ReadOnly bool
+}
+
+func (m *Manager) Save(ctx context.Context) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only: team changes disabled")
+	}
+	v, e := m.Store.Save(ctx, &m.Team, m.Version)
+	if e == nil {
+		m.Version = v
+	}
+	return e
+}
+
+func Options(ctx context.Context, t *Team, member *Member, text string) (api.PromptOptions, error) {
+	if err := ctx.Err(); err != nil {
+		return api.PromptOptions{}, err
+	}
+	system := member.System
+	if member.SystemFile != "" {
+		b, e := os.ReadFile(member.SystemFile)
+		if e != nil {
+			return api.PromptOptions{}, fmt.Errorf("read system prompt %q: %w", member.SystemFile, e)
+		}
+		system = string(b)
+	}
+	o := api.PromptOptions{
+		System: strings.TrimSpace(t.Rules + "\n\n" + system),
+		Agent:  member.Agent,
+		Parts:  []map[string]string{{"type": "text", "text": text}},
+	}
+	model := member.Model
+	if model == "" {
+		model = t.Model
+	}
+	if model != "" {
+		provider, id, ok := strings.Cut(model, "/")
+		if !ok {
+			return o, fmt.Errorf("model must be provider/model")
+		}
+		o.Model = &api.ModelRef{ProviderID: provider, ModelID: id}
+	}
+	return o, nil
+}
+
+func (m *Manager) Send(ctx context.Context, index int, text string) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only")
+	}
+	member := m.Team.Members[index]
+	o, e := Options(ctx, &m.Team, &member, text)
+	if e != nil {
+		return e
+	}
+	if err := api.New(m.Team.Server, false).PromptWith(ctx, member.Dir, member.Session, o); err != nil {
+		return fmt.Errorf("send to member %q: %w", member.Name, err)
+	}
+	return nil
+}
+
+func (m *Manager) Roster(ctx context.Context, reason string) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only")
+	}
+	text, e := m.Team.Roster(reason)
+	if e != nil {
+		return e
+	}
+	for i := range m.Team.Members {
+		member := &m.Team.Members[i]
+		if member.Role == "master" && member.Session != "" {
+			return m.Send(ctx, i, text)
+		}
+	}
+	return nil
+}
+
+func (m *Manager) Start(ctx context.Context, index int) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only")
+	}
+	if e := m.Team.CanStart(index); e != nil {
+		return e
+	}
+	if e := m.Team.Validate(); e != nil {
+		return e
+	}
+	member := &m.Team.Members[index]
+	if member.Capability == "inherited" {
+		return fmt.Errorf("choose explicit creation permissions before starting a new session")
+	}
+	if _, e := Options(ctx, &m.Team, member, member.Brief); e != nil {
+		return e
+	}
+	if member.Mode == "worktree" && !member.Owned {
+		dir, branch, e := CreateWorktree(ctx, &m.Team, member)
+		if e != nil {
+			return e
+		}
+		member.Dir, member.Branch, member.Owned = dir, branch, true
+		if e := m.Save(ctx); e != nil {
+			return e
+		}
+	}
+	var rules []api.Rule
+	for k, v := range member.Permissions {
+		rules = append(rules, api.Rule{Permission: k, Pattern: "*", Action: v})
+	}
+	s, e := api.New(m.Team.Server, false).CreateMember(ctx, member.Dir, member.Name, rules)
+	if e != nil {
+		return fmt.Errorf("create member %q: %w", member.Name, e)
+	}
+	member.Session = s.ID
+	if e := m.Save(ctx); e != nil {
+		return e
+	}
+	if e := m.Send(ctx, index, member.Brief); e != nil {
+		return e
+	}
+	return m.Roster(ctx, "member started: "+member.Name)
+}
+
+func (m *Manager) Remove(ctx context.Context, index int, force bool) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only")
+	}
+	if index < 0 || index >= len(m.Team.Members) {
+		return fmt.Errorf("unknown member")
+	}
+	member := m.Team.Members[index]
+	if member.Role == "master" {
+		return fmt.Errorf("change master before removing this member")
+	}
+	if member.Session != "" {
+		if e := api.New(m.Team.Server, false).Abort(ctx, member.Dir, member.Session); e != nil {
+			return fmt.Errorf("abort member %q: %w", member.Name, e)
+		}
+	}
+	if e := RemoveWorktree(ctx, &m.Team, &member, force); e != nil {
+		return e
+	}
+	m.Team.Members = append(m.Team.Members[:index], m.Team.Members[index+1:]...)
+	if e := m.Save(ctx); e != nil {
+		return e
+	}
+	return m.Roster(ctx, "removed member: "+member.Name)
+}
+
+func (m *Manager) ChangeMaster(ctx context.Context, index int) error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only")
+	}
+	if index < 0 || index >= len(m.Team.Members) {
+		return fmt.Errorf("unknown member")
+	}
+	for i := range m.Team.Members {
+		m.Team.Members[i].Role = "worker"
+	}
+	m.Team.Members[index].Role = "master"
+	if e := m.Save(ctx); e != nil {
+		return e
+	}
+	return m.Roster(ctx, "master changed")
+}

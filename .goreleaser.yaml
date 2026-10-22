@@ -1,0 +1,35 @@
+version: 2
+builds:
+  - main: .
+    binary: agent-deck
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+archives:
+  - formats: [tar.gz]
+    files: [LICENSE, README.md, CHANGELOG.md]
+checksum:
+  name_template: checksums.txt
+brews:
+  - name: agent-deck
+    repository:
+      owner: qivs
+      name: homebrew-tap
+    homepage: https://github.com/qivs/agent-deck
+    description: Terminal dashboard for local OpenCode sessions and teams
+    license: MIT
+    dependencies:
+      - name: opencode
+      - name: git
+    install: |
+      bin.install "agent-deck"
+    test: |
+      system "#{bin}/agent-deck", "--version"
+release:
+  github:
+    owner: qivs
+    name: agent-deck
+changelog:
+  use: git

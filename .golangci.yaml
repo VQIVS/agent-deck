@@ -1,0 +1,82 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - nolintlint
+    - revive
+    - errorlint
+    - bodyclose
+    - noctx
+    - misspell
+    - godot
+    - whitespace
+    - dupl
+    - funlen
+    - gocognit
+    - cyclop
+    - gocritic
+    - prealloc
+    - depguard
+    - wrapcheck
+    - lll
+  settings:
+    govet:
+      enable: [nilness, reflectvaluecompare, sortslice, unusedwrite]
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+          arguments:
+            - disableChecksOnConstants
+            - disableChecksOnFunctions
+            - disableChecksOnMethods
+            - disableChecksOnVariables
+        - name: error-return
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+    misspell:
+      locale: US
+    dupl:
+      threshold: 120
+    funlen:
+      lines: 80
+      statements: 50
+    gocognit:
+      min-complexity: 20
+    cyclop:
+      max-complexity: 15
+      skip-tests: true
+    gocritic:
+      enabled-tags: [diagnostic, style, performance]
+      disabled-checks: [commentedOutCode, whyNoLint]
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: io/ioutil
+              desc: use io and os instead
+    wrapcheck:
+      ignore-sigs: [".Errorf(", "errors.", "(context.Context).Err()"]
+    lll:
+      line-length: 120
+  exclusions:
+    generated: strict
+    rules:
+      - path: _test\.go
+        linters: [funlen, dupl, gocognit, wrapcheck, errcheck, cyclop]
+formatters:
+  enable: [gofumpt, gci]
+  settings:
+    gofumpt:
+      module-path: github.com/qivs/agent-deck
+    gci:
+      sections: [standard, default, prefix(github.com/qivs/agent-deck)]
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

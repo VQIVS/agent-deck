@@ -1,0 +1,15 @@
+pre-commit:
+  commands:
+    format:
+      glob: "*.go"
+      run: golangci-lint fmt --diff
+    lint:
+      glob: "*.go"
+      run: golangci-lint run ./...
+    test:
+      glob: "*.go"
+      run: go test ./...
+commit-msg:
+  commands:
+    convention:
+      run: python3 scripts/check_commit.py {1}

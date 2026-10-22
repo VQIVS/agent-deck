@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible problem
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include expected and actual behavior. Remove private transcript content.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Agent-deck version, OpenCode version, OS, terminal, and Go version if built locally.
+    validations:
+      required: true

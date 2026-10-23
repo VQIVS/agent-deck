@@ -137,11 +137,15 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 		return nil, err
 	}
 	t.Members = append([]Member(nil), t.Members...)
+	for i := range t.Members {
+		t.Members[i].Leases = append([]string(nil), t.Members[i].Leases...)
+	}
 	if portable {
 		t.Repo = ""
 		for i := range t.Members {
 			m := &t.Members[i]
 			m.Session, m.Dir, m.Branch, m.Owned = "", "", "", false
+			m.LeasePolicy = ""
 			if m.Mode == "adopt" {
 				m.Mode = "shared"
 			}

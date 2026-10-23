@@ -1,0 +1,203 @@
+package team
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"testing"
+
+	api "github.com/qivs/agent-deck/internal/opencode"
+)
+
+func TestLeaseValidation(t *testing.T) {
+	for _, pattern := range []string{"internal/team/lease*.go", "docs/**", "a?b", "*"} {
+		if err := (Leases{pattern}).Validate(); err != nil {
+			t.Errorf("valid pattern %q: %v", pattern, err)
+		}
+	}
+	for _, pattern := range []string{
+		"", "/tmp/file", "../file", "a/../file", "./file", ".", "a/", ".git/config",
+		"a/.git/**", "a//b", "a\\b", "a\nb", " a", "a[bc]", "C:/file",
+	} {
+		if err := (Leases{pattern}).Validate(); err == nil {
+			t.Errorf("accepted invalid pattern %q", pattern)
+		}
+	}
+}
+
+func TestLeaseOverlap(t *testing.T) {
+	for _, pair := range [][2]string{
+		{"internal/**", "internal/team/*.go"},
+		{"a*.go", "ab.go"},
+		{"a?b", "acb"},
+		{"*", "README.md"},
+		{"same.go", "same.go"},
+		{"internal/a*", "internal/ab*"},
+	} {
+		members := []Member{{Name: "one", Leases: []string{pair[0]}}, {Name: "two", Leases: []string{pair[1]}}}
+		if err := ValidateLeases(members); err == nil {
+			t.Errorf("accepted overlapping leases %q", pair)
+		}
+	}
+	members := []Member{
+		{Name: "one", Leases: []string{"internal/team/**", "internal/team/lease*.go"}},
+		{Name: "two", Leases: []string{"internal/ui/**"}},
+	}
+	if err := ValidateLeases(members); err != nil {
+		t.Fatalf("disjoint members and same-member overlap: %v", err)
+	}
+}
+
+func TestLeaseRules(t *testing.T) {
+	master := Member{Name: "master", Role: "master", Permissions: Preset("full")}
+	worker := Member{Name: "worker", Role: "worker", Permissions: Preset("full"), Leases: []string{"internal/a*.go"}}
+	members := []Member{master, worker}
+	rules, err := LeaseRules("/repo", members, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertLeaseAction(t, rules, "edit", "internal/a.go", "allow")
+	assertLeaseAction(t, rules, "edit", "internal/deep/a.go", "deny")
+	assertLeaseAction(t, rules, "edit", "README.md", "deny")
+	assertLeaseAction(t, rules, "bash", "go test ./internal/team/...", "allow")
+	assertLeaseAction(t, rules, "bash", "git status", "allow")
+	for _, command := range []string{
+		"git add .", "git -C /repo commit -m x", "/usr/bin/git push", "env X=1 git reset --hard",
+	} {
+		assertLeaseAction(t, rules, "bash", command, "deny")
+	}
+	rules, err = LeaseRules("/repo", members, &master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertLeaseAction(t, rules, "edit", "internal/a.go", "deny")
+	assertLeaseAction(t, rules, "edit", "README.md", "allow")
+	assertLeaseAction(t, rules, "bash", "git commit -m x", "allow")
+}
+
+func TestLeaseEditReset(t *testing.T) {
+	worker := Member{Name: "worker", Role: "worker", Permissions: Preset("coder"), Leases: []string{"old/**"}}
+	old, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker.Leases = []string{"new/**"}
+	current, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined := slices.Concat(old, current)
+	assertLeaseAction(t, combined, "edit", "old/file.go", "deny")
+	assertLeaseAction(t, combined, "edit", "new/file.go", "allow")
+	master := Member{Name: "master", Role: "master", Capability: "inherited"}
+	worker.Leases = []string{"old/**"}
+	old, err = LeaseRules("/repo", []Member{master, worker}, &master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker.Leases = []string{"new/**"}
+	current, err = LeaseRules("/repo", []Member{master, worker}, &master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined = slices.Concat(old, current)
+	assertLeaseAction(t, combined, "edit", "old/file.go", "allow")
+	assertLeaseAction(t, combined, "edit", "new/file.go", "deny")
+	for _, rule := range current {
+		if rule.Permission == "edit" && strings.HasPrefix(rule.Pattern, "/") {
+			t.Fatalf("unexpected absolute edit alias: %+v", rule)
+		}
+	}
+}
+
+func TestLeaseWorkerEditCeiling(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		permissions map[string]string
+		want        string
+	}{
+		{name: "reviewer", permissions: Preset("reviewer"), want: "deny"},
+		{name: "ask", permissions: map[string]string{"edit": "ask"}, want: "ask"},
+		{name: "coder", permissions: Preset("coder"), want: "allow"},
+		{name: "full", permissions: Preset("full"), want: "allow"},
+		{name: "inherited", want: "ask"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			worker := Member{
+				Name: "worker", Role: "worker", Permissions: test.permissions, Leases: []string{"owned/**"},
+			}
+			rules, err := LeaseRules("/repo", []Member{worker}, &worker)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertLeaseAction(t, rules, "edit", "owned/file.go", test.want)
+			assertLeaseAction(t, rules, "edit", "other/file.go", "deny")
+		})
+	}
+}
+
+func assertLeaseAction(t *testing.T, rules []api.Rule, permission, target, want string) {
+	t.Helper()
+	action := "ask"
+	for _, rule := range rules {
+		if rule.Permission == permission && wildcardMatch(rule.Pattern, target) {
+			action = rule.Action
+		}
+	}
+	if action != want {
+		t.Errorf("%s %q: got %s, want %s", permission, target, action, want)
+	}
+}
+
+func wildcardMatch(pattern, target string) bool {
+	parts := strings.Split(pattern, "*")
+	if !strings.HasPrefix(target, parts[0]) {
+		return false
+	}
+	target = strings.TrimPrefix(target, parts[0])
+	for _, part := range parts[1:] {
+		index := strings.Index(target, part)
+		if index < 0 {
+			return false
+		}
+		target = target[index+len(part):]
+	}
+	return strings.HasSuffix(pattern, "*") || target == ""
+}
+
+func TestApplyLeasePermissions(t *testing.T) {
+	calls := 0
+	rules := []api.Rule{{Permission: "edit", Pattern: "internal/**", Action: "allow"}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Method != http.MethodPatch || r.URL.EscapedPath() != "/session/ses_test%2Fid" ||
+			r.URL.Query().Get("directory") != "/repo with space" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL)
+		}
+		var body struct {
+			Permission []api.Rule `json:"permission"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Permission) != 1 ||
+			body.Permission[0] != rules[0] {
+			t.Errorf("permission body: %+v, %v", body, err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	ctx := context.Background()
+	if err := api.New(server.URL, false).ApplyPermissions(ctx, "/repo with space", "ses_test/id", rules); err != nil {
+		t.Fatal(err)
+	}
+	if err := api.New(server.URL, true).ApplyPermissions(ctx, "/repo", "ses_test", rules); err == nil {
+		t.Fatal("read-only PATCH accepted")
+	}
+	if err := api.New(server.URL, false).ApplyPermissions(ctx, "/repo", "", rules); err == nil {
+		t.Fatal("empty session accepted")
+	}
+	if calls != 1 {
+		t.Fatalf("got %d requests, want one", calls)
+	}
+}

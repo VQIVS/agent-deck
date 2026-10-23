@@ -16,6 +16,8 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	LeasePolicy    string            `yaml:"lease_policy,omitempty"`
+	Leases         []string          `yaml:"leases,omitempty"`
 	Capability     string            `yaml:"capability,omitempty"`
 	Name           string            `yaml:"name"`
 	Role           string            `yaml:"role"`
@@ -35,6 +37,7 @@ type Member struct {
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
+	LeasePool      bool     `yaml:"lease_pool,omitempty"`
 	Version        int      `yaml:"version"`
 	Name           string   `yaml:"name"`
 	Server         string   `yaml:"server"`
@@ -77,6 +80,9 @@ func Preset(name string) map[string]string {
 }
 
 func (t *Team) Validate() error {
+	if err := ValidateLeases(t.Members); err != nil {
+		return err
+	}
 	if Slug(t.Name) == "" || t.Version != 1 || !filepath.IsAbs(t.Repo) || t.Base == "" || t.Capacity < 1 {
 		return fmt.Errorf("team needs version 1, name, absolute repo, base and positive capacity")
 	}
@@ -245,5 +251,5 @@ func (t *Team) Roster(reason string) (string, error) {
 	if e != nil {
 		return "", fmt.Errorf("render roster: %w", e)
 	}
-	return b.String(), nil
+	return b.String() + leaseInstructions(t), nil
 }

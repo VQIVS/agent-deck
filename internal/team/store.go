@@ -71,6 +71,7 @@ func (s Store) Save(ctx context.Context, t *Team, expected []byte) ([]byte, erro
 	if s.ReadOnly {
 		return nil, fmt.Errorf("read-only: team save disabled")
 	}
+	t.LeasePool = t.LeasePool || HasLeases(t.Members)
 	if e := t.Validate(); e != nil {
 		return nil, e
 	}

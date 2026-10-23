@@ -210,6 +210,8 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 			e = manager.ChangeMaster(m.context(), index)
 		case "roster":
 			e = manager.Roster(m.context(), "manual roster refresh")
+		case "leases":
+			e = manager.ApplyLeases(m.context(), index)
 		}
 		return teamOperationMsg{&manager, e}
 	}
@@ -253,6 +255,9 @@ func (m *Model) teamConfirmation() string {
 	}
 	if text == "master" {
 		text = "Change master and send the new master an updated roster?"
+	}
+	if text == "leases" {
+		text = "Apply leases: replace idle member binding with a fresh session? Old transcript is retained."
 	}
 	out := fit(
 		text,
@@ -304,7 +309,8 @@ func (m *Model) membersView() string {
 			prefix = "> "
 		}
 		text := fit(
-			prefix+member.Role+" "+member.Name+" · "+member.PermissionSummary()+" · "+member.Mode+" · "+member.Session,
+			prefix+member.Role+" "+member.Name+" · "+member.PermissionSummary()+
+				" · "+u.Manager.Team.LeaseStatus(member)+": "+strings.Join(member.Leases, ", ")+" · "+member.Session,
 			m.w,
 		)
 		m.zones = append(
@@ -321,6 +327,7 @@ func (m *Model) membersView() string {
 				{"Start", "member-start", m.opts.ReadOnly},
 				{"Remove", "member-remove", m.opts.ReadOnly},
 				{"Change master", "member-master", m.opts.ReadOnly},
+				{"Apply leases", "member-leases", m.opts.ReadOnly},
 			},
 			0,
 			y,
@@ -624,6 +631,8 @@ func (m *Model) mutateTeam(action string) tea.Cmd {
 		u.Force = false
 	case "member-master":
 		u.Confirm = "master"
+	case "member-leases":
+		u.Confirm = "leases"
 	case "form-save":
 		return m.saveForm()
 	}
@@ -676,7 +685,7 @@ func (m *Model) confirmTeam() tea.Cmd {
 	switch confirm {
 	case "remove":
 		return m.teamOperation("remove", u.MemberIndex, u.Force)
-	case "start", "master":
+	case "start", "master", "leases":
 		return m.teamOperation(confirm, u.MemberIndex, false)
 	default:
 		return nil

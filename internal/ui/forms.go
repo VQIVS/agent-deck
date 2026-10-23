@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strconv"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -55,6 +56,7 @@ func (m *Model) memberForm() {
 		{Label: "System prompt file", Value: member.SystemFile},
 		{Label: "Branch template", Value: member.BranchTemplate},
 		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "full"}},
+		{Label: "Leases (one repository-relative glob per line)", Value: strings.Join(member.Leases, "\n")},
 	}
 	for _, k := range []string{"read", "edit", "bash", "webfetch", "external_directory"} {
 		u.Fields = append(u.Fields, formField{
@@ -146,6 +148,7 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 	member.System = values["System prompt"]
 	member.SystemFile = values["System prompt file"]
 	member.Brief = values["Brief"]
+	member.Leases = parseLeases(values["Leases (one repository-relative glob per line)"])
 	member.Mode = values["Workspace mode"]
 	member.Dir = values["Directory"]
 	member.BranchTemplate = values["Branch template"]

@@ -650,7 +650,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	}
 	body := max(1, h-5-buttonRows)
 	color := m.statusColor(p.State.DisplayStatus())
-	name := p.Agent.Name
+	name := m.leasedName(i)
 	if p.Agent.Role != "" {
 		name = "★ " + name
 	}

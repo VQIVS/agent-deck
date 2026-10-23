@@ -82,6 +82,39 @@ Permission profiles enumerate read/edit/bash/webfetch/external_directory with
 allow/ask/deny. Presets: reviewer (read-only), coder (edits allowed, shell asks),
 full (all allowed). Profile changes take effect on newly created sessions.
 
+## Shared-checkout leases
+
+Workers default to the developer's shared checkout. In **Advanced**, set **Leases** to
+repository-relative globs, one per line (for example `internal/parser/**`). Ownership is
+saved with the member and retained by portable export. Potentially overlapping prefixes
+between members are rejected conservatively. `*` crosses directory separators in OpenCode;
+`**` works too. Use specific prefixes. Lease paths cannot include parent traversal or Git
+metadata. The configured repository must be the Git worktree root; a worktree member uses
+its own root. Leases appear in member lists, pane headers, rosters and per-message system
+instructions. Workers run package-scoped tests; the master runs full checks when they are idle.
+Saving the first lease enables persistent `lease_pool` mode. Removing the final lease
+does not disable it: a worker with no leases has no editable paths. Each bound session
+records its applied policy fingerprint; changes to ownership, role or creation rules show
+**leases PENDING apply** until that member is explicitly rebound. Portable exports strip
+the applied fingerprint while retaining ownership and pool mode.
+
+When any team member has leases, newly created sessions receive native edit rules:
+workers deny all edits then allow their own leases; the master denies other members'
+leases. Workers also receive deny rules for Git write commands, including commit/push,
+reset/checkout and worktree operations. These native tool rules remain active without
+the dashboard running. They are tool permissions, not an OS sandbox: arbitrary shell
+programs can mutate files, so shell permission approval still needs review.
+
+Saving a lease changes configuration only. For a live member choose **Team → Apply leases**
+and confirm. The member must be idle with no pending requests and have explicit creation
+permissions (select coder/reviewer/full in Advanced for an inherited member first).
+OpenCode PATCH appends permission rules rather than replacing them. To avoid stale grants,
+this action creates a fresh session with a clean ruleset, saves its binding, sends a
+continuation brief and notifies the master. The original session and transcript remain
+available; the new session is not a transcript clone. No old session is aborted or deleted.
+Apply each affected live member, including the master, after changing ownership. Existing
+sessions keep their prior effective rules until explicitly replaced. Read-only blocks apply.
+
 ## API integration
 
 The inspected server supports `POST /session` with a permission ruleset and

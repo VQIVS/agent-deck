@@ -41,7 +41,7 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 		system = string(b)
 	}
 	o := api.PromptOptions{
-		System: strings.TrimSpace(t.Rules + "\n\n" + system),
+		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t)),
 		Agent:  member.Agent,
 		Parts:  []map[string]string{{"type": "text", "text": text}},
 	}
@@ -121,15 +121,16 @@ func (m *Manager) Start(ctx context.Context, index int) error {
 			return e
 		}
 	}
-	var rules []api.Rule
-	for k, v := range member.Permissions {
-		rules = append(rules, api.Rule{Permission: k, Pattern: "*", Action: v})
+	rules, err := m.creationRules(ctx, member)
+	if err != nil {
+		return err
 	}
 	s, e := api.New(m.Team.Server, false).CreateMember(ctx, member.Dir, member.Name, rules)
 	if e != nil {
 		return fmt.Errorf("create member %q: %w", member.Name, e)
 	}
 	member.Session = s.ID
+	member.LeasePolicy = m.Team.LeaseFingerprint(member)
 	if e := m.Save(ctx); e != nil {
 		return e
 	}

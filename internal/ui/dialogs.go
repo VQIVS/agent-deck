@@ -7,6 +7,13 @@ import (
 )
 
 func (m *Model) dialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
+	if m.compactConfirm {
+		m.compactConfirm = false
+		if v.String() == "y" {
+			return true, m.compact()
+		}
+		return true, nil
+	}
 	if m.searching {
 		return true, m.searchKey(v)
 	}

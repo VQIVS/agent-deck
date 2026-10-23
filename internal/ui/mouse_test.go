@@ -40,9 +40,9 @@ func TestButtonVisibility(t *testing.T) {
 	for _, ro := range []bool{false, true} {
 		for _, pending := range []bool{false, true} {
 			buttons := paneButtons(pending, ro, false)
-			want := 5
+			want := 6
 			if pending {
-				want = 8
+				want = 9
 			}
 			if len(buttons) != want {
 				t.Fatal(buttons)

@@ -76,9 +76,11 @@ type Part struct {
 // Message groups ordered parts with speaker and timestamp metadata.
 type Message struct {
 	Info struct {
-		ID   string `json:"id"`
-		Role string `json:"role"`
-		Time struct {
+		ID         string `json:"id"`
+		Role       string `json:"role"`
+		ProviderID string `json:"providerID"`
+		ModelID    string `json:"modelID"`
+		Time       struct {
 			Created   int64 `json:"created"`
 			Completed int64 `json:"completed"`
 		} `json:"time"`

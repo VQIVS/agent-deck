@@ -22,6 +22,7 @@ import (
 	"github.com/qivs/agent-deck/internal/gitinfo"
 	api "github.com/qivs/agent-deck/internal/opencode"
 	"github.com/qivs/agent-deck/internal/state"
+	"github.com/qivs/agent-deck/internal/team"
 	"github.com/qivs/agent-deck/internal/transcript"
 )
 
@@ -40,6 +41,7 @@ type pane struct {
 	Expanded, Raw map[string]bool
 	Selected      string
 	Content       string
+	ContextLimit  int64
 }
 type streamMsg struct {
 	Dir        string
@@ -48,10 +50,11 @@ type streamMsg struct {
 	Connection bool
 }
 type snapshotMsg struct {
-	Index    int
-	Messages []api.Message
-	Status   api.Status
-	Err      error
+	Index        int
+	Messages     []api.Message
+	Status       api.Status
+	Err          error
+	ContextLimit int64
 }
 type gitMsg struct {
 	Index int
@@ -85,6 +88,7 @@ type Model struct {
 	requestEvents                map[string][]api.Event
 	permissionTarget             permissionTarget
 	permissionConfirm, rejecting bool
+	compactConfirm               bool
 	zones                        []zone
 	mouseX, mouseY               int
 	hoverAction                  string
@@ -195,7 +199,12 @@ func (m *Model) snapshot(i int) tea.Cmd {
 			return snapshotMsg{Index: i, Err: e}
 		}
 		ss, e := m.client.Status(m.context(), a.Dir)
-		return snapshotMsg{Index: i, Messages: ms, Status: ss[a.Session], Err: e}
+		var limit int64
+		if latest := team.LatestAssistant(ms); latest != nil {
+			limit, _ = m.client.ContextLimit(m.context(), a.Dir,
+				api.ModelRef{ProviderID: latest.Info.ProviderID, ModelID: latest.Info.ModelID})
+		}
+		return snapshotMsg{Index: i, Messages: ms, Status: ss[a.Session], Err: e, ContextLimit: limit}
 	}
 }
 
@@ -293,6 +302,7 @@ func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
 func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	m.frame++
 	cmds := []tea.Cmd{tick()}
+	cmds = append(cmds, m.healthTick()...)
 	second := time.Time(v).Unix()
 	if m.teams != nil && second%3 == 0 {
 		cmds = append(cmds, m.watchTeam())
@@ -397,6 +407,7 @@ func (m *Model) applySnapshot(v *snapshotMsg) {
 		m.note = v.Err.Error()
 	} else {
 		p.State.Snapshot(v.Messages)
+		p.ContextLimit = v.ContextLimit
 		if p.State.Status != "ERROR" {
 			p.State.SetStatus(v.Status.Type, time.Now())
 		}
@@ -487,6 +498,8 @@ func (m *Model) emptyKey(key string) tea.Cmd {
 
 func (m *Model) paneNavigation(key string) bool {
 	switch key {
+	case "C":
+		m.compactConfirm = !m.opts.ReadOnly
 	case "tab":
 		m.cycle(1)
 	case "shift+tab":
@@ -649,7 +662,6 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 		buttonRows = 3
 	}
 	body := max(1, h-5-buttonRows)
-	color := m.statusColor(p.State.DisplayStatus())
 	name := m.leasedName(i)
 	if p.Agent.Role != "" {
 		name = "★ " + name
@@ -658,11 +670,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 		name = "↳ " + name
 	}
 	m.zones = append(m.zones, zone{Rect: Rect{x, y, w, h}, Action: "focus", Pane: i})
-	header := fit(
-		p.State.DisplayStatus()+"  "+name+" "+time.Since(p.State.DisplaySince()).Truncate(time.Second).String(),
-		inner,
-	)
-	header = lipgloss.NewStyle().Foreground(color).Bold(true).Render(header)
+	header := m.theme.StateBadge(p.State.DisplayStatus()) + " " + fit(name, max(1, inner-12))
 	buttons := m.buttonRow(controls[:3], x+1, y+2, inner, i) + "\n" + m.buttonRow(controls[3:5], x+1, y+3, inner, i)
 	if buttonRows == 3 {
 		buttons += "\n" + m.buttonRow(controls[5:], x+1, y+4, inner, i)
@@ -689,7 +697,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	if atBottom {
 		p.View.GotoBottom()
 	}
-	detail := "tool: " + p.State.Tool()
+	detail := m.paneHealth(i) + " · tool: " + p.State.Tool()
 	content := header + "\n" + buttons + "\n" + fit(detail, inner) + "\n" + p.View.View() + "\n" + fit(p.Git, inner)
 	if p.State.Waiting() {
 		lines := strings.Split(ansi.Hardwrap(clean(p.State.WaitingText()), inner, true), "\n")
@@ -739,21 +747,6 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 				},
 			)
 		}
-	}
-}
-
-func (m *Model) statusColor(status string) lipgloss.Color {
-	switch status {
-	case "WAITING":
-		return m.theme.Waiting
-	case "BUSY":
-		return m.theme.Warning
-	case "IDLE":
-		return m.theme.Success
-	case "ERROR":
-		return m.theme.Danger
-	default:
-		return m.theme.Muted
 	}
 }
 
@@ -828,7 +821,7 @@ func (m *Model) overlayView(header string) (string, bool) {
 		m.w = w
 		return m.frameView(body, "  ↑↓ select  ·  Space add/remove  ·  Esc back  ·  Click a session", width), true
 	}
-	if m.editing || m.rejecting || m.confirm || m.permissionConfirm {
+	if m.editing || m.rejecting || m.confirm || m.permissionConfirm || m.compactConfirm {
 		m.zones = nil
 		w := m.w
 		m.w = max(20, min(88, w-6))

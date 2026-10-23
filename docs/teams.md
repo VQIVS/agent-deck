@@ -120,6 +120,25 @@ inherited tool permissions reset to ask, so an explicit preset is required befor
 Apply each affected live member, including the master, after changing ownership. Existing
 sessions keep their prior effective rules until explicitly applied. Read-only blocks apply.
 
+## Session health
+
+Pane badges distinguish **STALLED** from **WAITING**. Busy sessions with no meaningful
+part changes for five minutes become stalled; status polling does not refresh activity.
+Pending permissions/questions always win. Advanced member settings expose the stall
+threshold (`0s` disables) and optional auto-nudge policy: enabled, maximum, interval,
+message, and task-done flag. Nudges default off, target idle sessions only, recheck live
+status, and persist successful-send counts/timestamps. Done, waiting, busy and read-only
+members are never nudged. A submission/save error disables automatic nudging for the
+loaded team until settings are explicitly re-enabled, preventing repeated uncertain sends.
+
+The pane shows context input + cache-read tokens against the session model's configured
+context limit, or **unknown** when unavailable. Warnings begin at 75%, danger at 90%.
+Choose **Compact** or press `C`, then confirm with `y`. Compaction rechecks live requests
+and status and uses the model from the session's latest assistant message. Busy or waiting
+sessions must first become idle (resolve the request or explicitly stop/abort, then wait).
+Read-only blocks compaction. The dashboard resyncs after completion; the inbox UI follows
+in a separate integration step.
+
 ## API integration
 
 The inspected server supports `POST /session` with a permission ruleset and

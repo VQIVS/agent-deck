@@ -28,6 +28,7 @@ agent-deck · WAITING 1 · streams 2/2 · http://127.0.0.1:4096
 - Paged panes, focus and zoom, fuzzy session selection, keyboard navigation and mouse controls.
 - Markdown transcripts, expandable tool cards, raw details, search and optional reasoning.
 - Waiting permission/question indicators, permission replies and optional desktop notifications.
+- Stalled-session badges, model context gauges, confirmed compaction and opt-in bounded idle nudges.
 - Persistent teams, member forms, model/agent selection and owned Git worktrees.
 - YAML/JSON imports and exports, portable templates, previews and revision backups.
 - Auto/dark/light themes, read-only mode and optional Git metadata.

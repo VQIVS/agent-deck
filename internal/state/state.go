@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -13,17 +14,24 @@ const MaxParts = 160
 
 // State reduces snapshots and events into bounded transcript and activity state.
 type State struct {
-	Status       string
-	Since        time.Time
-	Parts        []api.Part
-	Error        string
-	Seen         map[string]bool
-	Permissions  []api.Permission
-	Questions    []api.Question
-	WaitingSince time.Time
+	Status        string
+	Since         time.Time
+	Parts         []api.Part
+	Error         string
+	Seen          map[string]bool
+	Permissions   []api.Permission
+	Questions     []api.Question
+	WaitingSince  time.Time
+	LastEvent     time.Time
+	LastActivity  time.Time
+	ContextTokens int64
+	StallAfter    time.Duration
+	clock         func() time.Time
+	contextID     string
+	contextTime   int64
 }
 
-func New() State { return State{Status: "UNKNOWN", Since: time.Now(), Seen: map[string]bool{}} }
+func New() State { return NewWithClock(time.Now, DefaultStallAfter) }
 func (s *State) SetStatus(status string, now time.Time) bool {
 	status = strings.ToUpper(status)
 	if status == "RETRY" {
@@ -44,9 +52,15 @@ func (s *State) SetStatus(status string, now time.Time) bool {
 }
 
 func (s *State) Upsert(source *api.Part) {
+	if s.upsert(source) {
+		s.LastActivity = s.now()
+	}
+}
+
+func (s *State) upsert(source *api.Part) bool {
 	p := *source
 	if p.Type != "text" && p.Type != "reasoning" && p.Type != "tool" {
-		return
+		return false
 	}
 	// Bound memory even for very large tool outputs / long-running responses.
 	if len(p.Text) > 24000 {
@@ -57,26 +71,34 @@ func (s *State) Upsert(source *api.Part) {
 	}
 	for i := range s.Parts {
 		if s.Parts[i].ID == p.ID {
+			changed := !reflect.DeepEqual(s.Parts[i], p)
 			s.Parts[i] = p
-			return
+			return changed
 		}
 	}
 	s.Parts = append(s.Parts, p)
 	if len(s.Parts) > MaxParts {
 		s.Parts = s.Parts[len(s.Parts)-MaxParts:]
 	}
+	return true
 }
 
 func (s *State) Snapshot(messages []api.Message) {
+	previous := s.Parts
 	s.Parts = nil
+	s.ContextTokens, s.contextTime, s.contextID = 0, 0, ""
 	for i := range messages {
 		m := &messages[i]
+		s.observeContext(m.Info.ID, m.Info.Role, m.Info.Time.Created, m.Info.Tokens.Input+m.Info.Tokens.Cache.Read)
 		for j := range m.Parts {
 			p := m.Parts[j]
 			p.Role = m.Info.Role
 			p.Created = m.Info.Time.Created
-			s.Upsert(&p)
+			s.upsert(&p)
 		}
+	}
+	if !reflect.DeepEqual(previous, s.Parts) {
+		s.LastActivity = s.now()
 	}
 }
 
@@ -89,6 +111,7 @@ type eventProperties struct {
 	Delta     string          `json:"delta"`
 	Status    api.Status      `json:"status"`
 	Error     json.RawMessage `json:"error"`
+	Info      messageInfo     `json:"info"`
 }
 
 func (s *State) Apply(e api.Event, session string, now time.Time) bool {
@@ -99,6 +122,9 @@ func (s *State) Apply(e api.Event, session string, now time.Time) bool {
 	if p.SessionID == "" {
 		p.SessionID = p.Part.SessionID
 	}
+	if p.SessionID == "" {
+		p.SessionID = p.Info.SessionID
+	}
 	if p.SessionID != session {
 		return false
 	}
@@ -108,6 +134,7 @@ func (s *State) Apply(e api.Event, session string, now time.Time) bool {
 	if s.duplicate(e.ID) {
 		return false
 	}
+	s.LastEvent = now
 	return s.applyEvent(e.Type, &p, now)
 }
 
@@ -136,9 +163,15 @@ func (s *State) applyEvent(kind string, p *eventProperties, now time.Time) bool 
 		s.Error = string(p.Error)
 		return true
 	case "message.part.updated":
-		s.Upsert(&p.Part)
+		if s.upsert(&p.Part) {
+			s.LastActivity = now
+		}
 	case "message.part.delta":
-		s.applyDelta(p)
+		if s.applyDelta(p) {
+			s.LastActivity = now
+		}
+	case "message.updated":
+		s.observeContext(p.Info.ID, p.Info.Role, p.Info.Time.Created, p.Info.Tokens.Input+p.Info.Tokens.Cache.Read)
 	case "message.part.removed":
 		for i := range s.Parts {
 			if s.Parts[i].ID == p.PartID {
@@ -156,19 +189,18 @@ func (s *State) applyEvent(kind string, p *eventProperties, now time.Time) bool 
 	return false
 }
 
-func (s *State) applyDelta(p *eventProperties) {
-	if p.Field != "text" {
-		return
+func (s *State) applyDelta(p *eventProperties) bool {
+	if p.Field != "text" || p.Delta == "" {
+		return false
 	}
 	for i := range s.Parts {
 		if s.Parts[i].ID == p.PartID {
 			part := s.Parts[i]
 			part.Text += p.Delta
-			s.Upsert(&part)
-			return
+			return s.upsert(&part)
 		}
 	}
-	s.Upsert(&api.Part{ID: p.PartID, MessageID: p.MessageID, Type: "text", Text: p.Delta})
+	return s.upsert(&api.Part{ID: p.PartID, MessageID: p.MessageID, Type: "text", Text: p.Delta})
 }
 
 func (s *State) Tool() string {

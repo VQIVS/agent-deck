@@ -41,6 +41,7 @@ func paneButtons(permission, readOnly, zoom bool) []button {
 		{"Stop", "s", readOnly},
 		{"Attach", "a", readOnly},
 	}
+	out = append(out, button{"Compact", "C", readOnly})
 	if permission {
 		out = append(
 			out,
@@ -162,7 +163,7 @@ func (m *Model) teamClick(z zone, ok bool) tea.Cmd {
 }
 
 func (m *Model) dashboardClick(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
-	modal := m.picker || m.editing || m.rejecting || m.confirm || m.permissionConfirm || m.help
+	modal := m.modalOpen()
 	if !ok {
 		if modal {
 			_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -242,10 +243,13 @@ func (m *Model) movePage(next bool) tea.Cmd {
 
 func (m *Model) dialogView() string {
 	// Full-screen modal: background clicks dismiss; only explicit Yes confirms.
-	if m.confirm || m.permissionConfirm {
+	if m.confirm || m.permissionConfirm || m.compactConfirm {
 		text := "Stop " + m.panes[m.focus].Agent.Name + "?"
 		if m.permissionConfirm {
 			text = "Always approve " + m.permissionTarget.Description + "?"
+		}
+		if m.compactConfirm {
+			text = "Compact " + m.panes[m.focus].Agent.Name + "? Requires idle; abort or resolve waits first."
 		}
 		return m.theme.title(
 			fit(text, m.w),

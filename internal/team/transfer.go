@@ -146,6 +146,7 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 			m := &t.Members[i]
 			m.Session, m.Dir, m.Branch, m.Owned = "", "", "", false
 			m.LeasePolicy = ""
+			m.NudgeStatus = NudgeState{}
 			if m.Mode == "adopt" {
 				m.Mode = "shared"
 			}

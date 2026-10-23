@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -16,6 +17,9 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	Nudge          NudgePolicy       `yaml:"nudge,omitempty"`
+	NudgeStatus    NudgeState        `yaml:"nudge_status,omitempty"`
+	StallAfter     *time.Duration    `yaml:"stall_after,omitempty"`
 	LeasePolicy    string            `yaml:"lease_policy,omitempty"`
 	Leases         []string          `yaml:"leases,omitempty"`
 	Capability     string            `yaml:"capability,omitempty"`
@@ -118,6 +122,12 @@ func validServer(u *url.URL) bool {
 }
 
 func (m *Member) validate() error {
+	if err := m.Nudge.Validate(); err != nil {
+		return err
+	}
+	if m.StallAfter != nil && *m.StallAfter < 0 {
+		return fmt.Errorf("stall threshold must not be negative")
+	}
 	switch m.Capability {
 	case "", "inherited", "reviewer", "coder", "full":
 	default:

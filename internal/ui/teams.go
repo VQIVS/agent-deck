@@ -828,10 +828,18 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 }
 
 func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
+	if handled, cmd := m.updateHealth(msg); handled {
+		return true, cmd
+	}
 	u := m.teams
 	if u == nil {
 		return false, nil
 	}
+	return m.handleTeamMessage(msg)
+}
+
+func (m *Model) handleTeamMessage(msg tea.Msg) (bool, tea.Cmd) {
+	u := m.teams
 	switch v := msg.(type) {
 	case liveImportMsg:
 		u.Busy = false

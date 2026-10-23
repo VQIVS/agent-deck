@@ -14,12 +14,18 @@ func (s *State) DisplayStatus() string {
 	if s.Waiting() {
 		return "WAITING"
 	}
+	if s.Stalled(s.now()) {
+		return "STALLED"
+	}
 	return s.Status
 }
 
 func (s *State) DisplaySince() time.Time {
 	if s.Waiting() {
 		return s.WaitingSince
+	}
+	if s.Stalled(s.now()) {
+		return s.ActivitySince().Add(s.StallAfter)
 	}
 	return s.Since
 }
@@ -64,6 +70,10 @@ func (s *State) ApplyRequest(e api.Event, session string, now time.Time) bool {
 	if json.Unmarshal(e.Properties, &p) != nil || p.SessionID != session {
 		return false
 	}
+	if s.duplicate(e.ID) {
+		return false
+	}
+	s.LastEvent = now
 	permissions := append([]api.Permission(nil), s.Permissions...)
 	questions := append([]api.Question(nil), s.Questions...)
 	switch e.Type {

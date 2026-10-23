@@ -104,31 +104,19 @@ func dashboard(args []string) error {
 	if err != nil {
 		return err
 	}
-	var deck config.Deck
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if flags.path != "" {
-		deck, err = config.Load(ctx, flags.path)
-		if err != nil {
-			return fmt.Errorf("load configuration: %w", err)
-		}
+	deck, saved, revision, err := loadDeck(ctx, &flags)
+	if err != nil {
+		return err
 	}
-	deck.Server = resolveServer(flags.server, deck.Server)
 	if flags.snapshot {
-		return printSnapshot(ctx, &deck, flags.path == "")
+		return printSnapshot(ctx, &deck, flags.path == "" && saved == nil)
 	}
-	flags.options.Auto = flags.path == ""
+	flags.options.Auto = flags.path == "" && saved == nil
 	model := ui.New(ctx, &deck, flags.options)
-	if flags.teamName != "" {
-		store := team.Store{Root: team.DefaultRoot(), ReadOnly: flags.options.ReadOnly}
-		saved, revision, err := store.Load(ctx, flags.teamName)
-		if err != nil {
-			return fmt.Errorf("load team %q: %w", flags.teamName, err)
-		}
-		flags.options.Auto = false
-		deck = saved.Deck()
-		model = ui.New(ctx, &deck, flags.options)
-		model.OpenTeam(&saved, revision, store.Root)
+	if saved != nil {
+		model.OpenTeam(saved, revision, team.DefaultRoot())
 	} else if flags.path == "" && !flags.all {
 		model.EnableTeams(team.DefaultRoot())
 	}
@@ -141,6 +129,31 @@ func dashboard(args []string) error {
 		return fmt.Errorf("run terminal: %w", err)
 	}
 	return nil
+}
+
+func loadDeck(ctx context.Context, flags *dashboardFlags) (config.Deck, *team.Team, []byte, error) {
+	var (
+		deck     config.Deck
+		saved    *team.Team
+		revision []byte
+	)
+	switch {
+	case flags.teamName != "":
+		store := team.Store{Root: team.DefaultRoot(), ReadOnly: flags.options.ReadOnly}
+		loaded, rev, err := store.Load(ctx, flags.teamName)
+		if err != nil {
+			return deck, nil, nil, fmt.Errorf("load team %q: %w", flags.teamName, err)
+		}
+		deck, saved, revision = loaded.Deck(), &loaded, rev
+	case flags.path != "":
+		loaded, err := config.Load(ctx, flags.path)
+		if err != nil {
+			return deck, nil, nil, fmt.Errorf("load configuration: %w", err)
+		}
+		deck = loaded
+	}
+	deck.Server = resolveServer(flags.server, deck.Server)
+	return deck, saved, revision, nil
 }
 
 func printFindingsOnFailure(ctx context.Context, server string) bool {

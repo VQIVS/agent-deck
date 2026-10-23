@@ -72,6 +72,7 @@ agent-deck run --all                  # discover active sessions
 agent-deck --read-only --all          # observe without mutations
 agent-deck --theme light
 agent-deck --snapshot                 # read-only HTTP snapshot
+agent-deck --team example --snapshot  # snapshot of one team
 agent-deck discover --out deck.yaml
 agent-deck --config deck.yaml
 agent-deck new --dir /path/to/project --title 'Review changes'

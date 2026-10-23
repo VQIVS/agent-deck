@@ -7,7 +7,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
+
+	"github.com/qivs/agent-deck/internal/team"
 )
 
 func TestServerPrecedence(t *testing.T) {
@@ -56,5 +59,41 @@ func TestNewSessionCLI(t *testing.T) {
 	}
 	if !created || !prompted {
 		t.Fatal("missing request")
+	}
+}
+
+func TestSnapshotTeamOnly(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("AGENT_DECK_SERVER", "")
+	var paths []string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path+"?"+r.URL.Query().Get("directory"))
+		switch r.URL.Path {
+		case "/session/status":
+			fmt.Fprint(w, `{}`)
+		case "/session/session-team/message":
+			fmt.Fprint(w, `[]`)
+		default:
+			t.Errorf("unexpected %s", r.URL)
+			fmt.Fprint(w, `[]`)
+		}
+	}))
+	defer s.Close()
+	saved := team.Team{
+		Version: 1, Name: "Snap", Repo: "/tmp/snap", Base: "main", Server: s.URL, Capacity: 1,
+		Members: []team.Member{{
+			Name: "Lead", Role: "master", Mode: "shared", Dir: "/tmp/snap", Session: "session-team",
+			Permissions: team.Preset("coder"),
+		}},
+	}
+	if _, err := (team.Store{Root: team.DefaultRoot()}).Save(t.Context(), &saved, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard([]string{"--team", "Snap", "--snapshot"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/session/status?/tmp/snap", "/session/session-team/message?/tmp/snap"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Fatalf("requests=%v", paths)
 	}
 }

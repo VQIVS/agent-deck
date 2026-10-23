@@ -31,8 +31,8 @@ func TestLeaseFormAndApplyConfirmation(t *testing.T) {
 	if cmd := m.teamAction("member-leases"); cmd != nil || m.teams.Confirm != "leases" {
 		t.Fatal("apply bypassed confirmation")
 	}
-	if view := m.View(); !strings.Contains(view, "fresh session") {
-		t.Fatal("confirmation failed to disclose replacement")
+	if view := m.View(); !strings.Contains(view, "permissions reset") {
+		t.Fatal("confirmation failed to disclose permission reset")
 	}
 	m.teamAction("team-no")
 	m.opts.ReadOnly = true

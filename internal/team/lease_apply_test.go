@@ -38,13 +38,21 @@ func leasedManager(t *testing.T, server string) *Manager {
 	return m
 }
 
-func TestApplyLeasesFreshBindingAndCreationRules(t *testing.T) {
+func TestApplyLeasesPreservesSessionAndSkipsUnchanged(t *testing.T) {
 	var rules []api.Rule
 	var prompts []string
 	creates, patches := 0, 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			patches++
+			var body struct{ Permission []api.Rule }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			rules = body.Permission
+			if r.URL.Path != "/session/worker" {
+				t.Error("patched wrong session")
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
 		switch {
 		case r.URL.Path == "/session" && r.Method == http.MethodPost:
@@ -74,16 +82,19 @@ func TestApplyLeasesFreshBindingAndCreationRules(t *testing.T) {
 	if err := m.ApplyLeases(t.Context(), 1); err != nil {
 		t.Fatal(err)
 	}
-	if creates != 1 || patches != 0 || m.Team.Members[1].Session != "fresh-1" {
-		t.Fatal("did not replace binding cleanly")
+	if creates != 0 || patches != 1 || m.Team.Members[1].Session != "worker" {
+		t.Fatal("apply did not preserve session")
 	}
+	assertLeaseRule(t, rules, "*", "*", "ask")
 	assertLeaseRule(t, rules, "edit", "*", "deny")
 	assertLeaseRule(t, rules, "edit", "internal/tests/**", "allow")
 	assertLeaseRule(t, rules, "bash", "git commit*", "deny")
 	loaded, _, err := m.Store.Load(t.Context(), m.Team.Name)
-	if err != nil || loaded.Members[1].Session != "fresh-1" || len(prompts) != 2 ||
-		!strings.Contains(prompts[0], "internal/tests/**") {
-		t.Fatal("binding or prompt policy lost", err)
+	if err != nil || loaded.Members[1].Session != "worker" || len(prompts) != 0 {
+		t.Fatal("session or context changed", err)
+	}
+	if err := m.ApplyLeases(t.Context(), 1); err != nil || patches != 1 {
+		t.Fatal("unchanged policy patched again", err)
 	}
 	m.Team.Members[1].Session = ""
 	if err := m.Start(t.Context(), 1); err != nil {

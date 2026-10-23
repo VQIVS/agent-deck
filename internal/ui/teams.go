@@ -257,7 +257,7 @@ func (m *Model) teamConfirmation() string {
 		text = "Change master and send the new master an updated roster?"
 	}
 	if text == "leases" {
-		text = "Apply leases: replace idle member binding with a fresh session? Old transcript is retained."
+		text = "Apply complete lease policy to this idle session? Existing permissions reset; context is retained."
 	}
 	out := fit(
 		text,

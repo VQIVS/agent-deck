@@ -23,7 +23,7 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 	if member.Role != "master" && member.Role != "worker" {
 		return nil, fmt.Errorf("lease rules need master or worker role")
 	}
-	rules := baseLeaseRules(member)
+	rules := append([]api.Rule{{Permission: "*", Pattern: "*", Action: "ask"}}, baseLeaseRules(member)...)
 	if member.Role == "worker" {
 		rules = append(rules, api.Rule{Permission: "edit", Pattern: "*", Action: "deny"})
 		action := member.Permissions["edit"]

@@ -27,7 +27,7 @@ func leaseInstructions(t *Team) string {
 	return "\n\n" + LeasePrompt(t.Members)
 }
 
-// ApplyLeases replaces an idle binding rather than appending to OpenCode's existing rules.
+// ApplyLeases appends a complete reset policy while preserving the session and its context.
 func (m *Manager) ApplyLeases(ctx context.Context, index int) error {
 	if m.ReadOnly {
 		return fmt.Errorf("read-only: applying leases disabled")
@@ -42,39 +42,30 @@ func (m *Manager) ApplyLeases(ctx context.Context, index int) error {
 	if err := m.Team.Validate(); err != nil {
 		return err
 	}
-	if _, err := Options(ctx, &m.Team, member, member.Brief); err != nil {
-		return err
-	}
 	status := m.Observe(ctx, index)
 	if status.State != "idle" {
 		return fmt.Errorf("apply leases requires idle member %q, currently %s", member.Name, status.State)
 	}
 	m.Team.LeasePool = true
+	fingerprint := m.Team.LeaseFingerprint(member)
+	if member.LeasePolicy == fingerprint {
+		return nil
+	}
 	rules, err := m.creationRules(ctx, member)
 	if err != nil {
 		return err
 	}
 	client := api.New(m.Team.Server, false)
-	session, err := client.CreateMember(ctx, member.Dir, member.Name, rules)
-	if err != nil {
-		return fmt.Errorf("create leased replacement: %w", err)
+	if err := client.ApplyPermissions(ctx, member.Dir, member.Session, rules); err != nil {
+		return fmt.Errorf("apply lease reset: %w", err)
 	}
-	previous := member.Session
 	previousPolicy := member.LeasePolicy
-	member.Session = session.ID
-	member.LeasePolicy = m.Team.LeaseFingerprint(member)
+	member.LeasePolicy = fingerprint
 	if err := m.Save(ctx); err != nil {
-		member.Session = previous
 		member.LeasePolicy = previousPolicy
-		cleanupErr := client.Delete(ctx, member.Dir, session.ID)
-		return fmt.Errorf("save leased replacement: %w", errors.Join(err, cleanupErr))
+		return fmt.Errorf("leases applied live but fingerprint save failed: %w", err)
 	}
-	text := fmt.Sprintf("Fresh session after explicit lease application. Previous session: %s\nBrief: %s\n"+
-		"Read the previous transcript if needed; do not repeat completed work blindly.", previous, member.Brief)
-	if err := m.Send(ctx, index, text); err != nil {
-		return fmt.Errorf("binding replaced with %q; send continuation using Message (do not reapply): %w", session.ID, err)
-	}
-	return m.Roster(ctx, "leases applied: "+member.Name)
+	return nil
 }
 
 func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule, error) {

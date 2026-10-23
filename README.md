@@ -115,8 +115,8 @@ Members use an existing session, a shared directory, or a managed worktree. One 
 coordinates as master; workers can receive individual briefs and prompts.
 Advanced **Leases** assign non-overlapping repository-relative paths to workers. New
 sessions enforce edit ownership and deny worker Git writes; **Team → Apply leases**
-explicitly replaces an idle live binding with a fresh, clean-policy session while retaining
-its original transcript. See [lease behavior](docs/teams.md#shared-checkout-leases).
+explicitly resets an idle session's effective permissions while preserving its context.
+See [lease behavior](docs/teams.md#shared-checkout-leases).
 
 Click **+ Worker**, enter a name and brief, and use **Select model** to choose from the
 server's models. New workers default to the team's directory. Leave the session field

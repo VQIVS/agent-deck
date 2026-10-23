@@ -144,13 +144,31 @@ func assertLeaseAction(t *testing.T, rules []api.Rule, permission, target, want 
 	t.Helper()
 	action := "ask"
 	for _, rule := range rules {
-		if rule.Permission == permission && wildcardMatch(rule.Pattern, target) {
+		if wildcardMatch(rule.Permission, permission) && wildcardMatch(rule.Pattern, target) {
 			action = rule.Action
 		}
 	}
 	if action != want {
 		t.Errorf("%s %q: got %s, want %s", permission, target, action, want)
 	}
+}
+
+func TestLeaseResetOverridesUnknownOldPermissions(t *testing.T) {
+	worker := Member{Name: "worker", Role: "worker", Permissions: Preset("coder"), Leases: []string{"new/**"}}
+	rules, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := []api.Rule{
+		{Permission: "custom", Pattern: "*", Action: "allow"},
+		{Permission: "edit", Pattern: "old/**", Action: "allow"},
+		{Permission: "webfetch", Pattern: "*", Action: "deny"},
+	}
+	combined := slices.Concat(old, rules)
+	assertLeaseAction(t, combined, "custom", "anything", "ask")
+	assertLeaseAction(t, combined, "edit", "old/file", "deny")
+	assertLeaseAction(t, combined, "edit", "new/file", "allow")
+	assertLeaseAction(t, combined, "webfetch", "https://example.com", "allow")
 }
 
 func wildcardMatch(pattern, target string) bool {

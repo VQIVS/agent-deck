@@ -95,7 +95,7 @@ instructions. Workers run package-scoped tests; the master runs full checks when
 Saving the first lease enables persistent `lease_pool` mode. Removing the final lease
 does not disable it: a worker with no leases has no editable paths. Each bound session
 records its applied policy fingerprint; changes to ownership, role or creation rules show
-**leases PENDING apply** until that member is explicitly rebound. Portable exports strip
+**leases PENDING apply** until that member's policy is explicitly applied. Portable exports strip
 the applied fingerprint while retaining ownership and pool mode.
 
 When any team member has leases, newly created sessions receive native edit rules:
@@ -111,12 +111,14 @@ cooperative guard, not a sandbox or a complete shell parser.
 Saving a lease changes configuration only. For a live member choose **Team → Apply leases**
 and confirm. The member must be idle with no pending requests and have explicit creation
 permissions (select coder/reviewer/full in Advanced for an inherited member first).
-OpenCode PATCH appends permission rules rather than replacing them. To avoid stale grants,
-this action creates a fresh session with a clean ruleset, saves its binding, sends a
-continuation brief and notifies the master. The original session and transcript remain
-available; the new session is not a transcript clone. No old session is aborted or deleted.
+OpenCode PATCH appends permission rules and later matches win. This action appends a
+complete ruleset beginning with `permission: "*", pattern: "*", action: ask`, followed by
+base policy, edit ownership and Git denies. The reset overrides earlier grants and denies
+without losing the session's context or transcript. An unchanged fingerprint skips PATCH;
+changed policies grow the native rule list but replace its effective behavior. Unknown
+inherited tool permissions reset to ask, so an explicit preset is required before applying.
 Apply each affected live member, including the master, after changing ownership. Existing
-sessions keep their prior effective rules until explicitly replaced. Read-only blocks apply.
+sessions keep their prior effective rules until explicitly applied. Read-only blocks apply.
 
 ## API integration
 

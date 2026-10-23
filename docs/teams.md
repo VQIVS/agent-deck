@@ -103,7 +103,10 @@ workers deny all edits then allow their own leases; the master denies other memb
 leases. Workers also receive deny rules for Git write commands, including commit/push,
 reset/checkout and worktree operations. These native tool rules remain active without
 the dashboard running. They are tool permissions, not an OS sandbox: arbitrary shell
-programs can mutate files, so shell permission approval still needs review.
+programs can mutate files, so shell permission approval still needs review. Git denies
+match write-command positions, including common wrappers and `-C`/`-c` options; harmless
+`git diff`, `git log`, `git status` and tests of `gitinfo` remain available. This is a
+cooperative guard, not a sandbox or a complete shell parser.
 
 Saving a lease changes configuration only. For a live member choose **Team → Apply leases**
 and confirm. The member must be idle with no pending requests and have explicit creation

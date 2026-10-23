@@ -79,7 +79,7 @@ func TestApplyLeasesFreshBindingAndCreationRules(t *testing.T) {
 	}
 	assertLeaseRule(t, rules, "edit", "*", "deny")
 	assertLeaseRule(t, rules, "edit", "internal/tests/**", "allow")
-	assertLeaseRule(t, rules, "bash", "*git*commit*", "deny")
+	assertLeaseRule(t, rules, "bash", "git commit*", "deny")
 	loaded, _, err := m.Store.Load(t.Context(), m.Team.Name)
 	if err != nil || loaded.Members[1].Session != "fresh-1" || len(prompts) != 2 ||
 		!strings.Contains(prompts[0], "internal/tests/**") {
@@ -105,7 +105,7 @@ func TestApplyLeasesFreshBindingAndCreationRules(t *testing.T) {
 		t.Fatal("pool disabled when final lease removed", err)
 	}
 	assertLeaseRule(t, current, "edit", "*", "deny")
-	assertLeaseRule(t, current, "bash", "*git*commit*", "deny")
+	assertLeaseRule(t, current, "bash", "git commit*", "deny")
 }
 
 func assertLeaseRule(t *testing.T, rules []api.Rule, permission, pattern, action string) {

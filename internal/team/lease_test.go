@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -153,19 +154,27 @@ func assertLeaseAction(t *testing.T, rules []api.Rule, permission, target, want 
 }
 
 func wildcardMatch(pattern, target string) bool {
-	parts := strings.Split(pattern, "*")
-	if !strings.HasPrefix(target, parts[0]) {
-		return false
+	expression := regexp.QuoteMeta(pattern)
+	expression = strings.ReplaceAll(expression, `\*`, ".*")
+	expression = strings.ReplaceAll(expression, `\?`, ".")
+	matched, _ := regexp.MatchString("(?s)^"+expression+"$", target)
+	return matched
+}
+
+func TestWorkerGitCommandBoundaries(t *testing.T) {
+	rules := workerGitRules()
+	for _, command := range []string{
+		"git commit -m x", "cd a && git add .", "/usr/bin/git push",
+		"git -C /x reset --hard", "git -c user.name=x commit -m x",
+	} {
+		assertLeaseAction(t, rules, "bash", command, "deny")
 	}
-	target = strings.TrimPrefix(target, parts[0])
-	for _, part := range parts[1:] {
-		index := strings.Index(target, part)
-		if index < 0 {
-			return false
-		}
-		target = target[index+len(part):]
+	for _, command := range []string{
+		"git diff -- internal/team", "git log --format=%h",
+		"go test ./internal/gitinfo/ -run TestName", "git status --branch", "git show HEAD",
+	} {
+		assertLeaseAction(t, rules, "bash", command, "ask")
 	}
-	return strings.HasSuffix(pattern, "*") || target == ""
 }
 
 func TestApplyLeasePermissions(t *testing.T) {

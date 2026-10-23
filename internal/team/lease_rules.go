@@ -71,10 +71,11 @@ func appendEditLeases(rules []api.Rule, leases []string, action string) []api.Ru
 func workerGitRules() []api.Rule {
 	commands := strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
 		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc")
-	rules := make([]api.Rule, 0, len(commands))
+	rules := make([]api.Rule, 0, len(commands)*5)
 	for _, command := range commands {
-		// Wildcards include global git options, shell wrappers, and absolute executable paths.
-		rules = append(rules, api.Rule{Permission: "bash", Pattern: "*git*" + command + "*", Action: "deny"})
+		for _, prefix := range []string{"git ", "* git ", "*/git ", "git -C * ", "git -c * "} {
+			rules = append(rules, api.Rule{Permission: "bash", Pattern: prefix + command + "*", Action: "deny"})
+		}
 	}
 	return rules
 }

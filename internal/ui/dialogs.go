@@ -79,7 +79,7 @@ func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 		m.editing = false
 		return nil
 	}
-	if key == "ctrl+s" {
+	if key == "ctrl+s" || key == "enter" {
 		text := strings.TrimSpace(m.input.Value())
 		if text != "" {
 			m.editing = false

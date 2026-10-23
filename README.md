@@ -143,7 +143,7 @@ Press `?` for in-app help. Forms and dialogs show their own shortcuts.
 | `Tab`, `Shift+Tab`, arrows | Focus panes across pages |
 | `Enter`, `Esc` | Zoom / return |
 | `p` | Fuzzy session picker; Space toggles a session |
-| `m`, `Ctrl+S` | Compose / send a message |
+| `m`, `Enter` | Compose / send a message (`Ctrl+J` newline; `Ctrl+S` also sends) |
 | `n`, `s`, `a` | Nudge, confirm abort, attach |
 | `y`, `Y`, `x` | Approve once, confirm always, reject |
 | `/`, `j`, `k`, `v`, `R` | Search, select tool cards, raw details, reasoning |

@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode"
 
+	keybind "github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -111,6 +112,7 @@ func New(ctx context.Context, d *config.Deck, opts Options) *Model {
 	m.theme, _ = ResolveTheme(opts.Theme)
 	m.transcript = transcript.New()
 	m.input = textarea.New()
+	m.input.KeyMap.InsertNewline = keybind.NewBinding(keybind.WithKeys("ctrl+j"))
 	inputStyle := textarea.Style{
 		Text:        lipgloss.NewStyle().Foreground(m.theme.Text),
 		Prompt:      lipgloss.NewStyle().Foreground(m.theme.Accent),
@@ -121,7 +123,6 @@ func New(ctx context.Context, d *config.Deck, opts Options) *Model {
 	}
 	m.input.FocusedStyle = inputStyle
 	m.input.BlurredStyle = inputStyle
-	m.input.Placeholder = "Message (Ctrl+S sends, Esc cancels)"
 	m.input.CharLimit = 16000
 	m.input.SetHeight(4)
 	for _, a := range d.Agents() {
@@ -521,6 +522,7 @@ func (m *Model) sessionKey(key string) tea.Cmd {
 	case "m":
 		m.editing = true
 		m.input.Reset()
+		m.input.Placeholder = "Message (Enter sends, Ctrl+J newline, Esc cancels)"
 		m.input.SetHeight(4)
 		m.input.Focus()
 		return textarea.Blink
@@ -833,7 +835,8 @@ func (m *Model) overlayView(header string) (string, bool) {
 		body := m.dialogView()
 		width := m.w
 		m.w = w
-		return m.frameView(body, "  Ctrl+S send  ·  Esc cancel  ·  Confirmation defaults to No", width), true
+		footer := "  Enter send  ·  Ctrl+J newline  ·  Esc cancel  ·  Confirmation defaults to No"
+		return m.frameView(body, footer, width), true
 	}
 	return "", false
 }
@@ -842,7 +845,7 @@ func (m *Model) helpView(header string) string {
 	return header + "\n" + m.buttonRow([]button{{"Close", "esc", false}}, 0, 1, m.w, -1) + `
 Click panes to focus; [⤢] zooms, [×] returns; wheel scrolls.
 Tab / arrows focus (crosses pages) · Enter zoom · Esc back
-m message (Ctrl+S send) · n nudge · s abort (y/N)
+m message (Enter send, Ctrl+J newline) · n nudge · s abort (y/N)
 y approve once · Y always (confirm) · x reject (optional message)
 Questions: view in pane; answer through a attach
 a attach · r refresh · N notifications · q quit

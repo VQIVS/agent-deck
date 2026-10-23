@@ -79,8 +79,15 @@ type Message struct {
 		ID   string `json:"id"`
 		Role string `json:"role"`
 		Time struct {
-			Created int64 `json:"created"`
+			Created   int64 `json:"created"`
+			Completed int64 `json:"completed"`
 		} `json:"time"`
+		Tokens struct {
+			Input int64 `json:"input"`
+			Cache struct {
+				Read int64 `json:"read"`
+			} `json:"cache"`
+		} `json:"tokens"`
 	} `json:"info"`
 	Parts []Part `json:"parts"`
 }

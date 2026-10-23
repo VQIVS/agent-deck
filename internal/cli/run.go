@@ -42,6 +42,10 @@ func Run(args []string, build Build) int {
 			return 0
 		}
 		fmt.Fprintln(os.Stderr, "agent-deck:", err)
+		var exit *exitError
+		if errors.As(err, &exit) {
+			return exit.Code
+		}
 		return 1
 	}
 	return 0
@@ -50,6 +54,8 @@ func Run(args []string, build Build) int {
 func run(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
+		case "team":
+			return teamCommand(context.Background(), args[1:], os.Stdout)
 		case "import":
 			return importTeam(args[1:])
 		case "export":

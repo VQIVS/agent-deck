@@ -88,6 +88,26 @@ stops only its managed server. PID metadata and logs live in `$XDG_STATE_HOME/ag
 When offline, interactive dashboard startup offers to start the server; read-only mode
 never starts one. You can also run `opencode serve --hostname 127.0.0.1 --port 4096` yourself.
 
+## Headless team control
+
+Drive saved teams from scripts or another agent without opening the dashboard:
+
+```sh
+agent-deck team ls
+agent-deck team status --team example --json
+agent-deck team send --team example --member Worker --text 'Run the package tests'
+agent-deck team wait --team example --member Worker --timeout 30m --poll 5s
+agent-deck team last --team example --member Worker
+agent-deck team requests --team example
+agent-deck team approve --team example --id per_example
+agent-deck team reject --team example --id per_example --message 'Use local fixtures'
+```
+
+All commands accept `--json`, `--read-only`, and `--server`. `wait` exits **0** for idle,
+**2** for a pending permission/question, and **3** on timeout; other errors exit **1**.
+`send` also accepts `--file` instead of `--text` and preserves member agent/model/system
+settings. See [headless command details](docs/teams.md#headless-commands) for waiting semantics.
+
 ## Teams
 
 Choose **New team** to set a repository, base branch, shared rules and worker capacity.

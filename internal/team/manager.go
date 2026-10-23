@@ -64,6 +64,9 @@ func (m *Manager) Send(ctx context.Context, index int, text string) error {
 		return fmt.Errorf("read-only")
 	}
 	member := m.Team.Members[index]
+	if member.Session == "" {
+		return fmt.Errorf("member %q has no session", member.Name)
+	}
 	o, e := Options(ctx, &m.Team, &member, text)
 	if e != nil {
 		return e

@@ -28,6 +28,41 @@ New, Open, Edit, Duplicate, Delete (confirmed), and All sessions. Opening a team
 only observes its recorded sessions; it never silently starts or aborts anything.
 Status summaries use directory-scoped HTTP status/permission/question reads.
 
+## Headless commands
+
+`agent-deck team` offers `ls`, `status`, `send`, `wait`, `last`, `requests`, `approve`, and
+`reject`. Put flags after the subcommand. Every command supports `--json`, `--read-only`,
+and `--server URL`; all except `ls` require `--team NAME`. `ls --team NAME` filters the list.
+Server precedence is the explicit flag, `AGENT_DECK_SERVER`, then the saved team server.
+
+- `status`: name, role, session, directory, idle/busy/waiting/offline state, pending request
+  count, latest assistant input + cache-read tokens, and last session activity. JSON activity
+  is Unix milliseconds; unknown is zero. Missing/unstarted sessions appear offline. A failed
+  member read appears offline with an error field while the other members are still reported.
+- `send --member NAME (--text TEXT | --file PATH)`: uses the same `team.Options` prompt
+  settings as the dashboard; refuses an unstarted member. Records a private pre-send assistant
+  baseline under `teams/.sent/` for a subsequent wait. Delivery errors retain that baseline
+  because an HTTP failure can leave submission uncertain. The team YAML is not changed.
+- `wait --member NAME [--timeout 30m] [--poll 5s]`: polls until idle (exit 0), permission or
+  question waiting (exit 2), or timeout (exit 3). Errors exit 1 with details on stderr.
+  After a CLI send it first requires busy, or a new completed assistant message, so an initial
+  idle status cannot masquerade as completion. A missing busy transition with no completed
+  reply times out rather than reporting success. Without a send baseline, an already-idle
+  member gets a grace period of two polls, capped at ten seconds. Read-only wait does not
+  modify receipts. Receipts are scoped to server, directory and session; simultaneous send/wait
+  callers for the same member should serialize their operations.
+- `last --member NAME`: latest assistant text, without tool or reasoning parts. Empty text
+  means no text in the latest assistant message. Reads use the server's latest 30 messages.
+- `requests`: pending permission/question IDs with member, directory and request details;
+  requests from other sessions in the same directory are excluded.
+- `approve --id ID [--always]`: defaults to once. `reject --id ID [--message TEXT]` rejects.
+  Both resolve the request against this team's pending requests and use its owning directory.
+  Questions are listed for visibility; answer them through OpenCode attach. An ambiguous or
+  stale request ID is an error. Read-only blocks send and permission replies.
+
+All observations and actions use each member's own directory query. None of these commands
+starts sessions, changes creation permissions, or creates worktrees.
+
 ## Data model and editing
 
 A versioned YAML team contains name, server, repository, base, default model,

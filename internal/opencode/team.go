@@ -39,12 +39,12 @@ func (c *Client) PromptWith(ctx context.Context, dir, id string, options PromptO
 
 func (c *Client) Catalog(ctx context.Context, dir string) (models, names []string, err error) {
 	var providers struct {
-		All []struct {
+		Providers []struct {
 			ID     string         `json:"id"`
 			Models map[string]any `json:"models"`
-		} `json:"all"`
+		} `json:"providers"`
 	}
-	if e := c.request(ctx, "GET", "/provider", dir, nil, &providers); e != nil {
+	if e := c.request(ctx, "GET", "/config/providers", dir, nil, &providers); e != nil {
 		return nil, nil, e
 	}
 	var agents []struct {
@@ -53,7 +53,7 @@ func (c *Client) Catalog(ctx context.Context, dir string) (models, names []strin
 	if e := c.request(ctx, "GET", "/agent", dir, nil, &agents); e != nil {
 		return nil, nil, e
 	}
-	for _, p := range providers.All {
+	for _, p := range providers.Providers {
 		for id := range p.Models {
 			models = append(models, p.ID+"/"+id)
 		}

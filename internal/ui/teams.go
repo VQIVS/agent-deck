@@ -14,6 +14,8 @@ import (
 )
 
 type teamUI struct {
+	ChoiceQuery               string
+	Advanced, PickModel       bool
 	Store                     team.Store
 	Manager                   *team.Manager
 	Teams                     []team.Team
@@ -339,9 +341,11 @@ func (m *Model) formView() string {
 	b.WriteString(
 		m.buttonRow(
 			[]button{
-				{"Save", "form-save", m.opts.ReadOnly},
+				{m.formSaveLabel(), "form-save", m.opts.ReadOnly},
 				{"Cancel", "form-cancel", false},
-				{"Load models/agents", "form-catalog", false},
+				{"Select model", "form-model", false},
+				{"New session", "form-session-new", m.opts.ReadOnly},
+				{"Advanced", "form-advanced", false},
 			},
 			0,
 			1,
@@ -351,6 +355,13 @@ func (m *Model) formView() string {
 	)
 	field := u.Fields[u.Field]
 	b.WriteString(m.theme.title(fit(field.Label, m.w)) + "\n")
+	m.input.Placeholder = ""
+	if field.Label == "Existing session ID (adopt)" {
+		m.input.Placeholder = "Leave empty — agent-deck creates and saves a new session"
+	}
+	if field.Label == "Model" {
+		m.input.Placeholder = "Use team default, or click Select model"
+	}
 	m.input.SetWidth(max(10, m.w-2))
 	m.input.SetHeight(min(6, max(1, m.h-8)))
 	height := min(6, max(1, m.h-8))
@@ -374,25 +385,33 @@ func (m *Model) formView() string {
 	if u.Screen == "member-form" {
 		hint = "Permissions apply only to newly created sessions; live rules are unchanged. · " + hint
 	}
-	b.WriteString(m.theme.dim(fit(fmt.Sprintf("Field %d/%d · %s", u.Field+1, len(u.Fields), hint), m.w)))
+	b.WriteString(m.theme.dim(fit(fmt.Sprintf("Field %d/%d · %s", u.Field+1, u.fieldCount(), hint), m.w)))
+	if u.Screen == "member-form" {
+		b.WriteString("\n" + m.theme.dim("Session: leave empty to create and save a new session automatically."))
+	}
 	return b.String()
 }
 
 func (m *Model) choicesView() string {
 	u := m.teams
 	var b strings.Builder
-	b.WriteString("Choose " + u.Fields[u.Field].Label + " (click; Esc back)\n")
-	choices := u.Fields[u.Field].Choices
-	start := max(0, u.Index-max(1, m.h-3)+1)
-	for i := start; i < min(len(choices), start+max(1, m.h-3)); i++ {
+	b.WriteString("Choose " + u.Fields[u.Field].Label + " · type to search · ↑↓ select · Enter confirm · Esc back\n")
+	b.WriteString(m.theme.dim("Search: "+u.ChoiceQuery+"▏") + "\n")
+	choices := u.choiceMatches()
+	start := max(0, u.Index-max(1, m.h-4)+1)
+	for i := start; i < min(len(choices), start+max(1, m.h-4)); i++ {
 		prefix := "  "
 		if i == u.Index {
 			prefix = "> "
 		}
-		b.WriteString(fit(prefix+choices[i], m.w) + "\n")
+		label := choices[i]
+		if label == "" {
+			label = "Use team / OpenCode default"
+		}
+		b.WriteString(fit(prefix+label, m.w) + "\n")
 		m.zones = append(
 			m.zones,
-			zone{Rect: Rect{0, 1 + i - start, m.w, 1}, Action: fmt.Sprintf("choice:%d", i), Pane: -1},
+			zone{Rect: Rect{0, 2 + i - start, m.w, 1}, Action: fmt.Sprintf("choice:%d", i), Pane: -1},
 		)
 	}
 	return b.String()
@@ -439,13 +458,14 @@ func (m *Model) teamSelection(action string) bool {
 	if strings.HasPrefix(action, "choice:") {
 		i := 0
 		_, _ = fmt.Sscanf(action, "choice:%d", &i)
-		choices := u.Fields[u.Field].Choices
+		choices := u.choiceMatches()
 		if i >= 0 && i < len(choices) {
 			m.input.SetValue(choices[i])
 			u.Fields[u.Field].Value = choices[i]
 		}
 		if u.Screen == "choices" {
 			u.Screen = u.formScreen()
+			u.ChoiceQuery = ""
 		}
 		return true
 	}
@@ -497,6 +517,20 @@ func (m *Model) teamNavigation(action string) (bool, tea.Cmd) {
 
 func (m *Model) formAction(action string) (bool, tea.Cmd) {
 	u := m.teams
+	if action == "form-model" {
+		return true, m.chooseModel()
+	}
+	if action == "form-session-new" {
+		m.newSessionField()
+		return true, nil
+	}
+	if action == "form-advanced" {
+		u.Fields[u.Field].Value = m.input.Value()
+		u.Advanced = !u.Advanced
+		u.Field = 0
+		m.input.SetValue(u.Fields[0].Value)
+		return true, nil
+	}
 	if action == "form-cancel" {
 		u.Screen = "members"
 		if u.Manager == nil {
@@ -510,7 +544,7 @@ func (m *Model) formAction(action string) (bool, tea.Cmd) {
 		if action == "form-prev" {
 			delta = -1
 		}
-		u.Field = (u.Field + delta + len(u.Fields)) % len(u.Fields)
+		u.Field = (u.Field + delta + u.fieldCount()) % u.fieldCount()
 		m.input.SetValue(u.Fields[u.Field].Value)
 		return true, nil
 	}
@@ -518,6 +552,7 @@ func (m *Model) formAction(action string) (bool, tea.Cmd) {
 		u.Fields[u.Field].Value = m.input.Value()
 		if len(u.Fields[u.Field].Choices) > 0 {
 			u.Screen = "choices"
+			u.ChoiceQuery = ""
 			u.Index = 0
 		}
 		return true, nil
@@ -568,13 +603,16 @@ func (m *Model) mutateTeam(action string) tea.Cmd {
 			team.Member{
 				Name:        fmt.Sprintf("Worker %d", len(u.Draft.Members)),
 				Role:        "worker",
-				Mode:        "worktree",
+				Mode:        "shared",
+				Dir:         u.Draft.Repo,
+				Capability:  "coder",
 				Agent:       "build",
 				Permissions: team.Preset("coder"),
 			},
 		)
 		u.MemberIndex = len(u.Draft.Members) - 1
 		m.memberForm()
+		return m.catalog()
 	case "member-edit":
 		u.Draft = u.Manager.Team
 		u.Draft.Members = append([]team.Member(nil), u.Draft.Members...)
@@ -663,6 +701,9 @@ func (m *Model) teamKey(v tea.KeyMsg) tea.Cmd {
 	if k == "esc" {
 		return m.teamEscape()
 	}
+	if u.Screen == "choices" {
+		return m.choiceKey(v)
+	}
 	if u.Screen == "team-form" || u.Screen == "member-form" {
 		return m.formKey(v)
 	}
@@ -702,6 +743,19 @@ func (m *Model) formKey(v tea.KeyMsg) tea.Cmd {
 		return m.teamAction("form-choice")
 	case "ctrl+l":
 		return m.teamAction("form-catalog")
+	case "ctrl+p":
+		return m.teamAction("form-model")
+	case "ctrl+a":
+		return m.teamAction("form-advanced")
+	case "enter":
+		field := m.teams.Fields[m.teams.Field]
+		if field.Label == "Model" || field.Label == "Default model (provider/model)" {
+			return m.teamAction("form-model")
+		}
+		if len(field.Choices) > 0 {
+			return m.teamAction("form-choice")
+		}
+		return m.teamAction("form-next")
 	default:
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(v)
@@ -838,15 +892,22 @@ func (m *Model) applyCatalog(v catalogMsg) {
 	u := m.teams
 	if v.Err != nil {
 		m.note = v.Err.Error()
+		u.PickModel = false
 		return
 	}
 	u.Models, u.Agents = v.Models, v.Agents
 	for i := range u.Fields {
 		if strings.Contains(u.Fields[i].Label, "model") || u.Fields[i].Label == "Model" {
-			u.Fields[i].Choices = v.Models
+			u.Fields[i].Choices = append([]string{""}, v.Models...)
 		}
 		if u.Fields[i].Label == "OpenCode agent" {
 			u.Fields[i].Choices = v.Agents
 		}
+	}
+	if u.PickModel {
+		u.PickModel = false
+		u.Screen = "choices"
+		u.ChoiceQuery = ""
+		u.Index = 0
 	}
 }

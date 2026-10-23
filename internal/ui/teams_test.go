@@ -41,19 +41,15 @@ func TestTeamFormSaveAndReadOnly(t *testing.T) {
 		t.Fatal("no member form")
 	}
 	m.input.SetValue("Test worker")
-	m.teamAction("form-save")
-	if m.teams.Confirm != "start" {
-		t.Fatal("new worker must require explicit start")
+	cmd := m.teamAction("form-save")
+	if cmd == nil || !m.teams.Busy || m.teams.Confirm != "" {
+		t.Fatal("create worker should schedule session creation directly")
 	}
-	view := m.teamView()
-	if !strings.Contains(view, "[Yes]") || !strings.Contains(view, "[No]") {
-		t.Fatal(view)
-	}
-	m.teamAction("team-no")
+	m.teams.Busy = false
 	m.opts.ReadOnly = true
 	m.teams.Store.ReadOnly = true
 	m.teams.Screen = "members"
-	view = m.teamView()
+	view := m.teamView()
 	for _, z := range m.zones {
 		if z.Action == "team-add" || z.Action == "member-start" || z.Action == "member-remove" {
 			t.Fatal("mutation zone in read-only")

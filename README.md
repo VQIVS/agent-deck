@@ -93,6 +93,15 @@ Choose **New team** to set a repository, base branch, shared rules and worker ca
 Members use an existing session, a shared directory, or a managed worktree. One member
 coordinates as master; workers can receive individual briefs and prompts.
 
+Click **+ Worker**, enter a name and brief, and use **Select model** to choose from the
+server's models. New workers default to the team's directory. Leave the session field
+empty and click **Create worker**: agent-deck creates the session and saves its ID in
+the team configuration. Choose `worktree` for an isolated branch, or provide an existing
+session ID to adopt it. **Advanced** reveals prompts, agents, roles and permission settings.
+`Enter` advances a field or opens its choices; `Ctrl+P` selects a model and `Ctrl+S` saves.
+The model picker lists only models from configured OpenCode providers. Type to search,
+use ↑/↓ to move, and press Enter to select; `Ctrl+U` clears the search.
+
 ```sh
 agent-deck --team example
 ```

@@ -1,5 +1,23 @@
 # Managed teams: design and operational contract
 
+## Quick worker setup
+
+Choose **+ Worker** to open a short form: name, model, brief, workspace, directory and
+optional existing session ID. Models load automatically; **Select model** (`Ctrl+P`)
+opens the model list, including a team/OpenCode default option. Press `Enter` on a model
+or workspace field to open its choices, and on a text field to advance.
+Models come from the directory-scoped configured-provider catalog, not the global list.
+Type in the picker to search, use arrows to navigate and Enter to confirm. Backspace edits
+the search, `Ctrl+U` clears it, and Esc returns without changing the selection.
+
+Workers default to a new session in the team's shared repository directory with the
+coder creation policy. Leave the session ID empty and click **Create worker** (`Ctrl+S`).
+Agent-deck saves the member, creates the session, and persists its returned ID and directory
+in the managed team file. If creation fails, the member remains saved for retry using **Start**.
+Choose `worktree` when you want an isolated branch instead. To adopt a session, enter its
+ID and directory; live permission rules stay unchanged. An empty adopt ID creates a new
+shared session instead. **Advanced** (`Ctrl+A`) reveals the remaining member settings.
+
 ## Entry points and ownership
 
 Default startup opens a team picker backed by

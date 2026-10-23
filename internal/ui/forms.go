@@ -37,22 +37,23 @@ func (m *Model) teamForm() {
 func (m *Model) memberForm() {
 	u := m.teams
 	member := &u.Draft.Members[u.MemberIndex]
+	u.Advanced = false
 	preset := member.Capability
 	if preset == "" && member.Mode == "adopt" && len(member.Permissions) == 0 {
 		preset = "inherited"
 	}
 	u.Fields = []formField{
 		{Label: "Member name", Value: member.Name},
-		{Label: "Role", Value: member.Role, Choices: []string{"master", "worker"}},
 		{Label: "Model", Value: member.Model, Choices: u.Models},
+		{Label: "Brief", Value: member.Brief},
+		{Label: "Workspace mode", Value: member.Mode, Choices: []string{"shared", "worktree", "adopt"}},
+		{Label: "Directory", Value: member.Dir},
+		{Label: "Existing session ID (adopt)", Value: member.Session},
+		{Label: "Role", Value: member.Role, Choices: []string{"master", "worker"}},
 		{Label: "OpenCode agent", Value: member.Agent, Choices: u.Agents},
 		{Label: "System prompt", Value: member.System},
 		{Label: "System prompt file", Value: member.SystemFile},
-		{Label: "Brief", Value: member.Brief},
-		{Label: "Workspace mode", Value: member.Mode, Choices: []string{"worktree", "shared", "adopt"}},
-		{Label: "Directory", Value: member.Dir},
 		{Label: "Branch template", Value: member.BranchTemplate},
-		{Label: "Existing session ID (adopt)", Value: member.Session},
 		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "full"}},
 	}
 	for _, k := range []string{"read", "edit", "bash", "webfetch", "external_directory"} {
@@ -69,7 +70,6 @@ func (m *Model) memberForm() {
 func (m *Model) saveForm() tea.Cmd {
 	u := m.teams
 	wasMember := u.Screen == "member-form"
-	newMember := wasMember && u.Manager != nil && u.MemberIndex >= len(u.Manager.Team.Members)
 	masterChanged := u.masterChanged(wasMember)
 	u.Fields[u.Field].Value = m.input.Value()
 	values := map[string]string{}
@@ -97,8 +97,8 @@ func (m *Model) saveForm() tea.Cmd {
 	u.Manager = &team.Manager{Store: u.Store, Team: u.Draft, Version: v, ReadOnly: m.opts.ReadOnly}
 	u.Screen = "members"
 	m.note = "Saved · select member and Start to create resources"
-	if newMember && u.Draft.Members[u.MemberIndex].Mode != "adopt" {
-		u.Confirm = "start"
+	if wasMember && u.Draft.Members[u.MemberIndex].Session == "" {
+		return m.teamOperation("start", u.MemberIndex, false)
 	}
 	if wasMember && masterChanged {
 		return m.teamOperation("roster", 0, false)
@@ -132,6 +132,7 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 	u := m.teams
 	member := &u.Draft.Members[u.MemberIndex]
 	oldMode := member.Mode
+	oldSession := member.Session
 	member.Name = values["Member name"]
 	role := values["Role"]
 	if role == "master" {
@@ -149,6 +150,7 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 	member.Dir = values["Directory"]
 	member.BranchTemplate = values["Branch template"]
 	member.Session = values["Existing session ID (adopt)"]
+	normalizeSession(member, u.Draft.Repo, oldSession)
 	if u.Manager != nil && u.MemberIndex < len(u.Manager.Team.Members) {
 		old := &u.Manager.Team.Members[u.MemberIndex]
 		if old.Session != "" && (member.Dir != old.Dir || member.Session != old.Session || member.Mode != old.Mode) {
@@ -157,7 +159,86 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 		}
 	}
 	applyPermissionValues(member, oldMode, values)
+	if member.Session == "" && member.Capability == "inherited" {
+		member.Capability = "coder"
+		member.Permissions = team.Preset("coder")
+	}
 	return true
+}
+
+func normalizeSession(member *team.Member, repo, oldSession string) {
+	if member.Dir == "" && member.Mode != "worktree" {
+		member.Dir = repo
+	}
+	if member.Mode == "adopt" && member.Session == "" {
+		member.Mode = "shared"
+	}
+	if member.Session != "" && oldSession == "" {
+		member.Mode = "adopt"
+	}
+}
+
+func (u *teamUI) fieldCount() int {
+	if u.formScreen() == "member-form" && !u.Advanced {
+		return min(6, len(u.Fields))
+	}
+	return len(u.Fields)
+}
+
+func (m *Model) formSaveLabel() string {
+	u := m.teams
+	if u.formScreen() == "member-form" && u.Draft.Members[u.MemberIndex].Session == "" {
+		return "Create worker"
+	}
+	return "Save"
+}
+
+func (m *Model) chooseModel() tea.Cmd {
+	u := m.teams
+	if len(u.Fields) == 0 {
+		return nil
+	}
+	u.Fields[u.Field].Value = m.input.Value()
+	for i := range u.Fields {
+		if u.Fields[i].Label != "Model" && u.Fields[i].Label != "Default model (provider/model)" {
+			continue
+		}
+		u.Field = i
+		m.input.SetValue(u.Fields[i].Value)
+		if len(u.Models) == 0 {
+			u.PickModel = true
+			m.note = "Loading available models…"
+			return m.catalog()
+		}
+		u.Fields[i].Choices = append([]string{""}, u.Models...)
+		u.Screen, u.Index = "choices", 0
+		u.ChoiceQuery = ""
+		return nil
+	}
+	return nil
+}
+
+func (m *Model) newSessionField() {
+	u := m.teams
+	if m.opts.ReadOnly || u.formScreen() != "member-form" {
+		return
+	}
+	if u.Manager != nil && u.MemberIndex < len(u.Manager.Team.Members) &&
+		u.Manager.Team.Members[u.MemberIndex].Session != "" {
+		m.note = "This worker already has a session; add a new worker to create another."
+		return
+	}
+	u.Fields[u.Field].Value = m.input.Value()
+	for i := range u.Fields {
+		if u.Fields[i].Label != "Existing session ID (adopt)" {
+			continue
+		}
+		u.Fields[i].Value = ""
+		u.Field = i
+		m.input.SetValue("")
+		m.note = "A new session will be created and saved when you choose Create worker."
+		return
+	}
 }
 
 func applyPermissionValues(member *team.Member, oldMode string, values map[string]string) {

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/qivs/agent-deck/internal/channel"
 )
 
 func TestRuntimeAliveAndRosterSeedAcrossRestart(t *testing.T) {
@@ -123,7 +125,29 @@ func TestRuntimeIncrementalUserReadsAndInitializeMetadata(t *testing.T) {
 
 func TestRuntimeRevocationErrorsDoNotBlockRosterAndDropCredentials(t *testing.T) {
 	f := newRuntimeFixture(t)
-	r := startTestRuntime(t, f)
+	journal, err := channel.Open(filepath.Join(t.TempDir(), "journal"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { journal.Close() })
+	manager, err := f.provider(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &Runtime{
+		options: RuntimeOptions{Provider: f.provider}, manager: manager,
+		journal: journal, Tokens: NewTokens(), credentials: make(map[string]runtimeCredential),
+	}
+	r.Service, err = NewService(&Options{
+		Team: manager.Team.Name, Journal: journal,
+		Members: r.members, ReadOnly: r.readOnly, Transport: r, Instructions: r.instructions,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Step(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	before, _ := r.ReadUser(t.Context())
 	path := filepath.Join(t.TempDir(), "opencode.json")
 	os.WriteFile(path, []byte(`broken`), 0o600)

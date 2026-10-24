@@ -60,6 +60,31 @@ func TestTeamFormSaveAndReadOnly(t *testing.T) {
 	}
 }
 
+func TestDuplicateTeamCreatesFreshMemberships(t *testing.T) {
+	m := requestModel("http://unused", false)
+	m.EnableTeams(t.TempDir())
+	original := team.Team{
+		Version: 1, Name: "source", Server: "http://localhost:4096", Repo: "/tmp/project", Base: "main", Capacity: 1,
+		Members: []team.Member{{
+			Name: "Master", Role: "master", Mode: "shared", Dir: "/tmp/project",
+			Capability: "coder", Permissions: team.Preset("coder"),
+		}},
+	}
+	if _, err := m.teams.Store.Save(t.Context(), &original, nil); err != nil {
+		t.Fatal(err)
+	}
+	m.teams.Teams = []team.Team{original}
+	m.duplicateTeam()
+	if m.teams.Draft.Members[0].ID != "" {
+		t.Fatal("duplicate retained original ID")
+	}
+	m.teamAction("form-save")
+	duplicate, _, err := m.teams.Store.Load(t.Context(), "source copy")
+	if err != nil || duplicate.Members[0].ID == original.Members[0].ID || duplicate.Members[0].ID == "" {
+		t.Fatal(duplicate, err, m.note)
+	}
+}
+
 func TestTeamDeletionConfirmationAndExternalReload(t *testing.T) {
 	m := New(context.Background(), &config.Deck{}, Options{})
 	m.EnableTeams(t.TempDir())

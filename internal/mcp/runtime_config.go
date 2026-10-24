@@ -96,9 +96,6 @@ func mergeRuntimeConfig(credential *runtimeCredential, endpoint string, remove b
 			!recoverableRuntimeEntry(raw, credential, ownerPath) {
 			return fmt.Errorf("MCP server entry already exists; refusing to overwrite user config")
 		}
-		if err := recordRuntimeConfigOwner(credential, endpoint, ownerPath); err != nil {
-			return err
-		}
 		entry, err := json.Marshal(map[string]any{
 			"type": "remote", "url": endpoint, "oauth": false,
 			"headers": map[string]string{"Authorization": "Bearer " + credential.token},
@@ -116,7 +113,13 @@ func mergeRuntimeConfig(credential *runtimeCredential, endpoint string, remove b
 		return fmt.Errorf("encode MCP servers: %w", err)
 	}
 	config["mcp"] = encoded
-	return writeRuntimeConfig(credential.config, config, original)
+	if err := writeRuntimeConfig(credential.config, config, original); err != nil {
+		return err
+	}
+	if !remove {
+		return recordRuntimeConfigOwner(credential, endpoint, ownerPath)
+	}
+	return nil
 }
 
 func ownedRuntimeEntry(raw json.RawMessage, token string) bool {

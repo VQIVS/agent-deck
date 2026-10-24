@@ -672,6 +672,7 @@ func (m *Model) duplicateTeam() {
 	u.Draft.Name += " copy"
 	for i := range u.Draft.Members {
 		u.Draft.Members[i].ID = ""
+		u.Draft.Members[i].ID = ""
 		u.Draft.Members[i].Session = ""
 		u.Draft.Members[i].Owned = false
 		u.Draft.Members[i].Branch = ""

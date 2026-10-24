@@ -37,11 +37,6 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		}
 		rules = appendEditLeases(rules, member.Leases, action)
 		rules = append(rules, workerGitRules()...)
-		privateRules, err := workerPrivateRules()
-		if err != nil {
-			return nil, err
-		}
-		rules = append(rules, privateRules...)
 	} else {
 		action := member.Permissions["edit"]
 		if action == "" {
@@ -55,7 +50,11 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 			}
 		}
 	}
-	return rules, nil
+	privateRules, err := workerPrivateRules()
+	if err != nil {
+		return nil, err
+	}
+	return append(rules, privateRules...), nil
 }
 
 func workerPrivateRules() ([]api.Rule, error) {
@@ -68,7 +67,7 @@ func workerPrivateRules() ([]api.Rule, error) {
 		return nil, fmt.Errorf("resolve worker home policy: %w", err)
 	}
 	var rules []api.Rule
-	for _, root := range []string{DefaultRoot(), state} {
+	for _, root := range []string{DefaultRoot(), filepath.Dir(DefaultRoot()), state} {
 		absolute, err := filepath.Abs(root)
 		if err != nil {
 			return nil, fmt.Errorf("resolve worker private root: %w", err)
@@ -84,7 +83,9 @@ func workerPrivateRules() ([]api.Rule, error) {
 		}
 		for _, path := range paths {
 			for _, pattern := range []string{path, path + "/*"} {
-				rules = append(rules, api.Rule{Permission: "read", Pattern: pattern, Action: "deny"})
+				rules = append(rules,
+					api.Rule{Permission: "read", Pattern: pattern, Action: "deny"},
+					api.Rule{Permission: "edit", Pattern: pattern, Action: "deny"})
 			}
 			rules = append(rules, api.Rule{Permission: "bash", Pattern: "*" + path + "*", Action: "deny"})
 		}

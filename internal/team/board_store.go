@@ -179,8 +179,44 @@ func (s BoardStore) Append(ctx context.Context, entry *ReconcileEntry) error {
 		return err
 	}
 	entries = append(entries, *entry)
-	entries = compactBoardActions(entries, entry.Action.Revision)
-	return s.write(ctx, "actions.json", entries)
+	compacted := compactBoardActions(entries, entry.Action.Revision)
+	if err := s.write(ctx, "actions.json", compacted); err != nil {
+		return err
+	}
+	return s.removeCompactedEffects(ctx, entries, compacted)
+}
+
+func (s BoardStore) removeCompactedEffects(ctx context.Context, previous, retained []ReconcileEntry) error {
+	keep := make(map[string]bool, len(retained))
+	for i := range retained {
+		keep[retained[i].Action.ID] = true
+	}
+	latest := make(map[string]string, len(previous))
+	for i := range previous {
+		latest[previous[i].Action.ID] = previous[i].State
+	}
+	dir, err := s.directory()
+	if err != nil {
+		return err
+	}
+	for id, state := range latest {
+		if keep[id] || state != "done" {
+			continue
+		}
+		var effect lifecycleEffect
+		if err := s.read(ctx, effectName(id), &effect); errors.Is(err, os.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if effect.State != "done" {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, effectName(id))); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove compacted lifecycle effect: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s BoardStore) Approve(ctx context.Context, actionID string, userConfirmed bool) error {

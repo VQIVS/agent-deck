@@ -55,3 +55,21 @@ func TestBoardApprovalRejectsStaleReadOnlyAndCancellation(t *testing.T) {
 		t.Fatal("cancel did not discard captured action")
 	}
 }
+
+func TestBoardConfirmationIncludesAssignAndRetireWorker(t *testing.T) {
+	for _, kind := range []string{"assign", "retire"} {
+		t.Run(kind, func(t *testing.T) {
+			m := requestModel("http://unused.invalid", false)
+			m.w, m.h = 100, 24
+			m.board.Actions = []team.ReconcileAction{{
+				ID: "action", Kind: kind,
+				Worker: "target-worker", Task: "target-task",
+			}}
+			m.boardKey(key("y"))
+			view := m.boardView()
+			if !strings.Contains(view, "Worker: target-worker") || !strings.Contains(view, "Task: target-task") {
+				t.Fatalf("confirmation omits affected identity: %s", view)
+			}
+		})
+	}
+}

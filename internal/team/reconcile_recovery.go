@@ -53,35 +53,44 @@ func (t *LifecycleTransport) Resolve(ctx context.Context, actor ReconcileActor, 
 		return fmt.Errorf("recovery resolution requires writable privileged user action")
 	}
 	return t.Store.Exclusive(ctx, func() error {
-		recovery, err := t.Inspect(ctx, actor, id)
-		if err != nil {
-			return err
-		}
-		if recovery.State == "done" || recovery.Request.Action.Kind != "create" || recovery.Result.Session == "" {
-			return fmt.Errorf("resolution needs an uncertain create action with a known session")
-		}
-		manager, err := t.LoadManager(ctx)
-		if err != nil {
-			return fmt.Errorf("load resolution manager: %w", err)
-		}
-		if !t.writableManager(manager) {
-			return fmt.Errorf("recovery manager is not writable private team")
-		}
-		if err := resolvePoolSession(ctx, manager, &recovery, decision); err != nil {
-			return err
-		}
-		if decision == "adopt" {
-			if err := t.commitBoard(ctx, recovery.Request, &recovery.Result); err != nil {
-				return err
-			}
-		}
-		effect := lifecycleEffect{State: "done", Result: recovery.Result, Request: recovery.Request}
-		if err := t.Store.write(ctx, effectName(id), &effect); err != nil {
-			return err
-		}
-		entry := ReconcileEntry{Action: recovery.Request.Action, State: "done", Result: recovery.Result}
-		return t.Store.Append(ctx, &entry)
+		return t.resolve(ctx, actor, id, decision)
 	})
+}
+
+func (t *LifecycleTransport) resolve(ctx context.Context, actor ReconcileActor, id, decision string) error {
+	recovery, err := t.Inspect(ctx, actor, id)
+	if err != nil {
+		return err
+	}
+	if recovery.State == "done" || recovery.Request.Action.Kind != "create" || recovery.Result.Session == "" {
+		return fmt.Errorf("resolution needs an uncertain create action with a known session")
+	}
+	manager, err := t.LoadManager(ctx)
+	if err != nil {
+		return fmt.Errorf("load resolution manager: %w", err)
+	}
+	if !t.writableManager(manager) {
+		return fmt.Errorf("recovery manager is not writable private team")
+	}
+	if decision == "adopt" {
+		if err := t.prepareAdoption(ctx, manager, &recovery); err != nil {
+			return err
+		}
+	}
+	if err := resolvePoolSession(ctx, manager, &recovery, decision); err != nil {
+		return err
+	}
+	if decision == "adopt" {
+		if err := t.commitBoard(ctx, recovery.Request, &recovery.Result); err != nil {
+			return err
+		}
+	}
+	effect := lifecycleEffect{State: "done", Result: recovery.Result, Request: recovery.Request}
+	if err := t.Store.write(ctx, effectName(id), &effect); err != nil {
+		return err
+	}
+	entry := ReconcileEntry{Action: recovery.Request.Action, State: "done", Result: recovery.Result}
+	return t.Store.Append(ctx, &entry)
 }
 
 func resolvePoolSession(ctx context.Context, manager *Manager, recovery *PoolRecovery, decision string) error {
@@ -120,6 +129,9 @@ func resolvePoolSession(ctx context.Context, manager *Manager, recovery *PoolRec
 		}
 		return nil
 	case "adopt":
+		if err := resetAdoptionPermissions(ctx, manager, recovery); err != nil {
+			return err
+		}
 		member.Session, member.PoolCreated = recovery.Result.Session, true
 		manager.Team.LeasePool = true
 		manager.Team.Members = append(manager.Team.Members, member)
@@ -127,6 +139,68 @@ func resolvePoolSession(ctx context.Context, manager *Manager, recovery *PoolRec
 	default:
 		return fmt.Errorf("recovery decision must be adopt or delete")
 	}
+}
+
+func (t *LifecycleTransport) prepareAdoption(ctx context.Context, manager *Manager, recovery *PoolRecovery) error {
+	pool, err := OpenPool(ctx, manager.Store, manager.Team.Name, t.Store)
+	if err != nil {
+		return fmt.Errorf("load current adoption policy: %w", err)
+	}
+	snapshot, err := pool.Snapshot(ctx)
+	if err != nil {
+		return err
+	}
+	actions, err := DesiredReconcileActions(&snapshot)
+	if err != nil {
+		return err
+	}
+	for i := range actions {
+		action := &actions[i]
+		if action.ID != recovery.Request.Action.ID || action.Kind != "create" {
+			continue
+		}
+		if err := eligibleReconcile(&snapshot, action); err != nil {
+			return err
+		}
+		rejected, err := pool.rejections(ctx)
+		if err != nil {
+			return err
+		}
+		if rejected[action.ID] {
+			return fmt.Errorf("adoption action was rejected")
+		}
+		member, err := reconcileMember(&snapshot, action)
+		if err != nil {
+			return err
+		}
+		recovery.Request = &ReconcileRequest{Action: *action, Member: member}
+		recovery.Result.Worker = member.Name
+		return nil
+	}
+	return fmt.Errorf("orphan action is no longer desired; adoption refused")
+}
+
+func resetAdoptionPermissions(ctx context.Context, manager *Manager, recovery *PoolRecovery) error {
+	member := recovery.Request.Member
+	manager.Team.LeasePool = true
+	manager.Team.Members = append(manager.Team.Members, member)
+	index := len(manager.Team.Members) - 1
+	defer func() { manager.Team.Members = manager.Team.Members[:index] }()
+	if err := manager.Team.CanStart(index); err != nil {
+		return err
+	}
+	if err := manager.Team.Validate(); err != nil {
+		return err
+	}
+	rules, err := manager.creationRules(ctx, &member)
+	if err != nil {
+		return err
+	}
+	client := api.New(manager.Team.Server, false)
+	if err := client.ApplyPermissions(ctx, member.Dir, recovery.Result.Session, rules); err != nil {
+		return fmt.Errorf("reset adopted session permissions: %w", err)
+	}
+	return nil
 }
 
 func recoveredBinding(member *Member, recovery *PoolRecovery, decision string) bool {

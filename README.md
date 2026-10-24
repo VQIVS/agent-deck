@@ -24,6 +24,22 @@ agent-deck · WAITING 1 · streams 2/2 · http://127.0.0.1:4096
 
 ## Features
 
+### Workspace screens
+
+- **Inbox (`i`)**: waiting requests, errors, stalls and report cards; select an entry to act on its exact session.
+- **Channel (`c`)**: team messages and the privileged user view; `m` posts, `@member` queues delivery.
+- **Board (`b`)**: tasks and policy-gated pool proposals with detailed confirmation.
+- **Commands (`Ctrl+P`)**: searchable actions with availability/read-only explanations.
+  Help (`?`) is generated from the same command registry.
+
+Worker forms show explicit field steps. Pane controls wrap to available width, and the
+header counts waiting sessions separately from permission/question requests.
+
+**Security model:** approvals, leases and Git denies are cooperative guards against mistakes
+and runaway loops. A session with unrestricted bash runs as your OS user and can bypass
+these controls, including by calling APIs or changing files directly. Real isolation needs
+an OS sandbox; agent-deck does not provide one yet.
+
 - Directory-scoped discovery, HTTP snapshots and automatically reconnecting SSE streams.
 - Paged panes, focus and zoom, fuzzy session selection, keyboard navigation and mouse controls.
 - Markdown transcripts, expandable tool cards, raw details, search and optional reasoning.

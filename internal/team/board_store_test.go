@@ -88,6 +88,43 @@ func TestBoardActionCompactionBeforeSizeCap(t *testing.T) {
 	}
 }
 
+func TestBoardCompactionRemovesOnlyConfirmedStaleEffects(t *testing.T) {
+	store, _ := boardStoreFixture(t)
+	entries := []ReconcileEntry{
+		{Action: ReconcileAction{ID: "stale-done", Revision: "old"}, State: "done"},
+		{Action: ReconcileAction{ID: "stale-uncertain", Revision: "old"}, State: "intent"},
+		{Action: ReconcileAction{ID: "uncertain-effect", Revision: "old"}, State: "done"},
+		{Action: ReconcileAction{ID: "current-done", Revision: "current"}, State: "done"},
+	}
+	if err := store.Exclusive(t.Context(), func() error {
+		if err := store.write(t.Context(), "actions.json", entries); err != nil {
+			return err
+		}
+		for _, id := range []string{"stale-done", "stale-uncertain", "current-done"} {
+			if err := store.write(t.Context(), effectName(id), &lifecycleEffect{State: "done"}); err != nil {
+				return err
+			}
+		}
+		if err := store.write(t.Context(), effectName("uncertain-effect"), &lifecycleEffect{State: "started"}); err != nil {
+			return err
+		}
+		return store.Append(t.Context(), &ReconcileEntry{
+			Action: ReconcileAction{ID: "new", Revision: "current"}, State: "intent",
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := store.directory()
+	if _, err := os.Stat(filepath.Join(dir, effectName("stale-done"))); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("completed stale effect remains", err)
+	}
+	for _, id := range []string{"stale-uncertain", "uncertain-effect", "current-done"} {
+		if _, err := os.Stat(filepath.Join(dir, effectName(id))); err != nil {
+			t.Fatal("current or uncertain effect removed", id, err)
+		}
+	}
+}
+
 func TestBoardStoreRevisionApprovalAndPrivacy(t *testing.T) {
 	store, state := boardStoreFixture(t)
 	if err := store.Save(t.Context(), &state, 0); err == nil {

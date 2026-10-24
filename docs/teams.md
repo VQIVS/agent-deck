@@ -108,6 +108,10 @@ programs can mutate files, so shell permission approval still needs review. Git 
 match write-command positions, including common wrappers and `-C`/`-c` options; harmless
 `git diff`, `git log`, `git status` and tests of `gitinfo` remain available. This is a
 cooperative guard, not a sandbox or a complete shell parser.
+Any session with unrestricted bash runs as the user and can bypass approvals, leases,
+Git denies and private-path rules through other programs or direct HTTP calls. These
+controls prevent accidents/runaway loops, not hostile same-user agents. Real isolation
+requires an OS sandbox, planned separately.
 
 Saving a lease changes configuration only. For a live member choose **Team → Apply leases**
 and confirm. The member must be idle with no pending requests and have explicit creation
@@ -120,6 +124,9 @@ changed policies grow the native rule list but replace its effective behavior. U
 inherited tool permissions reset to ask, so an explicit preset is required before applying.
 Apply each affected live member, including the master, after changing ownership. Existing
 sessions keep their prior effective rules until explicitly applied. Read-only blocks apply.
+Apply leases is available for the master too. Adopted masters do not acquire these rules
+until explicitly applied; choose an explicit preset first. Private-path guards cover every
+pool session, including masters, and protect configuration/state/boards cooperatively.
 
 ## Project setup
 
@@ -223,6 +230,21 @@ explicitly labeled and do not imply checklist completion or passing tests. CLI/M
 and DONE-card integration remain separate runtime work.
 
 ## Session health
+
+## Keyboard and mouse screens
+
+`Ctrl+P` opens the command palette: type to search, arrows select, Enter executes, Esc
+closes. Actions are revalidated against the selected session/request and read-only mode.
+Help (`?`) uses the same command registry. Inbox (`i`), Channel (`c`) and Board (`b`) have
+their own navigation; Esc returns to the dashboard. Team/member forms show field steps,
+Previous/Next, Save/Cancel, model choices and Advanced controls. Enter advances fields,
+Ctrl+J inserts a newline and Ctrl+S saves.
+
+Pane buttons wrap as complete labels, with matching mouse targets. Header request counts
+separate waiting sessions from individual permissions (`P`) and questions (`Q`). Golden
+screens cover 80×24 and 160×48; `python3 scripts/smoke_ui.py` exercises team opening,
+worker creation, permission approval and message composition through isolated fake HTTP
+endpoints and a real PTY.
 
 ## Work board and policy-gated pool
 

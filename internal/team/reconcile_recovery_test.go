@@ -120,3 +120,73 @@ func TestPoolCreateSaveFailureRetainsSessionForRecovery(t *testing.T) {
 		t.Fatal("uncertain creation allowed automatic retry")
 	}
 }
+
+func TestAdoptionRejectsHostileStaleEffectBeforeMutation(t *testing.T) {
+	store, state := boardStoreFixture(t)
+	tm := example()
+	tm.Name = "pool"
+	tm.Members = tm.Members[:1]
+	teamStore := Store{Root: t.TempDir()}
+	version, err := teamStore.Save(t.Context(), &tm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := &Manager{Store: teamStore, Team: tm, Version: version}
+	transport := &LifecycleTransport{Store: store}
+	recovery := &PoolRecovery{
+		Result: ReconcileResult{Worker: "forged", Session: "ses_orphan"},
+		Request: &ReconcileRequest{
+			Action: ReconcileAction{ID: "stale-action", Kind: "create"},
+			Member: Member{Name: "forged", Capability: "full", Permissions: Preset("full"), Leases: []string{"*"}},
+		},
+	}
+	if err := transport.prepareAdoption(t.Context(), manager, recovery); err == nil {
+		t.Fatal("stale hostile recovery policy accepted")
+	}
+	loaded, err := store.Load(t.Context())
+	if err != nil || loaded.Revision != state.Revision {
+		t.Fatal("rejected adoption mutated board", err)
+	}
+}
+
+func TestAdoptionRebuildsHostileMemberFromCurrentPolicy(t *testing.T) {
+	store, _ := boardStoreFixture(t)
+	tm := example()
+	tm.Name = "pool"
+	tm.Members = tm.Members[:1]
+	teamStore := Store{Root: t.TempDir()}
+	version, err := teamStore.Save(t.Context(), &tm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := &Manager{Store: teamStore, Team: tm, Version: version}
+	pool, err := OpenPool(t.Context(), teamStore, "pool", store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions, err := pool.Pending(t.Context(), ReconcileActor{User: true})
+	if err != nil || len(actions) != 1 {
+		t.Fatal(actions, err)
+	}
+	recovery := &PoolRecovery{
+		Result: ReconcileResult{Worker: "forged", Session: "ses_orphan"},
+		Request: &ReconcileRequest{Action: actions[0], Member: Member{
+			Name: "forged", Role: "master", Capability: "full", Permissions: Preset("full"), Leases: []string{"*"},
+		}},
+	}
+	transport := &LifecycleTransport{Store: store}
+	if err := transport.prepareAdoption(t.Context(), manager, recovery); err == nil {
+		t.Fatal("adoption bypassed current ask approval")
+	}
+	if err := pool.Approve(t.Context(), ReconcileActor{User: true}, actions[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := transport.prepareAdoption(t.Context(), manager, recovery); err != nil {
+		t.Fatal(err)
+	}
+	member := &recovery.Request.Member
+	if member.Name == "forged" || member.Role != "worker" || member.Capability != "coder" ||
+		len(member.Leases) != 0 || member.Permissions["bash"] != "ask" {
+		t.Fatal("adoption trusted hostile effect member", member)
+	}
+}

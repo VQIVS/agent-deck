@@ -122,7 +122,7 @@ func boardApprovalDetails(action *team.ReconcileAction) []string {
 		}
 	}
 	return []string{
-		"Action: " + action.ID, "Task: " + task, "Paths: " + paths,
+		"Action: " + action.ID, "Worker: " + action.Worker, "Task: " + task, "Paths: " + paths,
 		"Role: " + role + " · Model: " + model, "Reason: " + reason,
 	}
 }

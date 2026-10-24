@@ -109,7 +109,7 @@ func TestLeaseEditReset(t *testing.T) {
 	assertLeaseAction(t, combined, "edit", "old/file.go", "allow")
 	assertLeaseAction(t, combined, "edit", "new/file.go", "deny")
 	for _, rule := range current {
-		if rule.Permission == "edit" && strings.HasPrefix(rule.Pattern, "/") {
+		if rule.Permission == "edit" && rule.Action == "allow" && strings.HasPrefix(rule.Pattern, "/") {
 			t.Fatalf("unexpected absolute edit alias: %+v", rule)
 		}
 	}
@@ -159,6 +159,19 @@ func TestWorkerPrivateRootDenies(t *testing.T) {
 		assertLeaseAction(t, rules, "bash", "cat "+root+"/secret.json", "deny")
 	}
 	assertLeaseAction(t, rules, "read", "/repo/internal/team/config.go", "allow")
+	assertLeaseAction(t, rules, "bash", "go test ./internal/team/...", "allow")
+}
+
+func TestMasterPrivateRootDenies(t *testing.T) {
+	master := Member{Name: "master", Role: "master", Permissions: Preset("full")}
+	rules, err := LeaseRules("/repo", []Member{master}, &master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := DefaultRoot()
+	assertLeaseAction(t, rules, "read", root+"/team.yaml", "deny")
+	assertLeaseAction(t, rules, "edit", root+"/team.yaml", "deny")
+	assertLeaseAction(t, rules, "bash", "cat "+root+"/team.yaml", "deny")
 	assertLeaseAction(t, rules, "bash", "go test ./internal/team/...", "allow")
 }
 

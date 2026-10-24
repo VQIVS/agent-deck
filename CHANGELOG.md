@@ -3,6 +3,14 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.8] - 2026-10-24
+
+### Fixed
+
+- Team members can read back large tool output saved by OpenCode outside the repository.
+- Renaming or rebinding a member preserves its control directory, and refreshed credentials
+  reconnect stale tool connections with the new token.
+
 ## [0.2.7] - 2026-10-24
 
 ### Fixed

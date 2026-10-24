@@ -3,6 +3,13 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-10-24
+
+### Fixed
+
+- Workflow identities created by a dashboard are recognised by the supervisor (and the reverse):
+  the control root no longer depends on the process working directory.
+
 ## [0.2.2] - 2026-10-24
 
 ### Fixed

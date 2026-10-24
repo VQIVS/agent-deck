@@ -26,6 +26,9 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		return nil, fmt.Errorf("lease rules need master or worker role")
 	}
 	rules := append([]api.Rule{{Permission: "*", Pattern: "*", Action: "ask"}}, baseLeaseRules(member)...)
+	for _, pattern := range []string{"agent-deck*", "*/agent-deck*", "* agent-deck*"} {
+		rules = append(rules, api.Rule{Permission: "bash", Pattern: pattern, Action: "deny"})
+	}
 	if member.Role == "worker" {
 		rules = append(rules, api.Rule{Permission: "edit", Pattern: "*", Action: "deny"})
 		action := member.Permissions["edit"]
@@ -114,7 +117,10 @@ func workerGitRules() []api.Rule {
 		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc")
 	rules := make([]api.Rule, 0, len(commands)*5)
 	for _, command := range commands {
-		for _, prefix := range []string{"git ", "* git ", "*/git ", "git -C * ", "git -c * "} {
+		for _, prefix := range []string{
+			"git ", "* git ", "*/git ", "git -C * ", "git -c * ",
+			"git --* ", "*git --no-pager ", "*git ",
+		} {
 			rules = append(rules, api.Rule{Permission: "bash", Pattern: prefix + command + "*", Action: "deny"})
 		}
 	}

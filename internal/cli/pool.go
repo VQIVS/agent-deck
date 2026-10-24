@@ -57,6 +57,23 @@ func poolReply(ctx context.Context, manager *team.Manager, id string, approve bo
 		}
 		return writeText(out, "Pool action rejected")
 	}
+	actions, err := pool.Pending(ctx, actor)
+	if err != nil {
+		return fmt.Errorf("inspect approval: %w", err)
+	}
+	detail := ""
+	for i := range actions {
+		if actions[i].ID == id {
+			encoded, _ := json.MarshalIndent(actions[i], "", "  ")
+			detail = string(encoded)
+		}
+	}
+	if detail == "" {
+		return fmt.Errorf("pool action no longer pending")
+	}
+	if err := confirmPoolAction(os.Stdin, out, detail); err != nil {
+		return err
+	}
 	if err := pool.Approve(ctx, actor, id); err != nil {
 		return fmt.Errorf("approve pool action: %w", err)
 	}
@@ -90,10 +107,46 @@ func poolBoard(ctx context.Context, manager *team.Manager, opts *teamFlags, out 
 		if err := decoder.Decode(&next); err != nil {
 			return fmt.Errorf("decode board input: %w", err)
 		}
+		if err := confirmPoolAction(os.Stdin, out, string(data)); err != nil {
+			return err
+		}
 		if err := pool.Configure(ctx, team.ReconcileActor{User: true}, &next, state.Revision); err != nil {
 			return fmt.Errorf("configure board: %w", err)
 		}
 		state = next
 	}
 	return writeJSON(out, state)
+}
+
+func poolRecover(ctx context.Context, manager *team.Manager, opts *teamFlags, out io.Writer) error {
+	if opts.ID == "" {
+		return fmt.Errorf("--id is required")
+	}
+	root, err := server.StateRoot()
+	if err != nil {
+		return fmt.Errorf("recovery state: %w", err)
+	}
+	transport := team.LifecycleTransport{Store: team.BoardStore{
+		Root: filepath.Join(root, "boards"),
+		Team: manager.Team.Name, ReadOnly: manager.ReadOnly,
+	}, LoadManager: func(context.Context) (*team.Manager, error) { return manager, nil }}
+	actor := team.ReconcileActor{User: true}
+	recovery, err := transport.Inspect(ctx, actor, opts.ID)
+	if err != nil {
+		return fmt.Errorf("inspect pool recovery: %w", err)
+	}
+	if opts.Text == "inspect" {
+		return writeJSON(out, recovery)
+	}
+	if manager.ReadOnly {
+		return fmt.Errorf("read-only: recovery disabled")
+	}
+	data, _ := json.MarshalIndent(recovery, "", "  ")
+	if err := confirmPoolAction(os.Stdin, out, string(data)+"\nDecision: "+opts.Text); err != nil {
+		return err
+	}
+	if err := transport.Resolve(ctx, actor, opts.ID, opts.Text); err != nil {
+		return fmt.Errorf("resolve pool recovery: %w", err)
+	}
+	return writeText(out, "Pool recovery resolved")
 }

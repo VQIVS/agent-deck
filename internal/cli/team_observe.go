@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -56,11 +57,8 @@ func teamRequests(ctx context.Context, manager *team.Manager, opts *teamFlags, o
 	if err != nil {
 		return err
 	}
-	for i := range actions {
-		action := &actions[i]
-		if err := writeText(out, fmt.Sprintf("pool\t%s\tpool:%s\t%s", action.Kind, action.ID, action.Worker)); err != nil {
-			return err
-		}
+	if err := writePoolRequests(out, actions); err != nil {
+		return err
 	}
 	for i := range requests {
 		r := &requests[i]
@@ -74,6 +72,21 @@ func teamRequests(ctx context.Context, manager *team.Manager, opts *teamFlags, o
 			}
 		}
 		if err := writeText(out, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", r.Member, r.Kind, r.ID, r.Directory, detail)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writePoolRequests(out io.Writer, actions []team.ReconcileAction) error {
+	for i := range actions {
+		action := &actions[i]
+		encoded, err := json.Marshal(action)
+		if err != nil {
+			return fmt.Errorf("encode pool details: %w", err)
+		}
+		line := fmt.Sprintf("pool\t%s\tpool:%s\t%s\t%s", action.Kind, action.ID, action.Worker, encoded)
+		if err := writeText(out, line); err != nil {
 			return err
 		}
 	}

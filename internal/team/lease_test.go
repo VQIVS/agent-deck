@@ -206,6 +206,7 @@ func TestWorkerGitCommandBoundaries(t *testing.T) {
 	for _, command := range []string{
 		"git commit -m x", "cd a && git add .", "/usr/bin/git push",
 		"git -C /x reset --hard", "git -c user.name=x commit -m x",
+		"git --no-pager commit -m x", `sh -c "git commit -m x"`,
 	} {
 		assertLeaseAction(t, rules, "bash", command, "deny")
 	}
@@ -214,6 +215,21 @@ func TestWorkerGitCommandBoundaries(t *testing.T) {
 		"go test ./internal/gitinfo/ -run TestName", "git status --branch", "git show HEAD",
 	} {
 		assertLeaseAction(t, rules, "bash", command, "ask")
+	}
+}
+
+func TestPoolSessionsCannotInvokePrivilegedCLI(t *testing.T) {
+	for _, role := range []string{"master", "worker"} {
+		member := Member{Name: role, Role: role, Permissions: Preset("full")}
+		rules, err := LeaseRules("/repo", []Member{member}, &member)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, command := range []string{
+			"agent-deck team approve --id pool:x", "/usr/local/bin/agent-deck team board --file x", "true && agent-deck up",
+		} {
+			assertLeaseAction(t, rules, "bash", command, "deny")
+		}
 	}
 }
 

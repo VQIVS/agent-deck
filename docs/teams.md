@@ -237,11 +237,25 @@ Each action is rechecked against current team revision, task dependencies, idle 
 lease contention, capacity and budgets before lifecycle effects. Native worker edit/Git
 rules are applied by the lifecycle adapter. Effects and completion are journaled with
 stable action IDs; uncertain effects stop for inspection rather than being blindly repeated.
+Only worker creation needs `ask` approval; `off` blocks creation but still permits existing
+worker assignments. Retirement is limited to explicitly pool-created idle workers, never
+user-configured/adopted members. Approval views show task, paths, role, model and reason.
+Concurrent approvals merge under the board lock; completed stale-revision journal records
+are compacted while uncertain intents remain recoverable.
+
+Inspect an uncertain create with `agent-deck team recover --team NAME --id ACTION`.
+Use `--decision adopt` or `--decision delete` to resolve the recorded orphan after typed
+terminal confirmation. Session IDs are recorded before binding saves; action-tagged session
+titles support discovery after a crash before the effect record completes. A bound session
+is never deleted by orphan cleanup.
 
 Open **Board** (`b`) to inspect tasks/proposals, `y` to approve the selected proposal or
 `x` to reject it. Pending proposals also appear in Inbox (Enter opens the board) and
 `agent-deck team requests`; approve/reject using `--id pool:<action-id>`. CLI approvals are
 explicit privileged-user operations. Read-only blocks every board/lifecycle mutation.
+Pool approvals and board-policy writes require a terminal and typing `APPROVE`; pool
+session shell rules deny invoking agent-deck itself, including for masters. These remain
+cooperative guards rather than same-user process isolation.
 Rejected IDs remain rejected across restarts. Changing desired state produces new action IDs.
 
 Live team reloads preserve focus, zoom and transcript state only for the same server,

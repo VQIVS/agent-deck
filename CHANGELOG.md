@@ -3,6 +3,15 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-10-24
+
+### Changed
+
+- Workers' permission requests go to the master as notices; the master decides them with the new
+  `answer_request` tool. Only the master's own requests reach the user.
+- Members can use their own team's agent-deck tools without permission prompts.
+- Roster changes are recorded in the channel without waking idle members.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added

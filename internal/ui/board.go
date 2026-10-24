@@ -18,6 +18,7 @@ type (
 		State   team.BoardState
 		Actions []team.ReconcileAction
 		Index   int
+		Confirm *team.ReconcileAction
 	}
 	boardResult struct {
 		State   team.BoardState
@@ -75,6 +76,11 @@ func (m *Model) readBoard() tea.Cmd {
 }
 
 func (m *Model) boardView() string {
+	if m.board.Confirm != nil {
+		lines := append([]string{"Confirm pool approval · y apply · any other key cancel"},
+			boardApprovalDetails(m.board.Confirm)...)
+		return boardLines(lines, m.w, m.h)
+	}
 	lines := make([]string, 0, 1+len(m.board.State.Board.Tasks)+len(m.board.Actions))
 	lines = append(lines, "Work board · Esc back · y approve · x reject · r refresh")
 	for i := range m.board.State.Board.Tasks {
@@ -89,13 +95,47 @@ func (m *Model) boardView() string {
 		}
 		lines = append(lines, mark+action.Kind+" "+action.Worker+" · "+action.ID)
 	}
-	for i := range lines {
-		lines[i] = fit(lines[i], m.w)
+	if m.board.Index >= 0 && m.board.Index < len(m.board.Actions) {
+		lines = append(lines, boardApprovalDetails(&m.board.Actions[m.board.Index])...)
 	}
-	return strings.Join(lines[:min(len(lines), m.h)], "\n")
+	return boardLines(lines, m.w, m.h)
+}
+
+func boardLines(lines []string, width, height int) string {
+	for i := range lines {
+		lines[i] = RenderInboxLine(lines[i], width)
+	}
+	return strings.Join(lines[:min(len(lines), max(0, height))], "\n")
+}
+
+func boardApprovalDetails(action *team.ReconcileAction) []string {
+	task, role, model, paths := action.Task, "unspecified", "team default", "none"
+	reason := "Apply desired " + action.Kind + " operation"
+	if p := action.Proposal; p != nil {
+		task, role, paths = p.Task, p.Role, strings.Join(p.Paths, ", ")
+		if p.Model != "" {
+			model = p.Model
+		}
+		reason = "Add capacity for ready task"
+		if p.Task == "" {
+			reason = "Satisfy minimum worker count"
+		}
+	}
+	return []string{
+		"Action: " + action.ID, "Task: " + task, "Paths: " + paths,
+		"Role: " + role + " · Model: " + model, "Reason: " + reason,
+	}
 }
 
 func (m *Model) boardKey(v tea.KeyMsg) tea.Cmd {
+	if m.board.Confirm != nil {
+		action := m.board.Confirm
+		m.board.Confirm = nil
+		if v.String() == "y" {
+			return m.confirmBoard(action)
+		}
+		return nil
+	}
 	switch v.String() {
 	case "esc", "b":
 		m.board.Open = false
@@ -133,7 +173,32 @@ func (m *Model) approveBoard() tea.Cmd {
 	if m.opts.ReadOnly || len(m.board.Actions) == 0 {
 		return nil
 	}
-	id := m.board.Actions[min(m.board.Index, len(m.board.Actions)-1)].ID
+	action := m.board.Actions[max(0, min(m.board.Index, len(m.board.Actions)-1))]
+	if action.Proposal != nil {
+		proposal := *action.Proposal
+		proposal.Paths = append(team.Leases(nil), proposal.Paths...)
+		proposal.Skills = append([]string(nil), proposal.Skills...)
+		action.Proposal = &proposal
+	}
+	m.board.Confirm = &action
+	return nil
+}
+
+func (m *Model) confirmBoard(action *team.ReconcileAction) tea.Cmd {
+	if m.opts.ReadOnly {
+		return nil
+	}
+	pending := false
+	for i := range m.board.Actions {
+		if m.board.Actions[i].ID == action.ID {
+			pending = true
+		}
+	}
+	if !pending {
+		m.note = "Pool action is no longer pending"
+		return nil
+	}
+	id := action.ID
 	snapshot := *m
 	return func() tea.Msg {
 		pool, err := snapshot.pool(snapshot.context())

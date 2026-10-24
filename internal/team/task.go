@@ -47,10 +47,14 @@ type TaskReview struct {
 
 // TaskActor is resolved by trusted integration; user is the privileged interactive identity.
 type TaskActor struct {
-	Member string
-	Role   string
-	User   bool
+	Member     string
+	Role       string
+	User       bool
+	Automation bool
 }
+
+// AutomationActor is agent-deck's own policy pass: it may assign and move tasks, never review or approve.
+var AutomationActor = TaskActor{Member: "agent-deck", Automation: true}
 
 // ResolveTaskActor derives role from current trusted membership, never tool arguments.
 func (t *Team) ResolveTaskActor(name string) (TaskActor, error) {
@@ -79,6 +83,9 @@ func (m TaskMutation) validate() error {
 	if m.ReadOnly {
 		return fmt.Errorf("read-only: task changes disabled")
 	}
+	if m.Actor.Automation && m.Actor == AutomationActor && !m.Now.IsZero() {
+		return nil
+	}
 	if m.Now.IsZero() || (!m.Actor.User && (m.Actor.Member == "" ||
 		(m.Actor.Role != "master" && m.Actor.Role != "worker"))) {
 		return fmt.Errorf("task mutation requires authenticated actor and current time")
@@ -93,7 +100,9 @@ func (m TaskMutation) name() string {
 	return m.Actor.Member
 }
 
-func (m TaskMutation) manages() bool { return m.Actor.User || m.Actor.Role == "master" }
+func (m TaskMutation) manages() bool {
+	return m.Actor.User || m.Actor.Role == "master" || m.Actor.Automation
+}
 
 func validateBoardTask(task *Task, version int) error {
 	if version == 1 {

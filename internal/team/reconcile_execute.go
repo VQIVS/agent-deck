@@ -110,6 +110,9 @@ func reconcileTaskActor(t *Team, actor ReconcileActor) (TaskActor, error) {
 	if actor.User {
 		return TaskActor{User: true}, nil
 	}
+	if actor.Automation {
+		return AutomationActor, nil
+	}
 	return t.ResolveTaskActor(actor.Member)
 }
 

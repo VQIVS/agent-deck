@@ -19,20 +19,6 @@ type TaskNotice struct {
 
 const taskChangeAttempts = 3
 
-// TaskActorFor derives workflow authority from the current roster, never from caller-supplied roles.
-func TaskActorFor(t *Team, name string) (TaskActor, error) {
-	for i := range t.Members {
-		member := &t.Members[i]
-		if member.Name == name {
-			if member.Role != "master" && member.Role != "worker" {
-				return TaskActor{}, fmt.Errorf("member %q has no workflow role", name)
-			}
-			return TaskActor{Member: member.Name, Role: member.Role}, nil
-		}
-	}
-	return TaskActor{}, fmt.Errorf("member %q is not on the current roster", name)
-}
-
 // ChangeTasks applies one workflow change to the persisted board with optimistic retries
 // and returns the saved board plus the notices the change implies.
 func ChangeTasks(ctx context.Context, store BoardStore, t *Team, actor TaskActor, now time.Time,

@@ -39,6 +39,6 @@ func (p *PoolRuntime) AutoReconcile(ctx context.Context) ([]TaskNotice, error) {
 	if err != nil {
 		return nil, errors.Join(append(failures, err)...)
 	}
-	notices := TaskNotices(&before.Board, &after.Board, &manager.Team, TaskActor{Member: "agent-deck"})
+	notices := TaskNotices(&before.Board, &after.Board, &manager.Team, AutomationActor)
 	return notices, errors.Join(failures...)
 }

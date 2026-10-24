@@ -22,13 +22,13 @@ func noticeFor(notices []TaskNotice, to, contains string) bool {
 	return false
 }
 
-func TestTaskActorForUsesRoster(t *testing.T) {
+func TestResolveTaskActorUsesRoster(t *testing.T) {
 	team := workflowTeam()
-	actor, err := TaskActorFor(team, "lead")
+	actor, err := team.ResolveTaskActor("lead")
 	if err != nil || actor.Role != "master" || actor.Member != "lead" {
 		t.Fatalf("actor=%+v err=%v", actor, err)
 	}
-	if _, err := TaskActorFor(team, "intruder"); err == nil {
+	if _, err := team.ResolveTaskActor("intruder"); err == nil {
 		t.Fatal("unknown member resolved")
 	}
 }
@@ -37,9 +37,9 @@ func TestChangeTasksFlowAndNotices(t *testing.T) {
 	ctx := context.Background()
 	team := workflowTeam()
 	store := BoardStore{Root: t.TempDir(), Team: team.Name}
-	lead, _ := TaskActorFor(team, "lead")
-	ana, _ := TaskActorFor(team, "ana")
-	rev, _ := TaskActorFor(team, "rev")
+	lead, _ := team.ResolveTaskActor("lead")
+	ana, _ := team.ResolveTaskActor("ana")
+	rev, _ := team.ResolveTaskActor("rev")
 	now := time.Now()
 	change := func(actor TaskActor, fn func(*TaskBoard, TaskMutation) error) []TaskNotice {
 		t.Helper()
@@ -95,7 +95,7 @@ func TestChangeTasksFlowAndNotices(t *testing.T) {
 func TestChangeTasksRejectsWorkerPlanning(t *testing.T) {
 	team := workflowTeam()
 	store := BoardStore{Root: t.TempDir(), Team: team.Name}
-	ana, _ := TaskActorFor(team, "ana")
+	ana, _ := team.ResolveTaskActor("ana")
 	_, _, err := ChangeTasks(context.Background(), store, team, ana, time.Now(), func(b *TaskBoard, m TaskMutation) error {
 		return b.CreateTask(&Task{ID: "T-1", Title: "x", Paths: Leases{"a/*"}}, m)
 	})
@@ -116,5 +116,37 @@ func TestWorkflowInstructionsOnlyWithTools(t *testing.T) {
 	if !strings.Contains(workflowInstructions(team, &team.Members[0]), "you are the master") ||
 		!strings.Contains(workflowInstructions(team, &team.Members[1]), "you are a worker") {
 		t.Fatal("role manuals missing")
+	}
+}
+
+func TestAutomationActorAssignsButNeverReviews(t *testing.T) {
+	board, m := workflowFixture(t)
+	auto := m
+	auto.Actor = AutomationActor
+	if err := board.MoveTask("task", "ready", auto); err != nil {
+		t.Fatal(err)
+	}
+	if err := board.SetAssignee("task", "worker", auto); err != nil {
+		t.Fatal(err)
+	}
+	if err := board.MoveTask("task", "in_progress", auto); err != nil {
+		t.Fatal(err)
+	}
+	worker := m
+	worker.Actor = TaskActor{Member: "worker", Role: "worker"}
+	if err := board.MoveTask("task", "review", worker); err != nil {
+		t.Fatal(err)
+	}
+	if err := board.ReviewTask("task", "accept", "auto", auto); err == nil {
+		t.Fatal("automation accepted a review")
+	}
+	forged := m
+	forged.Actor = TaskActor{Member: "intruder", Automation: true}
+	if err := board.CommentTask("task", "hi", forged); err == nil {
+		t.Fatal("forged automation actor accepted")
+	}
+	last := board.Tasks[0].History
+	if !strings.Contains(last[len(last)-2].Actor, "agent-deck") {
+		t.Fatalf("automation not attributed: %+v", last)
 	}
 }

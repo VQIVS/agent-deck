@@ -72,7 +72,7 @@ func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, ar
 		return nil, fmt.Errorf("open task board: %w", err)
 	}
 	store.ReadOnly = store.ReadOnly || manager.ReadOnly
-	actor, err := team.TaskActorFor(&manager.Team, identity.Member)
+	actor, err := manager.Team.ResolveTaskActor(identity.Member)
 	if err != nil {
 		return nil, fmt.Errorf("resolve task actor: %w", err)
 	}

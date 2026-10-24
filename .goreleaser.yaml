@@ -12,21 +12,22 @@ archives:
     files: [LICENSE, README.md, CHANGELOG.md]
 checksum:
   name_template: checksums.txt
-brews:
+homebrew_casks:
   - name: agent-deck
     repository:
       owner: VQIVS
       name: homebrew-tap
-    homepage: https://github.com/vqivs/agent-deck
+    homepage: https://github.com/VQIVS/agent-deck
     description: Terminal dashboard for local OpenCode sessions and teams
     license: MIT
+    binaries: [agent-deck]
     dependencies:
-      - name: opencode
-      - name: git
-    install: |
-      bin.install "agent-deck"
-    test: |
-      system "#{bin}/agent-deck", "--version"
+      - formula: opencode
+      - formula: git
+    caveats: |
+      agent-deck binaries are not notarized. If macOS blocks the first run, install with
+      `brew install --cask --no-quarantine vqivs/tap/agent-deck`, or run
+      `xattr -dr com.apple.quarantine "$(brew --prefix)/bin/agent-deck"`.
 release:
   github:
     owner: VQIVS

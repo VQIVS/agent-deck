@@ -60,8 +60,8 @@ opencode auth login
 opencode auth list && opencode models
 ```
 
-Once published, the Homebrew formula `brew install vqivs/tap/agent-deck` installs
-OpenCode and Git dependencies. See the [installation guide](docs/install.md) for
+`brew install --cask vqivs/tap/agent-deck` installs agent-deck with its OpenCode and Git
+dependencies. See the [installation guide](docs/install.md) for
 official OpenCode alternatives, release verification, setup and troubleshooting.
 
 With the Go version listed in [`go.mod`](go.mod):

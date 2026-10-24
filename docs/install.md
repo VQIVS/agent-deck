@@ -45,14 +45,13 @@ providers, configure their endpoint and credentials in OpenCode, not agent-deck.
 
 ### Homebrew
 
-After the first formula is published to the tap:
-
 ```sh
-brew install vqivs/tap/agent-deck
+brew install --cask vqivs/tap/agent-deck
 ```
 
-The formula declares `opencode` and `git` dependencies. The tap configuration in this
-repository does not itself imply that a release has already been published.
+The cask declares `opencode` and `git` dependencies. Release binaries are not notarized; if
+macOS blocks the first run, install with `--no-quarantine` or run
+`xattr -dr com.apple.quarantine "$(brew --prefix)/bin/agent-deck"`.
 
 ### Release binary
 

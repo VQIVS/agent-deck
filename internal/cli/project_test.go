@@ -24,6 +24,7 @@ members:
 		t.Fatal(err)
 	}
 	local := team.Team{
+		Version: 1, Capacity: 1,
 		Name: "private", Repo: repo, Server: "http://localhost:4096", Base: "main", LeasePool: true,
 		Members: []team.Member{{Name: "master", Role: "master", Mode: "adopt", Session: "existing", Dir: repo}},
 	}
@@ -31,7 +32,7 @@ members:
 		t.Fatal(err)
 	}
 	if local.Name != "private" || local.Members[0].Session != "existing" ||
-		local.Approval != "allowlist" || !local.LeasePool {
+		local.Approval != "" || !local.LeasePool {
 		t.Fatal(local)
 	}
 }

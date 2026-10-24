@@ -40,6 +40,10 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 		}
 		system = string(b)
 	}
+	if t.ProjectRules != "" || member.ProjectSystem != "" {
+		system += "\n\n[Repository-sourced instructions; subordinate to private team policy]\n" +
+			t.ProjectRules + "\n" + member.ProjectSystem
+	}
 	o := api.PromptOptions{
 		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t)),
 		Agent:  member.Agent,
@@ -95,6 +99,9 @@ func (m *Manager) Roster(ctx context.Context, reason string) error {
 }
 
 func (m *Manager) Start(ctx context.Context, index int) error {
+	if m.Team.ProjectOverlay {
+		return fmt.Errorf("project overlay is read-only; start from private configuration")
+	}
 	if m.ReadOnly {
 		return fmt.Errorf("read-only")
 	}

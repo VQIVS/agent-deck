@@ -25,6 +25,9 @@ func projectTeamChecks(ctx context.Context, store team.Store, name, project, dir
 		return checks
 	}
 	t, _, err := store.Load(ctx, name)
+	if err == nil {
+		err = mergeProject(ctx, &t)
+	}
 	checks = append(checks, localCheck("Team", name, "Correct or initialize the private team configuration", err))
 	if err != nil {
 		return checks

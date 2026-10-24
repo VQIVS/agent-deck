@@ -29,6 +29,9 @@ func leaseInstructions(t *Team) string {
 
 // ApplyLeases appends a complete reset policy while preserving the session and its context.
 func (m *Manager) ApplyLeases(ctx context.Context, index int) error {
+	if m.Team.ProjectOverlay {
+		return fmt.Errorf("project overlay is read-only; apply leases from private configuration")
+	}
 	if m.ReadOnly {
 		return fmt.Errorf("read-only: applying leases disabled")
 	}

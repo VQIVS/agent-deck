@@ -31,12 +31,16 @@ func TestProjectMergeKeepsBindingsAndAppliesPolicy(t *testing.T) {
 	}
 	repo := t.TempDir()
 	local := Member{
-		Name: "master", Role: "worker", Mode: "shared", Dir: repo,
-		Session: "local-session", Branch: "local-branch", SystemFile: "/old/system", Capability: "full",
+		Name: "Master", Role: "master", Mode: "shared", Dir: repo,
+		Session: "local-session", Branch: "local-branch", SystemFile: "/old/system",
+		Capability: "full", Permissions: Preset("full"),
 	}
 	bindings := ProjectBindings{
 		Repo: repo, Server: "http://127.0.0.1:9999", Base: "main",
-		Members: map[string]Member{"master": local, "stale": {Session: "must-not-import"}},
+		Members: map[string]Member{"master": local, "stale": {
+			Name: "extra", Role: "worker", Mode: "shared", Dir: repo,
+			Capability: "coder", Permissions: Preset("coder"), Session: "keep-me",
+		}},
 	}
 	merged, err := p.Merge(bindings)
 	if err != nil {
@@ -44,20 +48,20 @@ func TestProjectMergeKeepsBindingsAndAppliesPolicy(t *testing.T) {
 	}
 	master := merged.Members[0]
 	if len(merged.Members) != 2 || master.Session != local.Session || master.Branch != local.Branch ||
-		master.Role != "master" || master.Capability != "coder" || master.SystemFile != "" ||
-		master.System != "Coordinate the work" || merged.Base != "main" {
+		master.Role != "master" || master.Capability != "full" || master.SystemFile != "/old/system" ||
+		master.ProjectSystem != "Coordinate the work" || merged.Base != "main" || merged.Approval != "" {
 		t.Fatalf("bad merge: %+v", merged)
 	}
-	if merged.Members[1].Mode != "shared" || merged.Members[1].Dir != repo || merged.Members[1].Session != "" {
-		t.Fatal("new member acquired private session")
+	if merged.Members[1].Session != "keep-me" {
+		t.Fatal("unmentioned member lost")
 	}
 	if bindings.Members["master"].SystemFile != "/old/system" {
 		t.Fatal("merge mutated local input")
 	}
 	p.Base = "develop"
 	merged, err = p.Merge(bindings)
-	if err != nil || merged.Base != "develop" {
-		t.Fatalf("portable base should win: %v", err)
+	if err != nil || merged.Base != "main" {
+		t.Fatalf("private base should win: %v", err)
 	}
 }
 

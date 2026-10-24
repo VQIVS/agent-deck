@@ -131,9 +131,14 @@ otherwise a root `agent-deck.yaml` is used when present. Existing teams are neve
 
 `agent-deck doctor --team NAME [--project FILE] [--dir DIR]` adds repository/base,
 project schema, prompt-file and unapplied-lease checks to server/model diagnostics.
-With `approval: allowlist`, the dashboard approves bash requests once only when it can
+With private team `approval: allowlist`, the dashboard approves bash requests once only when it can
 match a complete tool command by call ID against `safe_commands`. Missing tool input,
 abbreviated patterns, shell syntax, other permission types and read-only mode never auto-approve.
+Members with editing enabled or unknown inherited edit permissions never auto-approve commands:
+build/test commands execute repository code. Only explicitly edit-denied members qualify.
+Tool input permits only command/description/timeout; workdir and unknown fields are refused.
+Approval attempts are audited with time/session/command under the XDG state directory;
+failed replies clear their retry marker.
 
 ## Portable project policy and templates
 
@@ -141,7 +146,13 @@ abbreviated patterns, shell syntax, other permission types and read-only mode ne
 templates. Project policy accepts portable roles, prompts, model, base, capacity and an
 exact-command allowlist; it rejects session IDs and workspace bindings. Merging requires
 explicit private local bindings. Opening a saved team merges root `agent-deck.yaml` with
-its private bindings; live session permissions still require explicit Apply leases.
+its private bindings case-insensitively and keeps unmentioned members and local overrides.
+The overlay cannot be saved into the private team file; edit private configuration separately.
+Repository approval/command lists are suggestions only: approval settings come exclusively
+from private configuration. Repository capabilities can only tighten explicit local tool
+permissions; inherited sessions stay inherited. Repository prompt text is labeled and
+subordinate to private policy. Doctor uses the same overlay. Live session permissions
+still require explicit Apply leases.
 Built-in templates are `upgrade-team`, `review-pair`,
 `bugfix-tester` and `custom`. User YAML templates under the config directory replace an
 entire built-in by name. Advanced worker forms offer **Role template** choices; selecting

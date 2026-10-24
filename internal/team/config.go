@@ -17,6 +17,7 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	ProjectSystem  string            `yaml:"-" json:"-"`
 	Nudge          NudgePolicy       `yaml:"nudge,omitempty"`
 	NudgeStatus    NudgeState        `yaml:"nudge_status,omitempty"`
 	StallAfter     *time.Duration    `yaml:"stall_after,omitempty"`
@@ -41,19 +42,22 @@ type Member struct {
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
-	Approval       string   `yaml:"approval,omitempty"`
-	SafeCommands   []string `yaml:"safe_commands,omitempty"`
-	LeasePool      bool     `yaml:"lease_pool,omitempty"`
-	Version        int      `yaml:"version"`
-	Name           string   `yaml:"name"`
-	Server         string   `yaml:"server"`
-	Repo           string   `yaml:"repo"`
-	Base           string   `yaml:"base"`
-	Model          string   `yaml:"model,omitempty"`
-	Capacity       int      `yaml:"capacity"`
-	Rules          string   `yaml:"rules,omitempty"`
-	RosterTemplate string   `yaml:"roster_template,omitempty"`
-	Members        []Member `yaml:"members"`
+	DefinitionOfDone DefinitionOfDone `yaml:"definition_of_done,omitempty"`
+	ProjectOverlay   bool             `yaml:"-" json:"-"`
+	ProjectRules     string           `yaml:"-" json:"-"`
+	Approval         string           `yaml:"approval,omitempty"`
+	SafeCommands     []string         `yaml:"safe_commands,omitempty"`
+	LeasePool        bool             `yaml:"lease_pool,omitempty"`
+	Version          int              `yaml:"version"`
+	Name             string           `yaml:"name"`
+	Server           string           `yaml:"server"`
+	Repo             string           `yaml:"repo"`
+	Base             string           `yaml:"base"`
+	Model            string           `yaml:"model,omitempty"`
+	Capacity         int              `yaml:"capacity"`
+	Rules            string           `yaml:"rules,omitempty"`
+	RosterTemplate   string           `yaml:"roster_template,omitempty"`
+	Members          []Member         `yaml:"members"`
 }
 
 func Slug(s string) string {

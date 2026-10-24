@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,7 @@ type ProjectBindings struct {
 	Base      string
 	Members   map[string]Member
 	LeasePool bool
+	Local     *Team
 }
 
 func decodePolicy(data []byte, out any) error {
@@ -83,7 +85,8 @@ func (p *ProjectPolicy) Validate() error {
 	if p.Version != 1 || Slug(p.Name) != p.Name || p.Name == "" || p.Capacity < 1 {
 		return fmt.Errorf("project needs version 1, slug name and positive capacity")
 	}
-	if strings.ContainsAny(p.Base, "\\:~") || filepath.IsAbs(p.Base) || strings.HasPrefix(p.Base, "../") {
+	if strings.ContainsAny(p.Base, "\\:~") || filepath.IsAbs(p.Base) || strings.HasPrefix(p.Base, "../") ||
+		strings.HasPrefix(p.Base, "-") {
 		return fmt.Errorf("project base must be a portable Git ref")
 	}
 	if p.Approval != "" && p.Approval != "ask" && p.Approval != "allowlist" {
@@ -126,27 +129,77 @@ func (p *ProjectPolicy) Merge(bindings ProjectBindings) (Team, error) {
 		return Team{}, err
 	}
 	t := Team{
-		LeasePool: bindings.LeasePool,
-		Approval:  p.Approval, SafeCommands: append([]string(nil), p.Commands...),
 		Version: 1, Name: p.Name, Server: bindings.Server, Repo: bindings.Repo,
-		Base: p.Base, Model: p.Model, Capacity: p.Capacity, Rules: p.Rules,
+		Base: bindings.Base, Capacity: p.Capacity, LeasePool: bindings.LeasePool,
 	}
+	if bindings.Local != nil {
+		t = *bindings.Local
+	}
+	t.ProjectOverlay, t.ProjectRules = true, p.Rules
 	if t.Base == "" {
-		t.Base = bindings.Base
+		t.Base = p.Base
 	}
-	for _, role := range p.Members {
-		member := bindings.Members[role.Name]
-		member.Name, member.Role = role.Name, role.Role
-		member.Model, member.Agent = role.Model, role.Agent
-		member.System, member.Brief, member.SystemFile = role.System, role.Brief, ""
-		member.Capability, member.Permissions = role.Capability, Preset(role.Capability)
-		if member.Mode == "" {
-			member.Mode, member.Dir = "shared", bindings.Repo
-		}
-		t.Members = append(t.Members, member)
-	}
+	t.Members = mergeProjectMembers(p.Members, bindings)
 	if err := t.Validate(); err != nil {
 		return Team{}, fmt.Errorf("merge project bindings: %w", err)
 	}
 	return t, nil
+}
+
+func mergeProjectMembers(roles []RolePolicy, bindings ProjectBindings) []Member {
+	var out []Member
+	if bindings.Local != nil {
+		out = append(out, bindings.Local.Members...)
+	} else {
+		keys := make([]string, 0, len(bindings.Members))
+		for key := range bindings.Members {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			out = append(out, bindings.Members[key])
+		}
+	}
+	for _, role := range roles {
+		index := -1
+		for i := range out {
+			if strings.EqualFold(out[i].Name, role.Name) {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			if len(bindings.Members) > 0 || bindings.Local != nil {
+				continue
+			}
+			member := Member{
+				Name: role.Name, Role: role.Role, Mode: "shared", Dir: bindings.Repo,
+				Capability: "coder", Permissions: Preset("coder"),
+			}
+			out = append(out, member)
+			index = len(out) - 1
+		}
+		member := &out[index]
+		member.ProjectSystem = role.System
+		if member.Capability != "inherited" {
+			member.Permissions = stricterPermissions(member.Permissions, Preset(role.Capability))
+		}
+	}
+	return out
+}
+
+func stricterPermissions(local, project map[string]string) map[string]string {
+	rank := map[string]int{"allow": 0, "ask": 1, "deny": 2}
+	out := map[string]string{}
+	for _, key := range []string{"read", "edit", "bash", "webfetch", "external_directory"} {
+		value := local[key]
+		if value == "" {
+			value = "ask"
+		}
+		if rank[project[key]] > rank[value] {
+			value = project[key]
+		}
+		out[key] = value
+	}
+	return out
 }

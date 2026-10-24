@@ -67,6 +67,7 @@ func initCommand(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	store := team.Store{Root: team.DefaultRoot()}
+	t.ProjectOverlay = false
 	if _, err := store.Save(ctx, &t, nil); err != nil {
 		return fmt.Errorf("save initialized team: %w", err)
 	}

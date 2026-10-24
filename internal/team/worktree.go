@@ -36,6 +36,9 @@ func Workspace(t *Team, m *Member) (directory, branchName string, err error) {
 }
 
 func CreateWorktree(ctx context.Context, t *Team, m *Member) (directory, branchName string, err error) {
+	if strings.HasPrefix(t.Base, "-") {
+		return "", "", fmt.Errorf("base must not start with '-' ")
+	}
 	dir, branch, e := Workspace(t, m)
 	if e != nil {
 		return "", "", e

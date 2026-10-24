@@ -21,6 +21,9 @@ func (t *Team) validateApproval() error {
 }
 
 func (t *Team) validatePolicies() error {
+	if strings.HasPrefix(t.Base, "-") {
+		return fmt.Errorf("base must not start with '-'")
+	}
 	if err := t.validateApproval(); err != nil {
 		return err
 	}

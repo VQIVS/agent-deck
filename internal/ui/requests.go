@@ -169,6 +169,7 @@ func (m *Model) replyPermission(reply, message string) tea.Cmd {
 
 func (m *Model) replied(v permissionReplyMsg) tea.Cmd {
 	if v.Err != nil {
+		delete(m.safeReplies, v.ID)
 		m.note = v.Err.Error()
 	} else {
 		m.note = "Permission reply accepted"

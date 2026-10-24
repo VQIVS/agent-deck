@@ -19,7 +19,8 @@ func mergeProject(ctx context.Context, local *team.Team) error {
 		return fmt.Errorf("load project policy: %w", err)
 	}
 	bindings := team.ProjectBindings{
-		Repo: local.Repo, Server: local.Server, Base: local.Base,
+		Local: local,
+		Repo:  local.Repo, Server: local.Server, Base: local.Base,
 		Members: map[string]team.Member{}, LeasePool: local.LeasePool,
 	}
 	for i := range local.Members {

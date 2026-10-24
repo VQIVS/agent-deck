@@ -2,9 +2,14 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/qivs/agent-deck/internal/server"
 	"github.com/qivs/agent-deck/internal/team"
 )
 
@@ -26,6 +31,9 @@ func (m *Model) safeCommandReplies() []tea.Cmd {
 		if !configuredMember(t, p.Agent.Dir, p.Agent.Session) {
 			continue
 		}
+		if memberCanEdit(t, p.Agent.Dir, p.Agent.Session) {
+			continue
+		}
 		for _, request := range p.State.Permissions {
 			command := m.permissionCommand(i, request.Tool.CallID)
 			if !list.AllowsRequest(request.Permission, []string{command}, false) || m.safeReplies[request.ID] {
@@ -34,10 +42,38 @@ func (m *Model) safeCommandReplies() []tea.Cmd {
 			m.safeReplies[request.ID] = true
 			dir, id := p.Agent.Dir, request.ID
 			return []tea.Cmd{func() tea.Msg {
-				err := m.client.ReplyPermission(m.context(), dir, id, "once", "Exact command allowlist")
+				err := logAutoApproval(dir, p.Agent.Session, command)
+				if err == nil {
+					err = m.client.ReplyPermission(m.context(), dir, id, "once", "Exact command allowlist")
+				}
 				return permissionReplyMsg{dir, id, err}
 			}}
 		}
+	}
+	return nil
+}
+
+func logAutoApproval(dir, session, command string) error {
+	root, err := server.StateRoot()
+	if err != nil {
+		return fmt.Errorf("approval audit state: %w", err)
+	}
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return fmt.Errorf("create approval audit: %w", err)
+	}
+	file, err := os.OpenFile(filepath.Join(root, "approvals.jsonl"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("open approval audit: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	if err := json.NewEncoder(file).Encode(map[string]any{
+		"time": time.Now().UTC(), "session": session,
+		"directory": dir, "command": command, "action": "approve_once_attempt",
+	}); err != nil {
+		return fmt.Errorf("write approval audit: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("sync approval audit: %w", err)
 	}
 	return nil
 }
@@ -61,12 +97,28 @@ func (m *Model) permissionCommand(index int, callID string) string {
 		if part.CallID != callID || part.Tool != "bash" {
 			continue
 		}
-		var input struct {
-			Command string `json:"command"`
-		}
+		var input map[string]json.RawMessage
 		if json.Unmarshal(part.State.Input, &input) == nil {
-			return input.Command
+			for key := range input {
+				if key != "command" && key != "description" && key != "timeout" {
+					return ""
+				}
+			}
+			var command string
+			if json.Unmarshal(input["command"], &command) == nil {
+				return command
+			}
 		}
 	}
 	return ""
+}
+
+func memberCanEdit(t *team.Team, dir, session string) bool {
+	for i := range t.Members {
+		member := &t.Members[i]
+		if member.Dir == dir && member.Session == session {
+			return member.Capability == "inherited" || member.Permissions["edit"] != "deny"
+		}
+	}
+	return true
 }

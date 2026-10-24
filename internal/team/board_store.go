@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// ErrBoardChanged reports an optimistic-concurrency conflict; reload and retry.
+var ErrBoardChanged = errors.New("board changed; reload before saving")
+
 // BoardState stores private scheduler intent and approval separately from project policy.
 type BoardState struct {
 	Version   int              `json:"version"`
@@ -151,7 +154,7 @@ func (s BoardStore) Save(ctx context.Context, state *BoardState, expected uint64
 			return err
 		}
 		if current.Revision != expected {
-			return fmt.Errorf("board changed; reload before saving")
+			return ErrBoardChanged
 		}
 		next := *state
 		next.Board = TaskBoard{

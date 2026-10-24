@@ -56,7 +56,7 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 			member.ControlDir, member.Dir, member.PreviousSession, member.PreviousDir)
 	}
 	o := api.PromptOptions{
-		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t)),
+		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t) + workflowInstructions(t, member)),
 		Agent:  member.Agent,
 		Parts:  []map[string]string{{"type": "text", "text": text}},
 	}

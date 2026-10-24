@@ -99,18 +99,19 @@ func runtimeBusy(ctx context.Context, manager *team.Manager, name string) (bool,
 		return true, fmt.Errorf("find runtime member: %w", err)
 	}
 	m := &manager.Team.Members[index]
+	scope := m.SessionDir()
 	if m.Session == "" || m.Dir == "" {
 		return true, nil
 	}
 	client := api.New(manager.Team.Server, true)
-	statuses, err := client.Status(ctx, m.Dir)
+	statuses, err := client.Status(ctx, scope)
 	if err != nil {
 		return true, fmt.Errorf("read scoped runtime status: %w", err)
 	}
 	if status := statuses[m.Session].Type; status != "" && status != "idle" {
 		return true, nil
 	}
-	sessions, err := client.Sessions(ctx, m.Dir)
+	sessions, err := client.Sessions(ctx, scope)
 	if err != nil {
 		return true, fmt.Errorf("read scoped runtime sessions: %w", err)
 	}
@@ -127,7 +128,7 @@ func runtimeBusy(ctx context.Context, manager *team.Manager, name string) (bool,
 }
 
 func runtimeWaiting(ctx context.Context, client *api.Client, m *team.Member) (bool, error) {
-	permissions, err := client.Permissions(ctx, m.Dir)
+	permissions, err := client.Permissions(ctx, m.SessionDir())
 	if err != nil {
 		return true, fmt.Errorf("read scoped runtime permissions: %w", err)
 	}
@@ -136,7 +137,7 @@ func runtimeWaiting(ctx context.Context, client *api.Client, m *team.Member) (bo
 			return true, nil
 		}
 	}
-	questions, err := client.Questions(ctx, m.Dir)
+	questions, err := client.Questions(ctx, m.SessionDir())
 	if err != nil {
 		return true, fmt.Errorf("read scoped runtime questions: %w", err)
 	}

@@ -135,8 +135,10 @@ func New(ctx context.Context, d *config.Deck, opts Options) *Model {
 	m.input.BlurredStyle = inputStyle
 	m.input.CharLimit = 16000
 	m.input.SetHeight(4)
-	for _, a := range d.Agents() {
-		p := pane{Agent: a, State: state.New(), View: viewport.New(40, 10), Git: "git loading…"}
+	agents := d.Agents()
+	for i := range agents {
+		a := &agents[i]
+		p := pane{Agent: *a, State: state.New(), View: viewport.New(40, 10), Git: "git loading…"}
 		if opts.NoGit {
 			p.Git = "git disabled · configured branch: " + a.Branch
 		}
@@ -206,6 +208,9 @@ func (m *Model) snapshot(i int) tea.Cmd {
 
 func (m *Model) git(i int) tea.Cmd {
 	a := m.panes[i].Agent
+	if a.CodeDir != "" {
+		a.Dir = a.CodeDir
+	}
 	return func() tea.Msg { return gitMsg{i, gitinfo.Read(m.context(), a.Dir, a.Base)} }
 }
 
@@ -289,8 +294,9 @@ func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
 		m.note = v.Inventory.Warnings[0]
 	}
 	if m.opts.Auto {
-		for _, a := range activeAgents(&v.Inventory) {
-			cmds = append(cmds, m.add(&a)...)
+		agents := activeAgents(&v.Inventory)
+		for i := range agents {
+			cmds = append(cmds, m.add(&agents[i])...)
 		}
 	}
 	return cmds

@@ -190,6 +190,14 @@ func (c *RuntimeConnection) InstallCredential(ctx context.Context, member string
 	return c.call(ctx, &userRequest{Action: "install", Member: member}, nil)
 }
 
+// SetupWorkflow is an explicit privileged user action, never a member MCP tool.
+func (c *RuntimeConnection) SetupWorkflow(ctx context.Context, member string) error {
+	if c.owner != nil {
+		return c.owner.SetupWorkflow(ctx, member)
+	}
+	return c.call(ctx, &userRequest{Action: "setup_workflow", Member: member}, nil)
+}
+
 func (c *RuntimeConnection) RevokeCredential(ctx context.Context, member string) error {
 	if c.owner != nil {
 		return c.owner.RevokeCredential(ctx, member)
@@ -265,6 +273,8 @@ func (r *Runtime) userAction(ctx context.Context, input *userRequest) (any, erro
 		return r.ReadUserSince(ctx, input.Since, input.Limit)
 	case "install":
 		return nil, r.InstallCredential(ctx, input.Member)
+	case "setup_workflow":
+		return nil, r.SetupWorkflow(ctx, input.Member)
 	case "revoke":
 		return nil, r.RevokeCredential(ctx, input.Member)
 	case "post":

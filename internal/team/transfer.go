@@ -106,7 +106,9 @@ func bindPortable(t *Team, path string) error {
 
 func FromDeck(d *config.Deck, name string) Team {
 	t := Team{Version: 1, Name: name, Server: d.Server, Base: "main", Capacity: max(1, len(d.Agents())-1)}
-	for _, a := range d.Agents() {
+	agents := d.Agents()
+	for i := range agents {
+		a := &agents[i]
 		role := "worker"
 		if a.Role == "lead" || a.Role == "master" {
 			role = "master"
@@ -148,6 +150,7 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 			m.Session, m.Dir, m.Branch, m.Owned = "", "", "", false
 			m.LeasePolicy = ""
 			m.ID = ""
+			m.ControlDir, m.PreviousSession, m.PreviousDir = "", "", ""
 			m.NudgeStatus = NudgeState{}
 			if m.Mode == "adopt" {
 				m.Mode = "shared"

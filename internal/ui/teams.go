@@ -113,10 +113,10 @@ func pollMember(ctx context.Context, server string, member *team.Member, summary
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	client := api.New(server, true)
-	statuses, err := client.Status(ctx, member.Dir)
-	permissions, _ := client.Permissions(ctx, member.Dir)
-	questions, _ := client.Questions(ctx, member.Dir)
-	sessions, _ := client.Sessions(ctx, member.Dir)
+	statuses, err := client.Status(ctx, member.SessionDir())
+	permissions, _ := client.Permissions(ctx, member.SessionDir())
+	questions, _ := client.Questions(ctx, member.SessionDir())
+	sessions, _ := client.Sessions(ctx, member.SessionDir())
 	for _, session := range sessions {
 		if session.ID == member.Session && session.Time.Updated > 0 {
 			updated := time.UnixMilli(session.Time.Updated)
@@ -205,6 +205,7 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 	// Own a detached manager copy while the command performs network/filesystem IO.
 	manager := *u.Manager
 	manager.Team.Members = append([]team.Member(nil), manager.Team.Members...)
+	runtime := m.channel.Runtime
 	return func() tea.Msg {
 		var e error
 		switch operation {
@@ -219,10 +220,19 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 		case "leases":
 			e = manager.ApplyLeases(m.context(), index)
 		case "channel-credentials":
-			if runtime, ok := m.channel.Runtime.(channelCredentials); ok {
-				e = runtime.InstallCredential(m.context(), manager.Team.Members[index].Name)
+			if credentials, ok := runtime.(channelCredentials); ok {
+				e = credentials.InstallCredential(m.context(), manager.Team.Members[index].Name)
 			} else {
 				e = fmt.Errorf("channel runtime unavailable")
+			}
+		case "workflow-identity":
+			if workflow, ok := runtime.(workflowSetup); ok {
+				e = workflow.SetupWorkflow(m.context(), manager.Team.Members[index].Name)
+				if e == nil {
+					manager.Team, manager.Version, e = manager.Store.Load(m.context(), manager.Team.Name)
+				}
+			} else {
+				e = fmt.Errorf("workflow runtime unavailable")
 			}
 		}
 		return teamOperationMsg{&manager, e}
@@ -273,6 +283,9 @@ func (m *Model) teamConfirmation() string {
 	}
 	if text == "channel-credentials" {
 		text = "Install private team MCP config for this isolated worktree? Shared/adopt members are refused."
+	}
+	if text == "workflow-identity" {
+		text = "Create a private control session for this member? Old session/transcript stays; code checkout is shared."
 	}
 	out := fit(
 		text,
@@ -341,7 +354,10 @@ func (m *Model) membersView() string {
 			m.w,
 		),
 	)
-	b.WriteString("\n" + m.buttonRow([]button{{"Team tools", "member-channel", m.opts.ReadOnly}}, 0, y+2, m.w, -1))
+	b.WriteString("\n" + m.buttonRow([]button{
+		{"Team tools", "member-channel", m.opts.ReadOnly},
+		{"Workflow identity", "member-workflow", m.opts.ReadOnly},
+	}, 0, y+2, m.w, -1))
 	return b.String()
 }
 
@@ -439,6 +455,10 @@ func (m *Model) teamSelection(action string) bool {
 
 func (m *Model) teamNavigation(action string) (bool, tea.Cmd) {
 	u := m.teams
+	if action == "member-workflow" && !m.opts.ReadOnly {
+		u.Confirm = "workflow-identity"
+		return true, nil
+	}
 	if action == "member-channel" && !m.opts.ReadOnly {
 		u.Confirm = "channel-credentials"
 		return true, nil
@@ -649,7 +669,7 @@ func (m *Model) confirmTeam() tea.Cmd {
 	switch confirm {
 	case "remove":
 		return m.teamOperation("remove", u.MemberIndex, u.Force)
-	case "start", "master", "leases", "channel-credentials":
+	case "start", "master", "leases", "channel-credentials", "workflow-identity":
 		return m.teamOperation(confirm, u.MemberIndex, false)
 	default:
 		return nil

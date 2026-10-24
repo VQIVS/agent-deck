@@ -145,7 +145,7 @@ func permissionReply(command string, always bool) string {
 
 func teamLast(ctx context.Context, manager *team.Manager, index int, opts *teamFlags, out io.Writer) error {
 	member := &manager.Team.Members[index]
-	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.Dir, member.Session)
+	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.SessionDir(), member.Session)
 	if err != nil {
 		return fmt.Errorf("read member report: %w", err)
 	}

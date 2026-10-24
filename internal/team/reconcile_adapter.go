@@ -174,7 +174,7 @@ func retireLifecycle(ctx context.Context, manager *Manager, request *ReconcileRe
 	}
 	result := ReconcileResult{Worker: member.Name, Session: member.Session}
 	client := api.New(manager.Team.Server, false)
-	if err := client.Abort(ctx, member.Dir, member.Session); err != nil {
+	if err := client.Abort(ctx, member.SessionDir(), member.Session); err != nil {
 		return result, fmt.Errorf("abort idle pool worker: %w", err)
 	}
 	manager.Team.Members = append(manager.Team.Members[:index], manager.Team.Members[index+1:]...)

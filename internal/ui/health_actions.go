@@ -78,7 +78,7 @@ func (m *Model) healthTick() []tea.Cmd {
 		member := &manager.Team.Members[i]
 		for j := range m.panes {
 			p := &m.panes[j]
-			if p.Agent.Session != member.Session || p.Agent.Dir != member.Dir {
+			if p.Agent.Session != member.Session || p.Agent.Dir != member.SessionDir() {
 				continue
 			}
 			if member.StallAfter != nil {

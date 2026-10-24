@@ -37,11 +37,11 @@ func teamSend(ctx context.Context, manager *team.Manager, index int, opts *teamF
 		return err
 	}
 	member := &manager.Team.Members[index]
-	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.Dir, member.Session)
+	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.SessionDir(), member.Session)
 	if err != nil {
 		return fmt.Errorf("read pre-send baseline: %w", err)
 	}
-	receipt := sendReceipt{Server: manager.Team.Server, Session: member.Session, Directory: member.Dir}
+	receipt := sendReceipt{Server: manager.Team.Server, Session: member.Session, Directory: member.SessionDir()}
 	if latest := team.LatestAssistant(messages); latest != nil {
 		receipt.AssistantID = latest.Info.ID
 	}
@@ -102,7 +102,8 @@ func loadReceipt(manager *team.Manager, index int) (*sendReceipt, error) {
 		return nil, fmt.Errorf("decode send receipt: %w", err)
 	}
 	member := &manager.Team.Members[index]
-	if receipt.Server != manager.Team.Server || receipt.Session != member.Session || receipt.Directory != member.Dir {
+	if receipt.Server != manager.Team.Server || receipt.Session != member.Session ||
+		receipt.Directory != member.SessionDir() {
 		return nil, nil
 	}
 	return &receipt, nil
@@ -163,7 +164,7 @@ func waitPoll(ctx context.Context, opts *teamFlags) error {
 
 func completedSince(ctx context.Context, manager *team.Manager, index int, receipt *sendReceipt) bool {
 	member := &manager.Team.Members[index]
-	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.Dir, member.Session)
+	messages, err := api.New(manager.Team.Server, true).Messages(ctx, member.SessionDir(), member.Session)
 	if err != nil {
 		return false
 	}

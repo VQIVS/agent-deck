@@ -46,19 +46,20 @@ func (m *Manager) Requests(ctx context.Context) ([]PendingRequest, error) {
 	dirs := map[string]bool{}
 	for i := range m.Team.Members {
 		member := &m.Team.Members[i]
-		if member.Session == "" || dirs[member.Dir] {
+		dir := member.SessionDir()
+		if member.Session == "" || dirs[dir] {
 			continue
 		}
-		dirs[member.Dir] = true
-		permissions, err := client.Permissions(ctx, member.Dir)
+		dirs[dir] = true
+		permissions, err := client.Permissions(ctx, dir)
 		if err != nil {
 			return nil, fmt.Errorf("permissions in %q: %w", member.Dir, err)
 		}
-		questions, err := client.Questions(ctx, member.Dir)
+		questions, err := client.Questions(ctx, dir)
 		if err != nil {
 			return nil, fmt.Errorf("questions in %q: %w", member.Dir, err)
 		}
-		out = append(out, m.matchRequests(member.Dir, permissions, questions)...)
+		out = append(out, m.matchRequests(dir, permissions, questions)...)
 	}
 	return out, nil
 }
@@ -67,7 +68,7 @@ func (m *Manager) matchRequests(dir string, permissions []api.Permission, questi
 	var out []PendingRequest
 	for i := range m.Team.Members {
 		member := &m.Team.Members[i]
-		if member.Dir != dir || member.Session == "" {
+		if member.SessionDir() != dir || member.Session == "" {
 			continue
 		}
 		for j := range permissions {
@@ -90,7 +91,7 @@ func (m *Manager) Observe(ctx context.Context, index int) MemberStatus {
 	member := &m.Team.Members[index]
 	out := MemberStatus{
 		Name: member.Name, Role: member.Role, Session: member.Session,
-		Directory: member.Dir, State: "offline",
+		Directory: member.SessionDir(), State: "offline",
 	}
 	if member.Session == "" {
 		return out
@@ -103,11 +104,11 @@ func (m *Manager) Observe(ctx context.Context, index int) MemberStatus {
 
 func (m *Manager) observe(ctx context.Context, member *Member, out *MemberStatus) error {
 	client := api.New(m.Team.Server, true)
-	statuses, err := client.Status(ctx, member.Dir)
+	statuses, err := client.Status(ctx, member.SessionDir())
 	if err != nil {
 		return fmt.Errorf("read member status: %w", err)
 	}
-	sessions, err := client.Sessions(ctx, member.Dir)
+	sessions, err := client.Sessions(ctx, member.SessionDir())
 	if err != nil {
 		return fmt.Errorf("read member session: %w", err)
 	}
@@ -120,11 +121,11 @@ func (m *Manager) observe(ctx context.Context, member *Member, out *MemberStatus
 	if !found {
 		return fmt.Errorf("session %q is missing", member.Session)
 	}
-	permissions, err := client.Permissions(ctx, member.Dir)
+	permissions, err := client.Permissions(ctx, member.SessionDir())
 	if err != nil {
 		return fmt.Errorf("read member permissions: %w", err)
 	}
-	questions, err := client.Questions(ctx, member.Dir)
+	questions, err := client.Questions(ctx, member.SessionDir())
 	if err != nil {
 		return fmt.Errorf("read member questions: %w", err)
 	}
@@ -136,7 +137,7 @@ func (m *Manager) observe(ctx context.Context, member *Member, out *MemberStatus
 	if out.Pending > 0 {
 		out.State = "waiting"
 	}
-	messages, err := client.Messages(ctx, member.Dir, member.Session)
+	messages, err := client.Messages(ctx, member.SessionDir(), member.Session)
 	if err != nil {
 		return fmt.Errorf("read member messages: %w", err)
 	}

@@ -40,7 +40,7 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 		return fmt.Errorf("find credential member: %w", err)
 	}
 	m := &manager.Team.Members[index]
-	if err := isolatedMember(ctx, manager, m); err != nil {
+	if err := r.credentialDirectory(ctx, manager, m); err != nil {
 		return err
 	}
 	if old, exists := r.credentials[name]; exists {
@@ -56,8 +56,9 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 		return err
 	}
 	credential := runtimeCredential{
-		identity: identity, dir: m.Dir, session: m.Session, role: m.Role,
-		config: filepath.Join(m.Dir, "opencode.json"), entry: "agent_deck_" + team.Slug(manager.Team.Name), token: token,
+		identity: identity, dir: m.SessionDir(), session: m.Session, role: m.Role,
+		config: filepath.Join(m.SessionDir(), "opencode.json"),
+		entry:  "agent_deck_" + team.Slug(manager.Team.Name), token: token,
 	}
 	credential.lockPath = runtimeStatePath(r.options.StateDir, credential.config, "config.lock")
 	if err := installRuntimeConfig(&credential, r.URL); err != nil {
@@ -168,7 +169,7 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 		index, err := manager.MemberIndex(name)
 		if err == nil {
 			member := &manager.Team.Members[index]
-			if member.Mode == "worktree" && member.Dir == credential.dir &&
+			if (member.Mode == "worktree" || member.ControlDir != "") && member.SessionDir() == credential.dir &&
 				member.Session == credential.session && member.Role == credential.role && !manager.ReadOnly {
 				continue
 			}

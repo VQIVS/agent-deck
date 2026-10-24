@@ -86,7 +86,8 @@ func grouped(in []config.Agent) []config.Agent {
 	var out []config.Agent
 	seen := map[string]bool{}
 	present := map[string]bool{}
-	for _, a := range in {
+	for i := range in {
+		a := &in[i]
 		present[a.Session] = true
 	}
 	var walk func(config.Agent)
@@ -96,19 +97,21 @@ func grouped(in []config.Agent) []config.Agent {
 		}
 		seen[a.Session] = true
 		out = append(out, a)
-		for _, b := range in {
+		for i := range in {
+			b := &in[i]
 			if b.Parent == a.Session {
-				walk(b)
+				walk(*b)
 			}
 		}
 	}
-	for _, a := range in {
+	for i := range in {
+		a := &in[i]
 		if a.Parent == "" || !present[a.Parent] {
-			walk(a)
+			walk(*a)
 		}
 	}
-	for _, a := range in {
-		walk(a)
+	for i := range in {
+		walk(in[i])
 	}
 	return out
 }
@@ -147,7 +150,8 @@ func (m *Model) page(h int) (visible []int, rectangles []Rect, pageIndex, pageCo
 	order := grouped(agents)
 	sort.SliceStable(order, func(i, j int) bool { return order[i].Role != "" && order[j].Role == "" })
 	var indices []int
-	for _, a := range order {
+	for j := range order {
+		a := &order[j]
 		for i := range m.panes {
 			p := &m.panes[i]
 			if a.Session == p.Agent.Session && a.Dir == p.Agent.Dir {
@@ -250,7 +254,8 @@ func (m *Model) cycle(delta int) {
 		return
 	}
 	pos := 0
-	for i, a := range ordered {
+	for i := range ordered {
+		a := &ordered[i]
 		if a.Session == m.panes[m.focus].Agent.Session {
 			pos = i
 		}

@@ -17,6 +17,9 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	ControlDir           string            `yaml:"control_dir,omitempty"`
+	PreviousSession      string            `yaml:"previous_session,omitempty"`
+	PreviousDir          string            `yaml:"previous_dir,omitempty"`
 	PoolCreated          bool              `yaml:"pool_created,omitempty"`
 	ID                   string            `yaml:"id,omitempty"`
 	Muted                bool              `yaml:"muted,omitempty"`
@@ -134,11 +137,8 @@ func validServer(u *url.URL) bool {
 }
 
 func (m *Member) validate() error {
-	if err := m.Nudge.Validate(); err != nil {
+	if err := m.validateSessionScope(); err != nil {
 		return err
-	}
-	if m.StallAfter != nil && *m.StallAfter < 0 {
-		return fmt.Errorf("stall threshold must not be negative")
 	}
 	switch m.Capability {
 	case "", "inherited", "reviewer", "coder", "full":
@@ -210,7 +210,10 @@ func (t *Team) Deck() config.Deck {
 		if m.Session == "" {
 			continue
 		}
-		a := config.Agent{Name: m.Name, Session: m.Session, Dir: m.Dir, Branch: m.Branch, Base: t.Base}
+		a := config.Agent{
+			Name: m.Name, Session: m.Session, Dir: m.SessionDir(), CodeDir: m.Dir,
+			Branch: m.Branch, Base: t.Base,
+		}
 		if m.Role == "master" {
 			a.Role = "lead"
 		}

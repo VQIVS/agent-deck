@@ -22,6 +22,10 @@ type channelCredentials interface {
 	RevokeCredential(context.Context, string) error
 }
 
+type workflowSetup interface {
+	SetupWorkflow(context.Context, string) error
+}
+
 type incrementalChannel interface {
 	ReadUserSince(context.Context, string, int) ([]channel.Record, error)
 }

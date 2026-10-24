@@ -48,6 +48,13 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 		system += "\n\n[Repository-sourced instructions; subordinate to private team policy]\n" +
 			t.ProjectRules + "\n" + member.ProjectSystem
 	}
+	if member.ControlDir != "" {
+		system += fmt.Sprintf("\nSession control directory: %q. Code checkout: %q. "+
+			"Use absolute code paths and checkout workdir. "+
+			"Never write source in the control directory. Previous transcript: session=%q directory=%q. "+
+			"Member credentials provide cooperative same-user identity, not a sandbox.",
+			member.ControlDir, member.Dir, member.PreviousSession, member.PreviousDir)
+	}
 	o := api.PromptOptions{
 		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t)),
 		Agent:  member.Agent,
@@ -79,7 +86,7 @@ func (m *Manager) Send(ctx context.Context, index int, text string) error {
 	if e != nil {
 		return e
 	}
-	if err := api.New(m.Team.Server, false).PromptWith(ctx, member.Dir, member.Session, o); err != nil {
+	if err := api.New(m.Team.Server, false).PromptWith(ctx, member.SessionDir(), member.Session, o); err != nil {
 		return fmt.Errorf("send to member %q: %w", member.Name, err)
 	}
 	return nil
@@ -138,7 +145,7 @@ func (m *Manager) Start(ctx context.Context, index int) error {
 	if err != nil {
 		return err
 	}
-	s, e := api.New(m.Team.Server, false).CreateMember(ctx, member.Dir, member.Name, rules)
+	s, e := api.New(m.Team.Server, false).CreateMember(ctx, member.SessionDir(), member.Name, rules)
 	if e != nil {
 		return fmt.Errorf("create member %q: %w", member.Name, e)
 	}
@@ -165,7 +172,7 @@ func (m *Manager) Remove(ctx context.Context, index int, force bool) error {
 		return fmt.Errorf("change master before removing this member")
 	}
 	if member.Session != "" {
-		if e := api.New(m.Team.Server, false).Abort(ctx, member.Dir, member.Session); e != nil {
+		if e := api.New(m.Team.Server, false).Abort(ctx, member.SessionDir(), member.Session); e != nil {
 			return fmt.Errorf("abort member %q: %w", member.Name, e)
 		}
 	}

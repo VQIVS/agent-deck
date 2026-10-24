@@ -18,6 +18,29 @@ persists version 2 with an exact-byte history backup. Legacy unstructured done/f
 outcomes become blocked for explicit verification rather than fabricated accepted reviews.
 The workflow model is the foundation; task MCP/CLI and Kanban integration follow separately.
 
+## Shared-checkout workflow identity (v0.2)
+
+Shared members can use distinct authenticated team tools through private per-member
+control directories. **Team → Workflow identity** is an explicit confirmed setup action:
+the member must be idle (or unstarted) and have an explicit permission preset. It creates
+a new OpenCode session, retaining the previous session and directory as transcript references;
+it does not transfer the old model context or modify the code checkout. Existing worktree
+members continue to use **Team tools**.
+
+`dir` remains the code/Git checkout; `control_dir` is the session/config/API directory.
+All status, messages, permissions and prompts use the session directory. Native edit leases
+are rebased for the control session's non-Git root, while external access is limited to the
+shared checkout and private-root denies remain last. Prompts identify the checkout and
+require absolute code paths/workdir. Credential setup/rotation is private to the control
+directory; no token is written to the shared repo or portable export.
+
+OpenCode's inspected API has directory-scoped MCP configuration, not a per-session MCP
+override. Separate temporary control configs were verified to send distinct bearer headers;
+a throwaway control session also edited an allowed shared-repo file with rebased edit rules.
+This provides attributable cooperative identity. Same-user unrestricted bash can still read
+other credentials or bypass guards; it is not sandbox isolation. Setup is never implicit
+for adopted sessions, and read-only blocks setup.
+
 ## Quick worker setup
 
 Choose **+ Worker** to open a short form: name, model, brief, workspace, directory and

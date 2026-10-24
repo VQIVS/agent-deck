@@ -59,7 +59,7 @@ func (m *Manager) ApplyLeases(ctx context.Context, index int) error {
 		return err
 	}
 	client := api.New(m.Team.Server, false)
-	if err := client.ApplyPermissions(ctx, member.Dir, member.Session, rules); err != nil {
+	if err := client.ApplyPermissions(ctx, member.SessionDir(), member.Session, rules); err != nil {
 		return fmt.Errorf("apply lease reset: %w", err)
 	}
 	previousPolicy := member.LeasePolicy
@@ -72,7 +72,7 @@ func (m *Manager) ApplyLeases(ctx context.Context, index int) error {
 }
 
 func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule, error) {
-	if !m.Team.LeasePool && !HasLeases(m.Team.Members) {
+	if member.ControlDir == "" && !m.Team.LeasePool && !HasLeases(m.Team.Members) {
 		return baseLeaseRules(member), nil
 	}
 	root, err := git(ctx, member.Dir, "rev-parse", "--show-toplevel")
@@ -91,7 +91,17 @@ func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule
 	if root != want {
 		return nil, fmt.Errorf("lease repository must be Git worktree root %q, got %q", root, want)
 	}
-	return LeaseRules(root, m.Team.Members, member)
+	rules, err := LeaseRules(root, m.Team.Members, member)
+	if err != nil {
+		return nil, err
+	}
+	if member.ControlDir != "" {
+		rules, err = api.ControlSessionRules(root, rules)
+		if err != nil {
+			return nil, fmt.Errorf("rebase control session policy: %w", err)
+		}
+	}
+	return rules, nil
 }
 
 func (t *Team) LeaseFingerprint(member *Member) string {

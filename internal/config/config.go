@@ -15,6 +15,7 @@ import (
 
 // Agent binds a named dashboard pane to a session and its directory.
 type Agent struct {
+	CodeDir string `yaml:"code_dir,omitempty" json:"code_dir,omitempty"`
 	Name    string `yaml:"name"             json:"name"`
 	Session string `yaml:"session"          json:"session"`
 	Dir     string `yaml:"dir"              json:"dir"`
@@ -69,7 +70,8 @@ func Parse(data []byte) (Deck, error) {
 
 func validateAgents(agents []Agent) error {
 	seen := map[string]bool{}
-	for _, a := range agents {
+	for i := range agents {
+		a := &agents[i]
 		if a.Name == "" || a.Session == "" || !filepath.IsAbs(a.Dir) {
 			return fmt.Errorf("each agent needs a name, session ID, and absolute dir")
 		}

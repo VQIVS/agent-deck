@@ -23,8 +23,9 @@ func printSnapshot(ctx context.Context, deck *config.Deck, discover bool) error 
 		fmt.Printf("Discovered %d sessions across %d directories; %d active\n",
 			len(inventory.Sessions), len(inventory.Dirs), len(deck.Sessions))
 	}
-	for _, agent := range deck.Agents() {
-		if err := printAgent(ctx, client, &agent); err != nil {
+	agents := deck.Agents()
+	for i := range agents {
+		if err := printAgent(ctx, client, &agents[i]); err != nil {
 			return err
 		}
 	}

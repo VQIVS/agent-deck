@@ -30,7 +30,7 @@ func (m *Model) teamOverviewRows(t *team.Team) []TeamOverviewRow {
 		member := &t.Members[i]
 		row := TeamOverviewRow{
 			Index: i, Role: member.Role, Status: "NOT STARTED",
-			Identity: InboxIdentity{Agent: member.Name, Directory: member.Dir, Session: member.Session},
+			Identity: InboxIdentity{Agent: member.Name, Directory: member.SessionDir(), Session: member.Session},
 			Leases:   append([]string(nil), member.Leases...),
 			Policy:   member.PermissionSummary(),
 		}
@@ -39,7 +39,7 @@ func (m *Model) teamOverviewRows(t *team.Team) []TeamOverviewRow {
 		}
 		for j := range m.panes {
 			p := &m.panes[j]
-			if t.Server == m.deck.Server && p.Agent.Session == member.Session && p.Agent.Dir == member.Dir &&
+			if t.Server == m.deck.Server && p.Agent.Session == member.Session && p.Agent.Dir == member.SessionDir() &&
 				member.Session != "" {
 				row.Status = p.State.DisplayStatus()
 				row.Permissions, row.Questions = len(p.State.Permissions), len(p.State.Questions)

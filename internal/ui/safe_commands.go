@@ -91,7 +91,7 @@ func logAutoApproval(dir, session, command string) error {
 func configuredMember(t *team.Team, dir, session string) bool {
 	for i := range t.Members {
 		member := &t.Members[i]
-		if member.Session == session && member.Dir == dir {
+		if member.Session == session && member.SessionDir() == dir {
 			return true
 		}
 	}
@@ -125,9 +125,17 @@ func (m *Model) permissionCommand(index int, callID string) string {
 
 func memberCanEdit(t *team.Team, dir, session string) bool {
 	verified := false
+	codeDir := ""
 	for i := range t.Members {
 		member := &t.Members[i]
-		if member.Dir != dir {
+		if member.SessionDir() == dir && member.Session == session {
+			codeDir = member.Dir
+			break
+		}
+	}
+	for i := range t.Members {
+		member := &t.Members[i]
+		if member.Dir != codeDir {
 			continue
 		}
 		if member.ProjectEditUntrusted || member.Capability == "inherited" || member.Permissions["edit"] != "deny" {

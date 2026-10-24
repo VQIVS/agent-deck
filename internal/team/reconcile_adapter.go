@@ -9,7 +9,7 @@ import (
 	"slices"
 	"time"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 // LifecycleTransport adapts Manager lifecycle calls under the BoardStore exclusive lock.

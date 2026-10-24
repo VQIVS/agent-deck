@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/gitinfo"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
 )
 
 func git(ctx context.Context, dir string, args ...string) (string, error) {

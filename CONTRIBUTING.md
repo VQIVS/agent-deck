@@ -3,7 +3,7 @@
 Install Go (the version in `go.mod`), golangci-lint v2 (2.12.2), and Lefthook (1.13.6).
 
 ```sh
-git clone https://github.com/qivs/agent-deck.git
+git clone https://github.com/vqivs/agent-deck.git
 cd agent-deck
 make setup-hooks
 make check
@@ -55,6 +55,6 @@ GoReleaser v2 builds macOS/Linux amd64/arm64 archives and checksums. Validate lo
 `goreleaser check` and `goreleaser release --snapshot --clean --skip=publish`.
 Local builds do not publish. A maintainer can explicitly run `goreleaser release --clean`
 with a GitHub token after pushing an approved tag. This creates the GitHub release and
-updates the formula in `qivs/homebrew-tap`; the token needs access to that tap. No package
+updates the formula in `vqivs/homebrew-tap`; the token needs access to that tap. No package
 registry publishing or automatic release workflow is configured. Verify that the tap
 exists and its permissions are correct before the first release.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // ReportCard renders provenance explicitly; currentBinding must come from Record.CurrentBinding.

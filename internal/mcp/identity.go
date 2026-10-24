@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 func memberID(member *Member) string {

@@ -12,7 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/qivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/config"
 )
 
 // Member binds a team role to workspace, session, and creation-time policy.

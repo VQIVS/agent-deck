@@ -74,9 +74,9 @@ formatters:
   enable: [gofumpt, gci]
   settings:
     gofumpt:
-      module-path: github.com/qivs/agent-deck
+      module-path: github.com/vqivs/agent-deck
     gci:
-      sections: [standard, default, prefix(github.com/qivs/agent-deck)]
+      sections: [standard, default, prefix(github.com/vqivs/agent-deck)]
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // ReportOptions supplies trusted current policy and a durable notification enqueue callback.

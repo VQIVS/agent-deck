@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/channel"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // ManagerProvider returns an independent, immutable snapshot on every call.

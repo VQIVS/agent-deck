@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestServerPrecedence(t *testing.T) {

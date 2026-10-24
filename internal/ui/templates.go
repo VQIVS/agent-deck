@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func (m *Model) roleTemplateNames() []string {

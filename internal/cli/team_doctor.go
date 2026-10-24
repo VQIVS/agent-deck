@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // projectTeamChecks performs local read-only checks, returning findings compatible with doctor.

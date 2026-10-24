@@ -8,7 +8,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // SchedulerSnapshot binds policy and master authorization to a revisioned team snapshot.

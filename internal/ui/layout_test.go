@@ -9,8 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/qivs/agent-deck/internal/config"
-	api "github.com/qivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/config"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func TestGrid(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 // TeamChannel is the privileged user path supplied by the team's runtime owner.

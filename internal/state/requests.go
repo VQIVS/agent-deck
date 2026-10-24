@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func (s *State) Waiting() bool { return len(s.Permissions)+len(s.Questions) > 0 }

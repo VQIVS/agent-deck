@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 func (r *Runtime) Endpoint() string {

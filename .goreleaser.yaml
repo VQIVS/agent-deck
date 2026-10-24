@@ -15,9 +15,9 @@ checksum:
 brews:
   - name: agent-deck
     repository:
-      owner: qivs
+      owner: VQIVS
       name: homebrew-tap
-    homepage: https://github.com/qivs/agent-deck
+    homepage: https://github.com/vqivs/agent-deck
     description: Terminal dashboard for local OpenCode sessions and teams
     license: MIT
     dependencies:
@@ -29,7 +29,7 @@ brews:
       system "#{bin}/agent-deck", "--version"
 release:
   github:
-    owner: qivs
+    owner: VQIVS
     name: agent-deck
 changelog:
   use: git

@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func TestToolCardGoldens(t *testing.T) {

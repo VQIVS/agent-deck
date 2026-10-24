@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/qivs/agent-deck/internal/config"
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/state"
+	"github.com/vqivs/agent-deck/internal/config"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/state"
 )
 
 type inventoryMsg struct {

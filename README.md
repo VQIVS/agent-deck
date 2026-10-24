@@ -60,18 +60,18 @@ opencode auth login
 opencode auth list && opencode models
 ```
 
-Once published, the Homebrew formula `brew install qivs/tap/agent-deck` installs
+Once published, the Homebrew formula `brew install vqivs/tap/agent-deck` installs
 OpenCode and Git dependencies. See the [installation guide](docs/install.md) for
 official OpenCode alternatives, release verification, setup and troubleshooting.
 
 With the Go version listed in [`go.mod`](go.mod):
 
 ```sh
-go install github.com/qivs/agent-deck@latest
+go install github.com/vqivs/agent-deck@latest
 ```
 
 Release archives for macOS and Linux (amd64/arm64) are distributed through
-[GitHub Releases](https://github.com/qivs/agent-deck/releases). Once a release is available,
+[GitHub Releases](https://github.com/vqivs/agent-deck/releases). Once a release is available,
 download the matching archive, verify it against `checksums.txt`, extract it, and put
 `agent-deck` on your `PATH`. No release is implied by an unreleased changelog entry.
 

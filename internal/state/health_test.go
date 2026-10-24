@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func TestStallIgnoresPollsAndRepeatedParts(t *testing.T) {

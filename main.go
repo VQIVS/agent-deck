@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/qivs/agent-deck/internal/cli"
+	"github.com/vqivs/agent-deck/internal/cli"
 )
 
 var (

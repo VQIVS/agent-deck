@@ -7,7 +7,7 @@ use the latest `main` revision.
 
 ## Reporting a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/qivs/agent-deck/security/advisories/new).
+Use [GitHub private vulnerability reporting](https://github.com/vqivs/agent-deck/security/advisories/new).
 If unavailable, contact **amirmahdiqiasvand@gmail.com** with the subject `agent-deck security`.
 Include affected versions, reproduction steps, impact, and any suggested fix.
 Do not include credentials, private transcripts, or sensitive repository contents.

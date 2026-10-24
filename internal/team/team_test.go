@@ -16,7 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/qivs/agent-deck/internal/gitinfo"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
 )
 
 func example() Team {

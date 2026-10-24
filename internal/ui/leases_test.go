@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestLeaseFormAndApplyConfirmation(t *testing.T) {

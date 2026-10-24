@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 func TestAcknowledgmentAndRateSurviveServiceRestart(t *testing.T) {

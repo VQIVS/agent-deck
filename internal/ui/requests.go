@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 type requestsMsg struct {

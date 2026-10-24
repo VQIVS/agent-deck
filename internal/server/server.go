@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/opencode"
 )
 
 // Record identifies the supervisor that owns a loopback OpenCode server.

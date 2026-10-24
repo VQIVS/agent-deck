@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/qivs/agent-deck/internal/mcp"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/mcp"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 type channelStarted struct {

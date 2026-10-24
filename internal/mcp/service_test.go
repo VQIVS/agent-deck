@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 func newTestService(t *testing.T, configure func(*Options)) *Service {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 // Manager coordinates a team's local persistence and explicit live-session operations.

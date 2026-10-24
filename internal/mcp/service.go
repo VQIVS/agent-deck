@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 // Member is the current public roster and posting policy for one member.

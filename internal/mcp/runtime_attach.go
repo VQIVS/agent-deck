@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 // RuntimeConnection is a local owner or authenticated attachment. Closing an attachment leaves its owner running.

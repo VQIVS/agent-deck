@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/gitinfo"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 type initFlags struct {

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/server"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/server"
 )
 
 // LeaseRules builds ordered session rules; the repository must be the Git worktree root.

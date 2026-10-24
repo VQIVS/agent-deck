@@ -48,7 +48,7 @@ providers, configure their endpoint and credentials in OpenCode, not agent-deck.
 After the first formula is published to the tap:
 
 ```sh
-brew install qivs/tap/agent-deck
+brew install vqivs/tap/agent-deck
 ```
 
 The formula declares `opencode` and `git` dependencies. The tap configuration in this
@@ -57,7 +57,7 @@ repository does not itself imply that a release has already been published.
 ### Release binary
 
 Download a matching macOS/Linux amd64/arm64 archive and `checksums.txt` from
-[Releases](https://github.com/qivs/agent-deck/releases). Verify before extracting:
+[Releases](https://github.com/vqivs/agent-deck/releases). Verify before extracting:
 
 ```sh
 sha256sum --check --ignore-missing checksums.txt
@@ -72,7 +72,7 @@ before extracting. A checksum mismatch must stop installation.
 ### Go install
 
 ```sh
-go install github.com/qivs/agent-deck@latest
+go install github.com/vqivs/agent-deck@latest
 ```
 
 Include `$(go env GOPATH)/bin` on `PATH` (or your `GOBIN`).
@@ -80,7 +80,7 @@ Include `$(go env GOPATH)/bin` on `PATH` (or your `GOBIN`).
 ### From source
 
 ```sh
-git clone https://github.com/qivs/agent-deck.git
+git clone https://github.com/vqivs/agent-deck.git
 cd agent-deck
 make install
 ```

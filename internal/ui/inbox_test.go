@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/state"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/state"
 )
 
 func TestInboxProjectionIdentityAndRefresh(t *testing.T) {

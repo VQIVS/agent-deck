@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 func TestImplicitReplyCannotResetHops(t *testing.T) {

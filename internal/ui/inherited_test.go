@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/config"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestAdoptedFormPreservesInheritedAndExplicitPreset(t *testing.T) {

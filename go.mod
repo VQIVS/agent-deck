@@ -1,4 +1,4 @@
-module github.com/qivs/agent-deck
+module github.com/vqivs/agent-deck
 
 go 1.26.4
 

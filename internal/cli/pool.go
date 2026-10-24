@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/qivs/agent-deck/internal/server"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/server"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func openTeamPool(ctx context.Context, manager *team.Manager) (*team.PoolRuntime, error) {

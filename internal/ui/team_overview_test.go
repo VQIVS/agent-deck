@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/team"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestTeamOverviewRows(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/qivs/agent-deck/internal/server"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/server"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 type (

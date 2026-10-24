@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/gitinfo"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func initTestRepo(t *testing.T) string {

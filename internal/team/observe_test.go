@@ -3,7 +3,7 @@ package team
 import (
 	"testing"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func TestContextAssistantFallsBackWhileBusy(t *testing.T) {

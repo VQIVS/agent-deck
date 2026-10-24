@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/state"
+	"github.com/vqivs/agent-deck/internal/state"
 )
 
 // InboxIdentity binds entries to a member and its exact session scope.

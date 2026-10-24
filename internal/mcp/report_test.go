@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/channel"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func reportAdapterFixture(t *testing.T) (*ReportOptions, json.RawMessage) {

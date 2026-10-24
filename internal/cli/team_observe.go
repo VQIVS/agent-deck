@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/team"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func teamStatus(ctx context.Context, manager *team.Manager, opts *teamFlags, out io.Writer) error {

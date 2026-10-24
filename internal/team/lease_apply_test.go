@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/gitinfo"
-	api "github.com/qivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func leasedManager(t *testing.T, server string) *Manager {

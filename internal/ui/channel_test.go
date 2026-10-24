@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 type fakeTeamChannel struct{ text string }

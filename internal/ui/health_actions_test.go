@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestCompactUsesSessionModelAndRefusesBusyOrWaiting(t *testing.T) {

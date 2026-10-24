@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/server"
+	"github.com/vqivs/agent-deck/internal/server"
 )
 
 func serverCommand(action string, args []string) error {

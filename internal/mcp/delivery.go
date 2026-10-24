@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/qivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/channel"
 )
 
 // Transport checks live state and submits prompts without aborting busy sessions.

@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/config"
-	"github.com/qivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func discover(args []string) error {

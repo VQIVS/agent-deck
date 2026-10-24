@@ -13,7 +13,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/qivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/config"
 )
 
 // ImportOptions supplies local bindings for a portable template. Import never

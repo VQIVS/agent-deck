@@ -18,12 +18,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/qivs/agent-deck/internal/config"
-	"github.com/qivs/agent-deck/internal/gitinfo"
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/state"
-	"github.com/qivs/agent-deck/internal/team"
-	"github.com/qivs/agent-deck/internal/transcript"
+	"github.com/vqivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/gitinfo"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/state"
+	"github.com/vqivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/transcript"
 )
 
 // Options selects dashboard behavior, local integrations, and color theme.

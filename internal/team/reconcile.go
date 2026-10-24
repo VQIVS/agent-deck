@@ -10,7 +10,7 @@ import (
 	"slices"
 	"sync"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 // ReconcileActor comes from authenticated integration, never caller-supplied role claims.

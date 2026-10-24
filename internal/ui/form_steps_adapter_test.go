@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/qivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/config"
 )
 
 func TestFormStepsAdapterInputAndButtonZones(t *testing.T) {

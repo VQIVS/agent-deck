@@ -11,9 +11,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/qivs/agent-deck/internal/config"
-	"github.com/qivs/agent-deck/internal/team"
-	"github.com/qivs/agent-deck/internal/ui"
+	"github.com/vqivs/agent-deck/internal/config"
+	"github.com/vqivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/ui"
 )
 
 type dirs []string

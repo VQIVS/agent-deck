@@ -12,9 +12,9 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/state"
-	"github.com/qivs/agent-deck/internal/team"
+	api "github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/state"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestScreenGoldens(t *testing.T) {

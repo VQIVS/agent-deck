@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func TestPaneChromeWrapAndPinnedGeometry(t *testing.T) {

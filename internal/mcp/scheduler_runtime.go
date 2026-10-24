@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 // PoolProvider reloads the current team's private store bindings without mutating sessions.

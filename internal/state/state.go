@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/qivs/agent-deck/internal/opencode"
+	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 const MaxParts = 160

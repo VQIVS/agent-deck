@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/qivs/agent-deck/internal/opencode"
-	"github.com/qivs/agent-deck/internal/team"
+	"github.com/vqivs/agent-deck/internal/opencode"
+	"github.com/vqivs/agent-deck/internal/team"
 )
 
 type diagnostics struct {

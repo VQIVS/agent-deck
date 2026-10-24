@@ -180,6 +180,7 @@ func mergeProjectMembers(roles []RolePolicy, bindings ProjectBindings) []Member 
 			index = len(out) - 1
 		}
 		member := &out[index]
+		member.ProjectEditUntrusted = member.Capability == "inherited" || member.Permissions["edit"] != "deny"
 		member.ProjectSystem = role.System
 		if member.Capability != "inherited" {
 			member.Permissions = stricterPermissions(member.Permissions, Preset(role.Capability))

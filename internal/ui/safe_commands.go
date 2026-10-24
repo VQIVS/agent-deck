@@ -117,7 +117,7 @@ func memberCanEdit(t *team.Team, dir, session string) bool {
 	for i := range t.Members {
 		member := &t.Members[i]
 		if member.Dir == dir && member.Session == session {
-			return member.Capability == "inherited" || member.Permissions["edit"] != "deny"
+			return member.ProjectEditUntrusted || member.Capability == "inherited" || member.Permissions["edit"] != "deny"
 		}
 	}
 	return true

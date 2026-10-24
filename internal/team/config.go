@@ -17,27 +17,28 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
-	ProjectSystem  string            `yaml:"-" json:"-"`
-	Nudge          NudgePolicy       `yaml:"nudge,omitempty"`
-	NudgeStatus    NudgeState        `yaml:"nudge_status,omitempty"`
-	StallAfter     *time.Duration    `yaml:"stall_after,omitempty"`
-	LeasePolicy    string            `yaml:"lease_policy,omitempty"`
-	Leases         []string          `yaml:"leases,omitempty"`
-	Capability     string            `yaml:"capability,omitempty"`
-	Name           string            `yaml:"name"`
-	Role           string            `yaml:"role"`
-	Model          string            `yaml:"model,omitempty"`
-	Agent          string            `yaml:"agent,omitempty"`
-	System         string            `yaml:"system,omitempty"`
-	SystemFile     string            `yaml:"system_file,omitempty"`
-	Brief          string            `yaml:"brief,omitempty"`
-	Permissions    map[string]string `yaml:"permissions,omitempty"`
-	Mode           string            `yaml:"mode"`
-	BranchTemplate string            `yaml:"branch_template,omitempty"`
-	Dir            string            `yaml:"dir,omitempty"`
-	Branch         string            `yaml:"branch,omitempty"`
-	Session        string            `yaml:"session,omitempty"`
-	Owned          bool              `yaml:"owned_worktree,omitempty"`
+	ProjectEditUntrusted bool              `yaml:"-" json:"-"`
+	ProjectSystem        string            `yaml:"-" json:"-"`
+	Nudge                NudgePolicy       `yaml:"nudge,omitempty"`
+	NudgeStatus          NudgeState        `yaml:"nudge_status,omitempty"`
+	StallAfter           *time.Duration    `yaml:"stall_after,omitempty"`
+	LeasePolicy          string            `yaml:"lease_policy,omitempty"`
+	Leases               []string          `yaml:"leases,omitempty"`
+	Capability           string            `yaml:"capability,omitempty"`
+	Name                 string            `yaml:"name"`
+	Role                 string            `yaml:"role"`
+	Model                string            `yaml:"model,omitempty"`
+	Agent                string            `yaml:"agent,omitempty"`
+	System               string            `yaml:"system,omitempty"`
+	SystemFile           string            `yaml:"system_file,omitempty"`
+	Brief                string            `yaml:"brief,omitempty"`
+	Permissions          map[string]string `yaml:"permissions,omitempty"`
+	Mode                 string            `yaml:"mode"`
+	BranchTemplate       string            `yaml:"branch_template,omitempty"`
+	Dir                  string            `yaml:"dir,omitempty"`
+	Branch               string            `yaml:"branch,omitempty"`
+	Session              string            `yaml:"session,omitempty"`
+	Owned                bool              `yaml:"owned_worktree,omitempty"`
 }
 
 // Team is a versioned local configuration with exactly one coordinating master.

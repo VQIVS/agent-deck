@@ -43,4 +43,9 @@ members:
 	if _, err := ParseProject([]byte(testProject + "base: --force\n")); err == nil {
 		t.Fatal("option-shaped base accepted")
 	}
+	p.Members[0].Capability = "reviewer"
+	tightened, err := p.Merge(ProjectBindings{Local: &local})
+	if err != nil || !tightened.Members[0].ProjectEditUntrusted || tightened.Members[0].Permissions["edit"] != "deny" {
+		t.Fatal("overlay forgot private edit authority", err)
+	}
 }

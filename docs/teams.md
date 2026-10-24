@@ -128,8 +128,9 @@ Pending permissions/questions always win. Advanced member settings expose the st
 threshold (`0s` disables) and optional auto-nudge policy: enabled, maximum, interval,
 message, and task-done flag. Nudges default off, target idle sessions only, recheck live
 status, and persist successful-send counts/timestamps. Done, waiting, busy and read-only
-members are never nudged. A submission/save error disables automatic nudging for the
-loaded team until settings are explicitly re-enabled, preventing repeated uncertain sends.
+members are never nudged. A member becoming busy during the final check is a silent skip.
+A real submission/save failure disables only that member's nudge policy and persists it;
+the error is shown. Persistence failures are also reported so they can be resolved.
 
 The pane shows context input + cache-read tokens against the session model's configured
 context limit, or **unknown** when unavailable. Warnings begin at 75%, danger at 90%.

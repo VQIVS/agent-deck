@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -39,10 +40,7 @@ func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 		m.teams.Manager = v.Manager
 		if v.Err != nil {
 			m.note = v.Err.Error()
-			for i := range v.Manager.Team.Members {
-				v.Manager.Team.Members[i].Nudge.Enabled = false
-			}
-		} else {
+		} else if !v.Skipped {
 			m.note = "Automatic nudge sent"
 		}
 		return true, nil
@@ -83,13 +81,17 @@ func (m *Model) autoNudge(index int) tea.Cmd {
 		status := manager.Observe(m.context(), index)
 		var err error
 		if status.State != "idle" {
-			err = fmt.Errorf("auto-nudge skipped: %s is %s", member.Name, status.State)
+			return nudgeResult{Manager: &manager, Skipped: true}
 		} else {
 			err = manager.Send(m.context(), index, member.Nudge.Message)
 			if err == nil {
 				member.NudgeStatus.Sent(time.Now())
 				err = manager.Save(m.context())
 			}
+		}
+		if err != nil {
+			member.Nudge.Enabled = false
+			err = errors.Join(err, manager.Save(m.context()))
 		}
 		return nudgeResult{Manager: &manager, Err: err}
 	}
@@ -98,6 +100,7 @@ func (m *Model) autoNudge(index int) tea.Cmd {
 type nudgeResult struct {
 	Manager *team.Manager
 	Err     error
+	Skipped bool
 }
 
 func (m *Model) compact() tea.Cmd {

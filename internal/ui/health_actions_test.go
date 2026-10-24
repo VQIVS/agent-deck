@@ -109,3 +109,55 @@ func TestAutoNudgePersistsCountersAndDoneStops(t *testing.T) {
 		t.Fatal("nudged done member")
 	}
 }
+
+func TestNudgeRaceAndFailureIsolation(t *testing.T) {
+	for _, busy := range []bool{true, false} {
+		t.Run(fmt.Sprint(busy), func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/session/status":
+					if busy {
+						fmt.Fprint(w, `{"session-a":{"type":"busy"}}`)
+					} else {
+						fmt.Fprint(w, `{}`)
+					}
+				case "/session":
+					fmt.Fprint(w, `[{"id":"session-a"}]`)
+				case "/session/session-a/prompt_async":
+					http.Error(w, "send failed", 500)
+				default:
+					fmt.Fprint(w, `[]`)
+				}
+			}))
+			defer s.Close()
+			m := requestModel(s.URL, false)
+			policy := team.NudgePolicy{Enabled: true, MaxNudges: 2, MinInterval: time.Second, Message: "continue"}
+			tm := team.Team{
+				Version: 1, Name: "race", Repo: "/tmp/team", Base: "main", Server: s.URL, Capacity: 1,
+				Members: []team.Member{
+					{
+						Name: "Master", Role: "master", Dir: "/tmp/team", Mode: "adopt", Session: "session-a",
+						Capability: "inherited", Nudge: policy,
+					},
+					{Name: "Other", Role: "worker", Dir: "/tmp/team", Mode: "shared", Capability: "inherited", Nudge: policy},
+				},
+			}
+			m.OpenTeam(&tm, nil, t.TempDir())
+			if err := m.teams.Manager.Save(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			m.note = "unchanged"
+			m.Update(m.autoNudge(0)())
+			loaded, _, err := m.teams.Store.Load(t.Context(), "race")
+			if err != nil || loaded.Members[0].Nudge.Enabled != busy || !loaded.Members[1].Nudge.Enabled {
+				t.Fatal(loaded, err)
+			}
+			if busy && m.note != "unchanged" {
+				t.Fatal("skip generated note", m.note)
+			}
+			if !busy && m.note == "unchanged" {
+				t.Fatal("failure not shown")
+			}
+		})
+	}
+}

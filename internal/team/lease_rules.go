@@ -39,7 +39,11 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 			action = "ask"
 		}
 		rules = appendEditLeases(rules, member.Leases, action)
-		rules = append(rules, workerGitRules()...)
+		if member.Capability == "release" {
+			rules = append(rules, gitDenyRules(releaseDeniedGit)...)
+		} else {
+			rules = append(rules, workerGitRules()...)
+		}
 	} else {
 		action := member.Permissions["edit"]
 		if action == "" {
@@ -125,10 +129,20 @@ func appendEditLeases(rules []api.Rule, leases []string, action string) []api.Ru
 	return rules
 }
 
+// releaseDeniedGit keeps a release worker away from history rewrites and from anything that
+// switches or discards the shared checkout others are editing; tagging, committing its own files,
+// fast-forward pushes and temporary worktrees stay allowed.
+var releaseDeniedGit = append(strings.Fields("reset checkout switch stash rebase restore clean rm mv am apply "+
+	"cherry-pick revert symbolic-ref init clone config gc"),
+	"push* --force", "push* -f", "push* +", "branch* -D", "branch* -d", "branch* --delete", "tag* -d", "tag* --delete")
+
 func workerGitRules() []api.Rule {
-	commands := strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
-		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc")
-	rules := make([]api.Rule, 0, len(commands)*5)
+	return gitDenyRules(strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
+		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc"))
+}
+
+func gitDenyRules(commands []string) []api.Rule {
+	rules := make([]api.Rule, 0, len(commands)*8)
 	for _, command := range commands {
 		for _, prefix := range []string{
 			"git ", "* git ", "*/git ", "git -C * ", "git -c * ",

@@ -312,3 +312,29 @@ func TestLeaseRulesSearchFollowsRead(t *testing.T) {
 	}
 	assertLeaseAction(t, rules, "grep", "*", "ask")
 }
+
+func TestReleaseWorkerGitRules(t *testing.T) {
+	release := Member{
+		Name: "rm", Role: "worker", Capability: "release", Permissions: Preset("release"),
+		Leases: []string{"CHANGELOG.md"},
+	}
+	rules, err := LeaseRules("/repo", []Member{release}, &release)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, allowed := range []string{
+		"git tag -a v0.2.6 -m 'add-docs'", "git push origin main", "git push origin refs/tags/v0.2.6",
+		"git commit CHANGELOG.md -m 'chore: prepare changelog'", "git fetch . feat/workflow:main",
+		"git push origin feat/x-fix", "git worktree add /tmp/rel v0.2.6", "goreleaser release --clean",
+	} {
+		assertLeaseAction(t, rules, "bash", allowed, "allow")
+	}
+	for _, denied := range []string{
+		"git push --force origin main", "git push origin main -f", "git push origin +main", "git reset --hard",
+		"git checkout main", "git tag -d v0.2.5", "git branch -D feat/x", "git clean -fdx", "git stash",
+	} {
+		assertLeaseAction(t, rules, "bash", denied, "deny")
+	}
+	assertLeaseAction(t, rules, "edit", "CHANGELOG.md", "allow")
+	assertLeaseAction(t, rules, "edit", "internal/ui/x.go", "deny")
+}

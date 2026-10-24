@@ -215,6 +215,14 @@ Permission profiles enumerate read/edit/bash/webfetch/external_directory with
 allow/ask/deny. Presets: reviewer (read-only), coder (edits allowed, shell asks),
 full (all allowed). Profile changes take effect on newly created sessions.
 
+## Release workers
+
+The `release` permission preset is for a worker that cuts releases from the shared checkout. It
+may commit its own leased files (usually `CHANGELOG.md`), tag, fast-forward and push, create
+temporary worktrees and run `goreleaser`/`gh release`. It may not force-push, delete branches or
+tags, reset, rebase, check out, switch, stash, restore or clean, so it never rewrites history or
+disturbs the checkout other members are editing. Like every guard here this is cooperative.
+
 ## Shared-checkout leases
 
 Workers default to the developer's shared checkout. In **Advanced**, set **Leases** to

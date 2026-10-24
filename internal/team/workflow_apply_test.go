@@ -282,3 +282,16 @@ func TestPlannedTaskWaitsForBusyAssigneeAndReassignNotifies(t *testing.T) {
 		t.Fatalf("old assignee not told: %+v", notices)
 	}
 }
+
+func TestPlannedTasksDefaultToParallel(t *testing.T) {
+	board := &TaskBoard{Version: 2}
+	m := TaskMutation{Actor: TaskActor{Member: "lead", Role: "master"}, Now: time.Now()}
+	id, err := board.PlanTask(&TaskSpec{Title: "x", Criteria: []string{"a"}, Paths: []string{"x/*"}}, m)
+	if err != nil || !board.Tasks[0].Estimate.Parallel {
+		t.Fatalf("default parallel=%v err=%v", board.Tasks[0].Estimate.Parallel, err)
+	}
+	serial := false
+	if err := board.EditTask(&TaskSpec{ID: id, Parallel: &serial}, m); err != nil || board.Tasks[0].Estimate.Parallel {
+		t.Fatalf("edit to serial failed: %v", err)
+	}
+}

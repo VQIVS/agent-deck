@@ -35,6 +35,7 @@ func (t *TaskTools) Definitions() []map[string]any {
 		"title": text, "description": text, "criteria": list, "paths": list, "dependencies": list,
 		"priority": text, "labels": list, "estimate": text, "tokens": map[string]any{"type": "integer"},
 		"assignee": text, "reviewer": text, "ready": map[string]any{"type": "boolean"},
+		"parallel": map[string]any{"type": "boolean"},
 	}
 	withID := map[string]any{"id": text}
 	for key, value := range task {

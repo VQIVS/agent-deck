@@ -22,6 +22,8 @@ type TaskSpec struct {
 	Assignee     string   `json:"assignee,omitempty"`
 	Reviewer     string   `json:"reviewer,omitempty"`
 	Ready        bool     `json:"ready,omitempty"`
+	// Parallel defaults to true: tasks with non-overlapping paths may run at the same time.
+	Parallel *bool `json:"parallel,omitempty"`
 }
 
 // PlanTask creates a task from a spec with the next free T-<n> ID, optionally ready and assigned.
@@ -60,6 +62,7 @@ func (s *TaskSpec) task(id string) (Task, error) {
 		task.Estimate.Duration = duration
 	}
 	task.Estimate.Tokens = s.Tokens
+	task.Estimate.Parallel = s.Parallel == nil || *s.Parallel
 	return task, nil
 }
 
@@ -114,7 +117,10 @@ func (s *TaskSpec) merge(next, fields *Task) {
 		next.Reviewer = fields.Reviewer
 	}
 	if s.Estimate != "" || s.Tokens != 0 {
-		next.Estimate = fields.Estimate
+		next.Estimate.Duration, next.Estimate.Tokens = fields.Estimate.Duration, fields.Estimate.Tokens
+	}
+	if s.Parallel != nil {
+		next.Estimate.Parallel = *s.Parallel
 	}
 }
 

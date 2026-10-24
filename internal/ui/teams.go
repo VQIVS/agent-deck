@@ -169,6 +169,7 @@ func (m *Model) loadDashboard() tea.Cmd {
 	n.teams = u
 	n.opts.Auto = false
 	n.w, n.h = m.w, m.h
+	ReconcileTeamReload(m, n)
 	if u.Manager != nil && m.channel.Team == u.Manager.Team.Name {
 		n.channel = m.channel
 	} else {
@@ -313,27 +314,15 @@ func (m *Model) membersView() string {
 			-1,
 		) + "\n",
 	)
-	for i := range u.Manager.Team.Members {
-		member := &u.Manager.Team.Members[i]
-		if i+3 >= m.h {
-			break
-		}
-		prefix := "  "
-		if i == u.MemberIndex {
-			prefix = "> "
-		}
-		text := fit(
-			prefix+member.Role+" "+member.Name+" · "+member.PermissionSummary()+
-				" · "+u.Manager.Team.LeaseStatus(member)+": "+strings.Join(member.Leases, ", ")+" · "+member.Session,
-			m.w,
-		)
-		m.zones = append(
-			m.zones,
-			zone{Rect: Rect{0, 2 + i, m.w, 1}, Action: fmt.Sprintf("member-row:%d", i), Pane: -1},
-		)
-		b.WriteString(text + "\n")
+	rows := m.teamOverviewRows(&u.Manager.Team)
+	first := max(0, u.MemberIndex-max(1, (m.h-12)/3)+1)
+	rects := TeamOverviewRects(0, 2, m.w, m.h-12, first, len(rows))
+	for i, rect := range rects {
+		index := first + i
+		b.WriteString(RenderTeamOverviewRow(&rows[index], index == u.MemberIndex, m.w) + "\n")
+		m.zones = append(m.zones, zone{Rect: rect, Action: fmt.Sprintf("member-row:%d", index), Pane: -1})
 	}
-	y := 2 + min(len(u.Manager.Team.Members), m.h-3)
+	y := 2 + len(rects)*3
 	b.WriteString(
 		m.buttonRow(
 			[]button{
@@ -682,6 +671,7 @@ func (m *Model) duplicateTeam() {
 	u.Draft.Members = append([]team.Member(nil), u.Draft.Members...)
 	u.Draft.Name += " copy"
 	for i := range u.Draft.Members {
+		u.Draft.Members[i].ID = ""
 		u.Draft.Members[i].Session = ""
 		u.Draft.Members[i].Owned = false
 		u.Draft.Members[i].Branch = ""

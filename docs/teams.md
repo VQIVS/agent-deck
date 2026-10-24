@@ -224,6 +224,10 @@ and DONE-card integration remain separate runtime work.
 
 ## Session health
 
+Live team reloads preserve focus, zoom and transcript state only for the same server,
+directory and session. Canceled snapshot results are ignored. Team overview rows expose
+status, request counts, permission policy and leases with matching three-line click targets.
+
 Pane badges distinguish **STALLED** from **WAITING**. Busy sessions with no meaningful
 part changes for five minutes become stalled; status polling does not refresh activity.
 Pending permissions/questions always win. Advanced member settings expose the stall

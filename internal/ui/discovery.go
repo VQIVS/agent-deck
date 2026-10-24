@@ -33,11 +33,18 @@ func (m *Model) discover() tea.Cmd {
 }
 
 func (m *Model) startStream(dir string) {
-	go m.client.Stream(
-		m.context(),
+	ctx, events, client := m.context(), m.events, m.client
+	emit := func(msg tea.Msg) {
+		select {
+		case events <- msg:
+		case <-ctx.Done():
+		}
+	}
+	go client.Stream(
+		ctx,
 		dir,
-		func(e api.Event) { m.emit(streamMsg{Dir: dir, Event: e}) },
-		func(e error) { m.emit(streamMsg{Dir: dir, Err: e, Connection: true}) },
+		func(e api.Event) { emit(streamMsg{Dir: dir, Event: e}) },
+		func(e error) { emit(streamMsg{Dir: dir, Err: e, Connection: true}) },
 	)
 }
 

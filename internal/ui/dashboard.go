@@ -144,22 +144,16 @@ func New(ctx context.Context, d *config.Deck, opts Options) *Model {
 	return m
 }
 
-func (m *Model) emit(msg tea.Msg) {
-	select {
-	case m.events <- msg:
-	case <-m.context().Done():
-	}
-}
-
 func (m *Model) wait() tea.Cmd {
-	return func() tea.Msg {
+	ctx, events := m.context(), m.events
+	return GuardTeamReload(ctx, func() tea.Msg {
 		select {
-		case v := <-m.events:
+		case v := <-events:
 			return v
-		case <-m.context().Done():
+		case <-ctx.Done():
 			return nil
 		}
-	}
+	})
 }
 func tick() tea.Cmd { return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) }) }
 func (m *Model) Init() tea.Cmd {
@@ -167,12 +161,7 @@ func (m *Model) Init() tea.Cmd {
 		return tea.Batch(tick(), m.listTeams())
 	}
 	for dir := range m.connections {
-		go m.client.Stream(
-			m.context(),
-			dir,
-			func(e api.Event) { m.emit(streamMsg{Dir: dir, Event: e}) },
-			func(err error) { m.emit(streamMsg{Dir: dir, Err: err, Connection: true}) },
-		)
+		m.startStream(dir)
 	}
 	cmds := []tea.Cmd{m.wait(), m.discover(), m.startChannel()}
 	if !m.skipTick {
@@ -197,19 +186,20 @@ func (m *Model) snapshot(i int) tea.Cmd {
 	m.panes[i].Loading = true
 	m.panes[i].Pending = nil
 	a := m.panes[i].Agent
-	return func() tea.Msg {
-		ms, e := m.client.Messages(m.context(), a.Dir, a.Session)
+	ctx, client := m.context(), m.client
+	return GuardTeamReload(ctx, func() tea.Msg {
+		ms, e := client.Messages(ctx, a.Dir, a.Session)
 		if e != nil {
 			return snapshotMsg{Index: i, Err: e}
 		}
-		ss, e := m.client.Status(m.context(), a.Dir)
+		ss, e := client.Status(ctx, a.Dir)
 		var limit int64
 		if latest := team.LatestAssistant(ms); latest != nil {
-			limit, _ = m.client.ContextLimit(m.context(), a.Dir,
+			limit, _ = client.ContextLimit(ctx, a.Dir,
 				api.ModelRef{ProviderID: latest.Info.ProviderID, ModelID: latest.Info.ModelID})
 		}
 		return snapshotMsg{Index: i, Messages: ms, Status: ss[a.Session], Err: e, ContextLimit: limit}
-	}
+	})
 }
 
 func (m *Model) git(i int) tea.Cmd {
@@ -238,6 +228,7 @@ func (m *Model) notify(i int) tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	msg = unwrapReload(msg)
 	if handled, cmd := m.handleTeams(msg); handled {
 		return m, cmd
 	}

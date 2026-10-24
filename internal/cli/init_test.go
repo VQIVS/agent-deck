@@ -45,6 +45,10 @@ func TestInitPrivateTeamWithoutLiveResources(t *testing.T) {
 	if err != nil || tm.Base != "main" || len(tm.Members) != 2 {
 		t.Fatalf("initialized team: %+v, %v", tm, err)
 	}
+	if tm.Members[1].Capability != "reviewer" || tm.Members[1].Permissions["edit"] != "deny" ||
+		tm.Members[1].System == "" || tm.Members[1].Brief == "" {
+		t.Fatal("template settings lost", tm.Members[1])
+	}
 	root, err := filepath.EvalSymlinks(repo)
 	if err != nil || tm.Repo != root {
 		t.Fatal("did not resolve Git root", tm.Repo, err)
@@ -65,6 +69,19 @@ func TestInitPrivateTeamWithoutLiveResources(t *testing.T) {
 	}
 	if err := initCommand(t.Context(), args, &out); err == nil {
 		t.Fatal("existing team overwritten")
+	}
+}
+
+func TestInitExplicitBaseAndModelWin(t *testing.T) {
+	repo := initTestRepo(t)
+	var out bytes.Buffer
+	args := []string{"--dir", repo, "--team", "flags", "--base", "develop", "--model", "private/model"}
+	if err := initCommand(t.Context(), args, &out); err != nil {
+		t.Fatal(err)
+	}
+	tm, _, err := (team.Store{Root: team.DefaultRoot()}).Load(t.Context(), "flags")
+	if err != nil || tm.Base != "develop" || tm.Model != "private/model" {
+		t.Fatal(tm, err)
 	}
 }
 

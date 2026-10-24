@@ -31,12 +31,8 @@ type Controller struct {
 }
 
 func DefaultRoot() string {
-	root := os.Getenv("XDG_STATE_HOME")
-	if root == "" {
-		home, _ := os.UserHomeDir()
-		root = filepath.Join(home, ".local", "state")
-	}
-	return filepath.Join(root, "agent-deck")
+	root, _ := StateRoot()
+	return root
 }
 
 func URL(port int) string { return "http://127.0.0.1:" + strconv.Itoa(port) }

@@ -43,6 +43,8 @@ type Member struct {
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
+	ProjectPrivate   *Team            `yaml:"-" json:"-"`
+	ProjectPolicy    *ProjectPolicy   `yaml:"-" json:"-"`
 	DefinitionOfDone DefinitionOfDone `yaml:"definition_of_done,omitempty"`
 	ProjectOverlay   bool             `yaml:"-" json:"-"`
 	ProjectRules     string           `yaml:"-" json:"-"`

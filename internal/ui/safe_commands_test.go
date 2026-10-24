@@ -20,6 +20,10 @@ func TestSafeApprovalRequiresVerifiedToolCommand(t *testing.T) {
 		Members: []team.Member{{Session: "session-a", Dir: "/tmp/team", Permissions: map[string]string{"edit": "deny"}}},
 	}
 	m.OpenTeam(&tm, nil, t.TempDir())
+	m.teams.Manager.Team.LeasePool = true
+	member := &m.teams.Manager.Team.Members[0]
+	member.Name, member.Role = "reviewer", "worker"
+	member.LeasePolicy = m.teams.Manager.Team.LeaseFingerprint(member)
 	r := api.Permission{ID: "permission", SessionID: "session-a", Permission: "bash", Patterns: []string{"go test *"}}
 	r.Tool.CallID = "call"
 	m.panes[0].State.UpdateRequests([]api.Permission{r}, nil, time.Now())
@@ -46,6 +50,7 @@ func TestSafeApprovalRequiresVerifiedToolCommand(t *testing.T) {
 		t.Fatal("editable repo command auto-approved")
 	}
 	m.teams.Manager.Team.Members[0].Permissions["edit"] = "deny"
+	member.LeasePolicy = m.teams.Manager.Team.LeaseFingerprint(member)
 	if len(m.safeCommandReplies()) != 1 || len(m.safeCommandReplies()) != 0 {
 		t.Fatal("verified match not serialized")
 	}

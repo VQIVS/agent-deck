@@ -96,11 +96,38 @@ func prepareInit(ctx context.Context, opts *initFlags, templates []team.RoleTemp
 	if opts.Model != "" {
 		policy.Model = opts.Model
 	}
-	t, err := policy.Merge(team.ProjectBindings{Repo: root, Server: resolveServer(opts.Server, ""), Base: base})
-	if err != nil {
-		return t, fmt.Errorf("prepare initialized team: %w", err)
+	if policy.Base != "" {
+		base = policy.Base
+	}
+	t := team.Team{
+		Version: 1, Name: policy.Name, Repo: root, Server: resolveServer(opts.Server, ""), Base: base,
+		Model: policy.Model, Capacity: policy.Capacity, Rules: policy.Rules,
+	}
+	for _, role := range policy.Members {
+		t.Members = append(t.Members, team.Member{
+			Name: role.Name, Role: role.Role, Mode: "shared", Dir: root,
+			Model: role.Model, Agent: role.Agent, System: role.System, Brief: role.Brief,
+			Capability: role.Capability, Permissions: team.Preset(role.Capability),
+		})
+	}
+	if opts.Project != "" || projectExists(root) {
+		for i := range t.Members {
+			member := &t.Members[i]
+			if member.Capability == "full" {
+				member.Capability = "coder"
+				member.Permissions = team.Preset("coder")
+			}
+		}
+	}
+	if err := t.Validate(); err != nil {
+		return t, fmt.Errorf("validate initialized team: %w", err)
 	}
 	return t, nil
+}
+
+func projectExists(root string) bool {
+	_, err := os.Stat(filepath.Join(root, "agent-deck.yaml"))
+	return err == nil
 }
 
 func initPolicy(ctx context.Context, opts *initFlags, templates []team.RoleTemplate, root string,

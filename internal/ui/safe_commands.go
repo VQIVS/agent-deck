@@ -40,9 +40,9 @@ func (m *Model) safeCommandReplies() []tea.Cmd {
 				continue
 			}
 			m.safeReplies[request.ID] = true
-			dir, id := p.Agent.Dir, request.ID
+			dir, id, session := p.Agent.Dir, request.ID, p.Agent.Session
 			return []tea.Cmd{func() tea.Msg {
-				err := logAutoApproval(dir, p.Agent.Session, command)
+				err := logAutoApproval(dir, session, command)
 				if err == nil {
 					err = m.client.ReplyPermission(m.context(), dir, id, "once", "Exact command allowlist")
 				}
@@ -114,11 +114,21 @@ func (m *Model) permissionCommand(index int, callID string) string {
 }
 
 func memberCanEdit(t *team.Team, dir, session string) bool {
+	verified := false
 	for i := range t.Members {
 		member := &t.Members[i]
-		if member.Dir == dir && member.Session == session {
-			return member.ProjectEditUntrusted || member.Capability == "inherited" || member.Permissions["edit"] != "deny"
+		if member.Dir != dir {
+			continue
+		}
+		if member.ProjectEditUntrusted || member.Capability == "inherited" || member.Permissions["edit"] != "deny" {
+			return true
+		}
+		if member.Session != "" && (member.LeasePolicy == "" || member.LeasePolicy != t.LeaseFingerprint(member)) {
+			return true
+		}
+		if member.Session == session {
+			verified = true
 		}
 	}
-	return true
+	return !verified
 }

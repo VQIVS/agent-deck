@@ -110,7 +110,7 @@ func (input *SchedulingInput) validate() error {
 	assigned := make(map[string]bool)
 	for i := range input.Board.Tasks {
 		task := &input.Board.Tasks[i]
-		if task.State != "assigned" {
+		if !TaskActive(task) {
 			continue
 		}
 		if !names[task.Worker] || assigned[task.Worker] {
@@ -170,7 +170,7 @@ func (input *SchedulingInput) ready(plan *SchedulingPlan) []Task {
 	var ready []Task
 	for i := range input.Board.Tasks {
 		task := &input.Board.Tasks[i]
-		if task.State != "pending" {
+		if !TaskPending(task) {
 			continue
 		}
 		if reason := input.blocked(task); reason != "" {
@@ -193,7 +193,7 @@ func (input *SchedulingInput) blocked(task *Task) string {
 	}
 	for i := range input.Board.Tasks {
 		other := &input.Board.Tasks[i]
-		if other.State == "assigned" && (!task.Estimate.Parallel || !other.Estimate.Parallel ||
+		if TaskActive(other) && (!task.Estimate.Parallel || !other.Estimate.Parallel ||
 			pathsContend(task.Paths, other.Paths)) {
 			return "active task contention"
 		}
@@ -255,7 +255,7 @@ func (input *SchedulingInput) fitWorker(task *Task, reserved map[string]bool) st
 
 func (input *SchedulingInput) assigned(worker string) bool {
 	return slices.ContainsFunc(input.Board.Tasks, func(task Task) bool {
-		return task.State == "assigned" && task.Worker == worker
+		return TaskActive(&task) && task.Worker == worker
 	})
 }
 
@@ -273,6 +273,10 @@ func (b *TaskBoard) Assign(id, worker string, input *SchedulingInput) error {
 	for i := range b.Tasks {
 		if b.Tasks[i].ID == id {
 			b.Tasks[i].State, b.Tasks[i].Worker = "assigned", worker
+			if b.Version >= 2 {
+				b.Tasks[i].State = "in_progress"
+				b.Tasks[i].Assignee = worker
+			}
 			return nil
 		}
 	}

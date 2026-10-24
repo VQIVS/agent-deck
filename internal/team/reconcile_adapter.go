@@ -97,7 +97,9 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 		for i := range state.Board.Tasks {
 			task := &state.Board.Tasks[i]
 			if task.ID == taskID {
-				task.State, task.Worker = "assigned", result.Worker
+				if err := recordTaskAssignment(&state.Board, taskID, result.Worker); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -110,6 +112,23 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 		return err
 	}
 	return nil
+}
+
+func recordTaskAssignment(board *TaskBoard, id, worker string) error {
+	if board.Version < 2 {
+		for i := range board.Tasks {
+			if board.Tasks[i].ID == id {
+				board.Tasks[i].State, board.Tasks[i].Worker = "assigned", worker
+				return nil
+			}
+		}
+		return fmt.Errorf("unknown assigned task %q", id)
+	}
+	mutation := TaskMutation{Actor: TaskActor{User: true}, Now: time.Now().UTC()}
+	if err := board.SetAssignee(id, worker, mutation); err != nil {
+		return err
+	}
+	return board.MoveTask(id, "in_progress", mutation)
 }
 
 func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,

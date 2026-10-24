@@ -32,7 +32,7 @@ func (input *SchedulingInput) scale(plan *SchedulingPlan, reserved map[string]bo
 func (input *SchedulingInput) hasRunnablePending() bool {
 	for i := range input.Board.Tasks {
 		task := &input.Board.Tasks[i]
-		if task.State == "pending" && !input.failedDependency(task, map[string]bool{}) {
+		if TaskPending(task) && !input.failedDependency(task, map[string]bool{}) {
 			return true
 		}
 	}
@@ -47,7 +47,7 @@ func (input *SchedulingInput) failedDependency(task *Task, visited map[string]bo
 	for _, dependency := range task.Dependencies {
 		for i := range input.Board.Tasks {
 			other := &input.Board.Tasks[i]
-			if other.ID == dependency && (other.State == "failed" || input.failedDependency(other, visited)) {
+			if other.ID == dependency && (TaskFailed(other) || input.failedDependency(other, visited)) {
 				return true
 			}
 		}
@@ -112,7 +112,7 @@ func (input *SchedulingInput) committedUsage() (tokens int64, cost float64) {
 		if task.Measured != nil {
 			tokens = saturatingTokens(tokens, task.Measured.Tokens)
 			cost += task.Measured.Cost
-		} else if task.State == "assigned" || task.State == "done" || task.State == "failed" {
+		} else if TaskActive(task) || task.State == "done" || TaskFailed(task) {
 			// Unmeasured work reserves its estimate; reports never count as measurements.
 			tokens = saturatingTokens(tokens, task.Estimate.Tokens)
 			cost += task.Estimate.Cost

@@ -49,7 +49,7 @@ func (p *PoolRuntime) Status(ctx context.Context) (BoardState, error) {
 	state, err := p.board.Load(ctx)
 	if errors.Is(err, os.ErrNotExist) {
 		return BoardState{
-			Version: 1, Board: TaskBoard{Version: 1},
+			Version: 2, Board: TaskBoard{Version: 2},
 			Policy: SchedulingPolicy{Approval: "off"}, Approved: map[string]bool{},
 		}, nil
 	}

@@ -1,0 +1,238 @@
+package team
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+)
+
+// TaskCriterion is a stable acceptance item; checked is a progress claim, not verification.
+type TaskCriterion struct {
+	ID      string `json:"id"`
+	Text    string `json:"text"`
+	Checked bool   `json:"checked"`
+}
+
+const TaskCancelled = "cancelled" //nolint:misspell // Public workflow state specified by the board schema.
+
+// TaskChange records an attributed workflow event.
+type TaskChange struct {
+	Actor string    `json:"actor"`
+	At    time.Time `json:"at"`
+	Task  string    `json:"task,omitempty"`
+	Field string    `json:"field"`
+	From  string    `json:"from,omitempty"`
+	To    string    `json:"to,omitempty"`
+}
+
+// TaskComment is an attributed task discussion entry.
+type TaskComment struct {
+	Actor string    `json:"actor"`
+	At    time.Time `json:"at"`
+	Text  string    `json:"text"`
+}
+
+// TaskReview records explicit acceptance or requested changes for the current task content.
+type TaskReview struct {
+	Digest   string    `json:"digest"`
+	Reviewer string    `json:"reviewer"`
+	Accepted bool      `json:"accepted"`
+	Comment  string    `json:"comment"`
+	At       time.Time `json:"at"`
+}
+
+// TaskActor is resolved by trusted integration; user is the privileged interactive identity.
+type TaskActor struct {
+	Member string
+	Role   string
+	User   bool
+}
+
+// TaskMutation supplies explicit authority, time and read-only policy for every mutation.
+type TaskMutation struct {
+	Actor    TaskActor
+	Now      time.Time
+	ReadOnly bool
+}
+
+func (m TaskMutation) validate() error {
+	if m.ReadOnly {
+		return fmt.Errorf("read-only: task changes disabled")
+	}
+	if m.Now.IsZero() || (!m.Actor.User && (m.Actor.Member == "" ||
+		(m.Actor.Role != "master" && m.Actor.Role != "worker"))) {
+		return fmt.Errorf("task mutation requires authenticated actor and current time")
+	}
+	return nil
+}
+
+func (m TaskMutation) name() string {
+	if m.Actor.User {
+		return "user"
+	}
+	return m.Actor.Member
+}
+
+func (m TaskMutation) manages() bool { return m.Actor.User || m.Actor.Role == "master" }
+
+func validateBoardTask(task *Task, version int) error {
+	if version == 1 {
+		return validateTask(task)
+	}
+	if !reportText(task.ID, 200) || !reportText(task.Title, 1000) || len(task.Description) > 64000 {
+		return fmt.Errorf("task requires bounded nonempty ID and title")
+	}
+	if err := task.Paths.Validate(); err != nil {
+		return err
+	}
+	if task.Estimate.Duration < 0 || task.Estimate.Tokens < 0 || invalidCost(task.Estimate.Cost) {
+		return fmt.Errorf("task estimate must be finite and nonnegative")
+	}
+	states := []string{"backlog", "ready", "in_progress", "review", "done", "blocked", TaskCancelled}
+	if !slices.Contains(states, task.State) {
+		return fmt.Errorf("unknown workflow state %q", task.State)
+	}
+	if task.Priority != "" && !slices.Contains([]string{"low", "normal", "high", "urgent"}, task.Priority) {
+		return fmt.Errorf("priority must be low, normal, high or urgent")
+	}
+	if err := validateWorkflowDetails(task); err != nil {
+		return err
+	}
+	return validateTaskTimes(task)
+}
+
+func validateWorkflowDetails(task *Task) error {
+	if task.Worker != task.Assignee {
+		return fmt.Errorf("worker compatibility alias must match assignee")
+	}
+	if (task.State == "in_progress" || task.State == "review") && task.Assignee == "" {
+		return fmt.Errorf("active task requires assignee")
+	}
+	if task.State == "review" && task.Reviewer == "" {
+		return fmt.Errorf("review requires reviewer")
+	}
+	if task.State != "backlog" && task.State != TaskCancelled && (len(task.Paths) == 0 || len(task.Criteria) == 0) {
+		return fmt.Errorf("planned task requires paths and acceptance criteria")
+	}
+	return validateTaskCriteria(task)
+}
+
+func validateTaskCriteria(task *Task) error {
+	ids := map[string]bool{}
+	for _, criterion := range task.Criteria {
+		if !reportText(criterion.ID, 100) || !reportText(criterion.Text, 2000) || ids[criterion.ID] {
+			return fmt.Errorf("acceptance criteria need unique IDs and nonempty text")
+		}
+		ids[criterion.ID] = true
+	}
+	if task.State == "done" && !taskCompletionValid(task) {
+		return fmt.Errorf("done requires accepted review or passing structured report")
+	}
+	return nil
+}
+
+func cloneWorkflowFields(task *Task) {
+	if task.Report != nil {
+		report := *task.Report
+		task.Report = &report
+	}
+	if task.Measured != nil {
+		usage := *task.Measured
+		task.Measured = &usage
+	}
+	task.Criteria = slices.Clone(task.Criteria)
+	task.Labels = slices.Clone(task.Labels)
+	task.Commits = slices.Clone(task.Commits)
+	task.History = slices.Clone(task.History)
+	task.Comments = slices.Clone(task.Comments)
+	if task.Review != nil {
+		review := *task.Review
+		task.Review = &review
+	}
+	if task.Completion != nil {
+		data, _ := json.Marshal(task.Completion)
+		var record ReportRecord
+		_ = json.Unmarshal(data, &record)
+		task.Completion = &record
+	}
+}
+
+func taskCompletionValid(task *Task) bool {
+	if acceptedTaskReview(task) {
+		return true
+	}
+	record := task.Completion
+	if !validTaskReportIdentity(task, record) {
+		return false
+	}
+	definition := taskDefinition(task)
+	return slices.Equal(record.Definition, definition) && record.Reported.Validate(definition) == nil &&
+		record.Reported.complete(definition)
+}
+
+func acceptedTaskReview(task *Task) bool {
+	if task.Review != nil && task.Review.Accepted && task.Review.Reviewer == task.Reviewer && task.Reviewer != "" &&
+		!task.Review.At.IsZero() && task.Review.Digest == taskContentDigest(task) {
+		return slices.ContainsFunc(task.History, func(change TaskChange) bool {
+			return change.Field == "review" && change.From == "review" && change.To == "done" &&
+				(change.Actor == task.Reviewer || change.Actor == "user") && change.At.Equal(task.Review.At)
+		})
+	}
+	return false
+}
+
+func validTaskReportIdentity(task *Task, record *ReportRecord) bool {
+	return record != nil && record.Source == "structured" && record.Reported != nil && record.Member == task.Assignee &&
+		record.ReportedDone && record.Session != "" && record.Reported.Session == record.Session &&
+		record.Reported.Member == record.Member && !record.RecordedAt.IsZero()
+}
+
+func taskContentDigest(task *Task) string {
+	data, _ := json.Marshal(struct {
+		Title, Description, Assignee, Reviewer, Branch string
+		Criteria                                       []TaskCriterion
+		Paths                                          Leases
+		Dependencies, Commits                          []string
+	}{
+		task.Title, task.Description, task.Assignee, task.Reviewer, task.Branch,
+		task.Criteria, task.Paths, task.Dependencies, task.Commits,
+	})
+	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+
+func taskDefinition(task *Task) DefinitionOfDone {
+	definition := make(DefinitionOfDone, 0, len(task.Criteria))
+	for _, item := range task.Criteria {
+		definition = append(definition, DoneCriterion{ID: item.ID, Text: item.Text, Required: true})
+	}
+	return definition
+}
+
+func taskByID(board *TaskBoard, id string) (*Task, error) {
+	for i := range board.Tasks {
+		if board.Tasks[i].ID == id {
+			return &board.Tasks[i], nil
+		}
+	}
+	return nil, fmt.Errorf("unknown task %q", id)
+}
+
+func taskEvent(board *TaskBoard, task *Task, mutation TaskMutation, field, from, to string) {
+	event := TaskChange{Actor: mutation.name(), At: mutation.Now.UTC(), Task: task.ID, Field: field, From: from, To: to}
+	task.UpdatedAt = event.At
+	if task.State == "in_progress" && task.StartedAt.IsZero() {
+		task.StartedAt = event.At
+	}
+	if task.State == "done" || task.State == TaskCancelled {
+		task.CompletedAt = event.At
+	} else {
+		task.CompletedAt = time.Time{}
+	}
+	task.History = append(task.History, event)
+	board.History = append(board.History, event)
+}
+
+func boundedTaskText(text string) bool { return strings.TrimSpace(text) != "" && len(text) <= 16000 }

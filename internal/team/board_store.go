@@ -81,13 +81,16 @@ func (s BoardStore) Load(ctx context.Context) (BoardState, error) {
 	if err := s.read(ctx, "board.json", &state); err != nil {
 		return state, err
 	}
+	if err := migrateBoardState(&state); err != nil {
+		return state, err
+	}
 	err := state.Validate()
 	return state, err
 }
 
 func (s *BoardState) Validate() error {
-	if s.Version != 1 {
-		return fmt.Errorf("board state requires version 1")
+	if s.Version != 1 && s.Version != 2 {
+		return fmt.Errorf("board state requires version 1 or 2")
 	}
 	if err := s.Board.Validate(); err != nil {
 		return err
@@ -95,6 +98,8 @@ func (s *BoardState) Validate() error {
 	return s.Policy.Validate()
 }
 
+// Save is a trusted persistence boundary, not an authorization API. Call workflow mutations before saving.
+// Integration must never pass an untrusted replacement board or report payload directly to Save.
 func (s BoardStore) Save(ctx context.Context, state *BoardState, expected uint64) error {
 	return s.Exclusive(ctx, func() error {
 		current, err := s.Load(ctx)
@@ -105,16 +110,47 @@ func (s BoardStore) Save(ctx context.Context, state *BoardState, expected uint64
 			return fmt.Errorf("board changed; reload before saving")
 		}
 		next := *state
+		next.Board = TaskBoard{
+			Version: state.Board.Version, History: slices.Clone(state.Board.History),
+			Tasks: make([]Task, len(state.Board.Tasks)),
+		}
+		for i := range state.Board.Tasks {
+			next.Board.Tasks[i] = cloneTask(&state.Board.Tasks[i])
+		}
+		if err := migrateBoardState(&next); err != nil {
+			return err
+		}
 		next.Revision = expected + 1
 		if err := next.Validate(); err != nil {
 			return err
 		}
+		if current.Revision != 0 {
+			if err := s.backupBoard(ctx, &current); err != nil {
+				return err
+			}
+		}
 		if err := s.write(ctx, "board.json", &next); err != nil {
 			return err
 		}
-		state.Revision = next.Revision
+		*state = next
 		return nil
 	})
+}
+
+func (s BoardStore) backupBoard(ctx context.Context, state *BoardState) error {
+	dir, err := s.directory()
+	if err != nil {
+		return err
+	}
+	history := filepath.Join(dir, "history")
+	if err := privateReportDir(history); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "board.json"))
+	if err != nil {
+		return fmt.Errorf("read original board history: %w", err)
+	}
+	return replaceReport(ctx, filepath.Join(history, fmt.Sprintf("%020d.json", state.Revision)), data)
 }
 
 func (s BoardStore) read(ctx context.Context, name string, out any) error {

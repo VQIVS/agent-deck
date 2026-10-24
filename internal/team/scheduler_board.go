@@ -33,28 +33,45 @@ type TaskReport struct {
 
 // Task is one independently owned unit of work on a versioned board.
 type Task struct {
-	ID           string       `json:"id"`
-	Title        string       `json:"title"`
-	Paths        Leases       `json:"paths"`
-	Dependencies []string     `json:"dependencies,omitempty"`
-	Role         string       `json:"role,omitempty"`
-	Skills       []string     `json:"skills,omitempty"`
-	Estimate     TaskEstimate `json:"estimate"`
-	State        string       `json:"state"`
-	Worker       string       `json:"worker,omitempty"`
-	Report       *TaskReport  `json:"report,omitempty"`
-	Measured     *TaskUsage   `json:"measured,omitempty"`
+	StartedAt    time.Time       `json:"started_at,omitempty"`
+	CompletedAt  time.Time       `json:"completed_at,omitempty"`
+	Description  string          `json:"description,omitempty"`
+	Criteria     []TaskCriterion `json:"criteria,omitempty"`
+	Priority     string          `json:"priority,omitempty"`
+	Labels       []string        `json:"labels,omitempty"`
+	Assignee     string          `json:"assignee,omitempty"`
+	Reviewer     string          `json:"reviewer,omitempty"`
+	Branch       string          `json:"branch,omitempty"`
+	Commits      []string        `json:"commits,omitempty"`
+	CreatedAt    time.Time       `json:"created_at,omitempty"`
+	UpdatedAt    time.Time       `json:"updated_at,omitempty"`
+	History      []TaskChange    `json:"history,omitempty"`
+	Comments     []TaskComment   `json:"comments,omitempty"`
+	Review       *TaskReview     `json:"review,omitempty"`
+	Completion   *ReportRecord   `json:"completion,omitempty"`
+	ID           string          `json:"id"`
+	Title        string          `json:"title"`
+	Paths        Leases          `json:"paths"`
+	Dependencies []string        `json:"dependencies,omitempty"`
+	Role         string          `json:"role,omitempty"`
+	Skills       []string        `json:"skills,omitempty"`
+	Estimate     TaskEstimate    `json:"estimate"`
+	State        string          `json:"state"`
+	Worker       string          `json:"worker,omitempty"`
+	Report       *TaskReport     `json:"report,omitempty"`
+	Measured     *TaskUsage      `json:"measured,omitempty"`
 }
 
 // TaskBoard stores task state separately from team session bindings.
 type TaskBoard struct {
-	Version int    `json:"version"`
-	Tasks   []Task `json:"tasks"`
+	Version int          `json:"version"`
+	History []TaskChange `json:"history,omitempty"`
+	Tasks   []Task       `json:"tasks"`
 }
 
 func (b *TaskBoard) Validate() error {
-	if b == nil || b.Version != 1 {
-		return fmt.Errorf("task board requires version 1")
+	if b == nil || (b.Version != 1 && b.Version != 2) {
+		return fmt.Errorf("task board requires version 1 or 2")
 	}
 	index := make(map[string]int, len(b.Tasks))
 	for i := range b.Tasks {
@@ -62,7 +79,7 @@ func (b *TaskBoard) Validate() error {
 		if _, exists := index[task.ID]; task.ID == "" || exists {
 			return fmt.Errorf("task ids must be nonempty and unique")
 		}
-		if err := validateTask(task); err != nil {
+		if err := validateBoardTask(task, b.Version); err != nil {
 			return fmt.Errorf("task %q: %w", task.ID, err)
 		}
 		index[task.ID] = i
@@ -153,6 +170,9 @@ func (b *TaskBoard) visit(id string, index, marks map[string]int) error {
 }
 
 func (b *TaskBoard) Finish(id, authenticatedWorker string, report TaskReport, failed, readOnly bool) error {
+	if b.Version == 2 {
+		return fmt.Errorf("workflow completion requires ReviewTask or CompleteTask; failures use MoveTask blocked")
+	}
 	if readOnly {
 		return fmt.Errorf("read-only: task changes disabled")
 	}
@@ -207,6 +227,7 @@ func cloneTask(task *Task) Task {
 	result.Paths = slices.Clone(task.Paths)
 	result.Dependencies = slices.Clone(task.Dependencies)
 	result.Skills = slices.Clone(task.Skills)
+	cloneWorkflowFields(&result)
 	return result
 }
 

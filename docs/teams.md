@@ -1,5 +1,23 @@
 # Managed teams: design and operational contract
 
+## Workflow task model (v0.2)
+
+Version-2 boards use `backlog → ready → in_progress → review → done`, with `blocked`
+and `cancelled` alternatives. Tasks carry descriptions, acceptance checklists, owned
+paths/dependencies, priority/labels, assignee/reviewer, Git links, timestamps, attributed
+history and comments. JSON estimates accept human durations such as `"10m"`; legacy
+numeric nanoseconds remain readable.
+
+Only ready tasks schedule. Review requires a reviewer; done requires an accepted review
+of the current task content or a passing structured report against its exact acceptance
+criteria. Checklist checks are progress claims, not verification. Workers may progress,
+comment on or block their own assignments; task planning belongs to the master/user.
+
+Legacy boards migrate in memory on read without rewriting files. The next private save
+persists version 2 with an exact-byte history backup. Legacy unstructured done/failed
+outcomes become blocked for explicit verification rather than fabricated accepted reviews.
+The workflow model is the foundation; task MCP/CLI and Kanban integration follow separately.
+
 ## Quick worker setup
 
 Choose **+ Worker** to open a short form: name, model, brief, workspace, directory and

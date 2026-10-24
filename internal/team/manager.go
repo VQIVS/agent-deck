@@ -21,9 +21,13 @@ func (m *Manager) Save(ctx context.Context) error {
 	if m.ReadOnly {
 		return fmt.Errorf("read-only: team changes disabled")
 	}
-	v, e := m.Store.Save(ctx, &m.Team, m.Version)
+	private := m.Team.PrivateCopy()
+	v, e := m.Store.Save(ctx, &private, m.Version)
 	if e == nil {
 		m.Version = v
+		policy := m.Team.ProjectPolicy
+		m.Team = private
+		m.refreshProject(policy)
 	}
 	return e
 }
@@ -100,7 +104,9 @@ func (m *Manager) Roster(ctx context.Context, reason string) error {
 
 func (m *Manager) Start(ctx context.Context, index int) error {
 	if m.Team.ProjectOverlay {
-		return fmt.Errorf("project overlay is read-only; start from private configuration")
+		policy := m.Team.ProjectPolicy
+		m.Team = m.Team.PrivateCopy()
+		defer m.refreshProject(policy)
 	}
 	if m.ReadOnly {
 		return fmt.Errorf("read-only")

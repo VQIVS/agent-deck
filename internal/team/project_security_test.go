@@ -49,3 +49,30 @@ members:
 		t.Fatal("overlay forgot private edit authority", err)
 	}
 }
+
+func TestOverlayManagerSavePreservesPrivatePolicy(t *testing.T) {
+	local := example()
+	store := Store{Root: t.TempDir()}
+	revision, err := store.Save(t.Context(), &local, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := ParseProject([]byte(testProject))
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged, err := policy.Merge(ProjectBindings{Local: &local})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := Manager{Team: merged, Store: store, Version: revision}
+	manager.Team.Members[0].NudgeStatus.Count = 1
+	if err := manager.Save(t.Context()); err != nil {
+		t.Fatal("private save blocked", err)
+	}
+	saved, _, err := store.Load(t.Context(), local.Name)
+	if err != nil || saved.Members[0].Permissions["edit"] != local.Members[0].Permissions["edit"] ||
+		saved.Members[0].NudgeStatus.Count != 1 || !manager.Team.ProjectOverlay {
+		t.Fatal(saved, err)
+	}
+}

@@ -134,7 +134,11 @@ func (p *ProjectPolicy) Merge(bindings ProjectBindings) (Team, error) {
 	}
 	if bindings.Local != nil {
 		t = *bindings.Local
+		private := *bindings.Local
+		private.Members = append([]Member(nil), bindings.Local.Members...)
+		t.ProjectPrivate = &private
 	}
+	t.ProjectPolicy = p
 	t.ProjectOverlay, t.ProjectRules = true, p.Rules
 	if t.Base == "" {
 		t.Base = p.Base

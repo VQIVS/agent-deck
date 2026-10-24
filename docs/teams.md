@@ -147,11 +147,14 @@ templates. Project policy accepts portable roles, prompts, model, base, capacity
 exact-command allowlist; it rejects session IDs and workspace bindings. Merging requires
 explicit private local bindings. Opening a saved team merges root `agent-deck.yaml` with
 its private bindings case-insensitively and keeps unmentioned members and local overrides.
-The overlay cannot be saved into the private team file; edit private configuration separately.
+The overlay remains in memory for prompts/display. Forms edit private values; saves and
+session lifecycle operations use the private team, then re-merge repository policy.
 Repository approval/command lists are suggestions only: approval settings come exclusively
 from private configuration. Repository capabilities can only tighten explicit local tool
 permissions; inherited sessions stay inherited. Repository prompt text is labeled and
-subordinate to private policy. Doctor uses the same overlay. Live session permissions
+subordinate to private policy. Repository rules/system text still enters prompts; opening
+a repository therefore trusts its instructional content, even though it cannot raise permissions.
+Doctor uses the same overlay. Live session permissions
 still require explicit Apply leases.
 Built-in templates are `upgrade-team`, `review-pair`,
 `bugfix-tester` and `custom`. User YAML templates under the config directory replace an

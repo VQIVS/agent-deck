@@ -18,6 +18,7 @@ func (u *teamUI) formScreen() string {
 
 func (m *Model) teamForm() {
 	u := m.teams
+	u.Draft = u.Draft.PrivateCopy()
 	t := &u.Draft
 	u.Fields = []formField{
 		{Label: "Team name", Value: t.Name},
@@ -37,6 +38,7 @@ func (m *Model) teamForm() {
 
 func (m *Model) memberForm() {
 	u := m.teams
+	u.Draft = u.Draft.PrivateCopy()
 	member := &u.Draft.Members[u.MemberIndex]
 	u.Advanced = false
 	preset := member.Capability
@@ -103,6 +105,9 @@ func (m *Model) saveForm() tea.Cmd {
 		return nil
 	}
 	u.Manager = &team.Manager{Store: u.Store, Team: u.Draft, Version: v, ReadOnly: m.opts.ReadOnly}
+	if err := u.Manager.ReloadProject(m.context()); err != nil {
+		m.note = err.Error()
+	}
 	u.Screen = "members"
 	m.note = "Saved · select member and Start to create resources"
 	if wasMember && u.Draft.Members[u.MemberIndex].Session == "" {

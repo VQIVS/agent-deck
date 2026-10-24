@@ -263,6 +263,9 @@ func (r *Runtime) Step(ctx context.Context) error {
 		if err := r.autoReconcile(ctx); err != nil {
 			failures = append(failures, fmt.Errorf("automatic board reconcile: %w", err))
 		}
+		if err := r.restoreWorkflowCredentials(ctx, manager); err != nil {
+			failures = append(failures, err)
+		}
 		if err := r.routeWorkerRequests(ctx, manager); err != nil {
 			failures = append(failures, fmt.Errorf("route worker requests: %w", err))
 		}

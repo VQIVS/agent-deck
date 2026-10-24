@@ -166,7 +166,19 @@ func (p *PoolRuntime) maskHealingWorkers(ctx context.Context, workers []Schedule
 	for i := range entries {
 		entry := &entries[i]
 		if selfHealKind(entry.Action.Kind) {
-			pending[entry.Action.Worker] = entry.State == "intent"
+			pending[entry.Action.Worker] = false
+			if entry.State != "intent" {
+				continue
+			}
+			// A new intent must remain eligible through prepare and the transport's
+			// final policy gate. Only an effect that has actually started needs
+			// masking while its durable phase is resumed under the board lock.
+			var effect lifecycleEffect
+			err := p.board.read(ctx, effectName(entry.Action.ID), &effect)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
+			pending[entry.Action.Worker] = err == nil
 		}
 	}
 	for i := range workers {

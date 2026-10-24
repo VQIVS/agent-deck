@@ -1,5 +1,18 @@
 # Architecture
 
+## Team channel foundation
+
+`internal/channel` maintains a private append-only, fsynced JSONL journal with crash-tail
+recovery and exclusive locking. `internal/mcp` exposes authenticated loopback HTTP tools
+for roster, channel reads/posts and DMs. Identity comes from bearer credentials; tool
+arguments cannot select a caller identity. Shared-directory credential isolation is not
+supported and credentials must only be issued after isolation is verified.
+
+Mention/DM delivery persists intent, attempt and acknowledgment events. Busy members stay
+queued; idle delivery uses an injected transport preserving member prompt settings.
+Delivery is at-least-once across crashes, with stable IDs for deduplication. Read-only,
+mute, rate, size and hop guards apply. Runtime/dashboard exposure is a separate integration.
+
 Agent-deck is one executable with flat, internal Go packages. There is no service layer
 hierarchy and no plugin runtime.
 

@@ -51,7 +51,6 @@ linters:
       min-complexity: 20
     cyclop:
       max-complexity: 15
-      skip-tests: true
     gocritic:
       enabled-tags: [diagnostic, style, performance]
       disabled-checks: [commentedOutCode, whyNoLint]

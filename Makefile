@@ -18,6 +18,7 @@ test-race:
 	go test -race ./...
 
 lint:
+	golangci-lint config verify
 	golangci-lint run ./...
 
 fmt:
@@ -28,6 +29,7 @@ setup-hooks:
 	lefthook install
 
 check:
+	golangci-lint config verify
 	golangci-lint fmt --diff
 	golangci-lint run ./...
 	go test ./...

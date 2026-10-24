@@ -17,6 +17,8 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	ID                   string            `yaml:"id,omitempty"`
+	Muted                bool              `yaml:"muted,omitempty"`
 	ProjectEditUntrusted bool              `yaml:"-" json:"-"`
 	ProjectSystem        string            `yaml:"-" json:"-"`
 	Nudge                NudgePolicy       `yaml:"nudge,omitempty"`

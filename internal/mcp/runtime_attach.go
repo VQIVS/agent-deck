@@ -39,6 +39,8 @@ type userRequest struct {
 	Text     string   `json:"text,omitempty"`
 	Mentions []string `json:"mentions,omitempty"`
 	Member   string   `json:"member,omitempty"`
+	Since    string   `json:"since,omitempty"`
+	Limit    int      `json:"limit,omitempty"`
 }
 
 func (r *Runtime) publishDiscovery() error {
@@ -52,7 +54,7 @@ func (r *Runtime) publishDiscovery() error {
 	if err != nil {
 		return fmt.Errorf("encode runtime discovery: %w", err)
 	}
-	path := r.options.JournalPath + ".runtime.json"
+	path := discoveryPath(&r.options)
 	return writeDiscovery(path, encoded)
 }
 
@@ -69,7 +71,7 @@ func writeDiscovery(path string, encoded []byte) error {
 }
 
 func (r *Runtime) removeDiscovery() {
-	path := r.options.JournalPath + ".runtime.json"
+	path := discoveryPath(&r.options)
 	state, err := readDiscovery(path)
 	if err == nil && state.Token == r.userToken {
 		r.report(os.Remove(path))
@@ -112,11 +114,16 @@ func OpenRuntime(ctx context.Context, options *RuntimeOptions) (*RuntimeConnecti
 	if options == nil || options.Provider == nil {
 		return nil, fmt.Errorf("runtime options and provider are required")
 	}
+	copyOptions := *options
+	if err := runtimeStateDirectory(&copyOptions); err != nil {
+		return nil, err
+	}
+	options = &copyOptions
 	owner, startErr := StartRuntime(ctx, options)
 	if startErr == nil {
 		return &RuntimeConnection{owner: owner}, nil
 	}
-	state, err := readDiscovery(options.JournalPath + ".runtime.json")
+	state, err := readDiscovery(discoveryPath(options))
 	if err != nil {
 		return nil, fmt.Errorf("start or discover runtime: %w", startErr)
 	}
@@ -130,7 +137,7 @@ func OpenRuntime(ctx context.Context, options *RuntimeOptions) (*RuntimeConnecti
 		Transport: transport, Timeout: 20 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}}
-	if err := c.call(ctx, userRequest{Action: "ping"}, nil); err != nil {
+	if err := c.call(ctx, &userRequest{Action: "ping"}, nil); err != nil {
 		return nil, fmt.Errorf("authenticate existing runtime owner: %w", err)
 	}
 	return c, nil
@@ -156,7 +163,16 @@ func (c *RuntimeConnection) ReadUser(ctx context.Context) ([]channel.Record, err
 		return c.owner.ReadUser(ctx)
 	}
 	var records []channel.Record
-	err := c.call(ctx, userRequest{Action: "read"}, &records)
+	err := c.call(ctx, &userRequest{Action: "read"}, &records)
+	return records, err
+}
+
+func (c *RuntimeConnection) ReadUserSince(ctx context.Context, since string, limit int) ([]channel.Record, error) {
+	if c.owner != nil {
+		return c.owner.ReadUserSince(ctx, since, limit)
+	}
+	var records []channel.Record
+	err := c.call(ctx, &userRequest{Action: "read_since", Since: since, Limit: limit}, &records)
 	return records, err
 }
 
@@ -164,25 +180,25 @@ func (c *RuntimeConnection) PostUser(ctx context.Context, text string, mentions 
 	if c.owner != nil {
 		return c.owner.PostUser(ctx, text, mentions)
 	}
-	return c.call(ctx, userRequest{Action: "post", Text: text, Mentions: mentions}, nil)
+	return c.call(ctx, &userRequest{Action: "post", Text: text, Mentions: mentions}, nil)
 }
 
 func (c *RuntimeConnection) InstallCredential(ctx context.Context, member string) error {
 	if c.owner != nil {
 		return c.owner.InstallCredential(ctx, member)
 	}
-	return c.call(ctx, userRequest{Action: "install", Member: member}, nil)
+	return fmt.Errorf("credential installation requires the local runtime owner")
 }
 
 func (c *RuntimeConnection) RevokeCredential(ctx context.Context, member string) error {
 	if c.owner != nil {
 		return c.owner.RevokeCredential(ctx, member)
 	}
-	return c.call(ctx, userRequest{Action: "revoke", Member: member}, nil)
+	return fmt.Errorf("credential revocation requires the local runtime owner")
 }
 
-func (c *RuntimeConnection) call(ctx context.Context, request userRequest, result any) error {
-	if c.readOnly && request.Action != "read" && request.Action != "ping" {
+func (c *RuntimeConnection) call(ctx context.Context, request *userRequest, result any) error {
+	if c.readOnly && request.Action != "read" && request.Action != "read_since" && request.Action != "ping" {
 		return fmt.Errorf("read-only: runtime attachment mutation disabled")
 	}
 	b, err := json.Marshal(request)
@@ -228,7 +244,7 @@ func (r *Runtime) serveUser(w http.ResponseWriter, request *http.Request) {
 		http.Error(w, "invalid user request", http.StatusBadRequest)
 		return
 	}
-	result, err := r.userAction(request.Context(), input)
+	result, err := r.userAction(request.Context(), &input)
 	if err != nil {
 		http.Error(w, "runtime action failed", http.StatusConflict)
 		return
@@ -236,7 +252,7 @@ func (r *Runtime) serveUser(w http.ResponseWriter, request *http.Request) {
 	writeJSON(w, result)
 }
 
-func (r *Runtime) userAction(ctx context.Context, input userRequest) (any, error) {
+func (r *Runtime) userAction(ctx context.Context, input *userRequest) (any, error) {
 	switch input.Action {
 	case "ping":
 		r.mu.RLock()
@@ -245,12 +261,10 @@ func (r *Runtime) userAction(ctx context.Context, input userRequest) (any, error
 		return map[string]string{"team": name}, nil
 	case "read":
 		return r.ReadUser(ctx)
+	case "read_since":
+		return r.ReadUserSince(ctx, input.Since, input.Limit)
 	case "post":
 		return nil, r.PostUser(ctx, input.Text, input.Mentions)
-	case "install":
-		return nil, r.InstallCredential(ctx, input.Member)
-	case "revoke":
-		return nil, r.RevokeCredential(ctx, input.Member)
 	default:
 		return nil, fmt.Errorf("unknown runtime user action")
 	}

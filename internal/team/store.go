@@ -89,6 +89,15 @@ func (s Store) Save(ctx context.Context, t *Team, expected []byte) ([]byte, erro
 	if !bytes.Equal(old, expected) {
 		return nil, fmt.Errorf("team changed on disk; reload before saving")
 	}
+	var previous Team
+	if len(old) > 0 {
+		if err := yaml.Unmarshal(old, &previous); err != nil {
+			return nil, fmt.Errorf("decode previous memberships: %w", err)
+		}
+	}
+	if err := EnsureMembershipIDs(t.Members, previous.Members); err != nil {
+		return nil, err
+	}
 	b, e := yaml.Marshal(t)
 	if e != nil {
 		return nil, fmt.Errorf("encode team %q: %w", t.Name, e)

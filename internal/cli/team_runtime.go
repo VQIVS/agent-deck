@@ -13,7 +13,7 @@ import (
 
 func superviseTeams(ctx context.Context) {
 	store := team.Store{Root: team.DefaultRoot()}
-	connections := map[string]*mcp.RuntimeConnection{}
+	connections := map[string]*mcp.Runtime{}
 	defer func() {
 		for _, connection := range connections {
 			_ = connection.Close()
@@ -31,7 +31,7 @@ func superviseTeams(ctx context.Context) {
 	}
 }
 
-func startTeamRuntimes(ctx context.Context, store team.Store, connections map[string]*mcp.RuntimeConnection) {
+func startTeamRuntimes(ctx context.Context, store team.Store, connections map[string]*mcp.Runtime) {
 	teams, err := store.List(ctx)
 	if err != nil {
 		return
@@ -42,9 +42,14 @@ func startTeamRuntimes(ctx context.Context, store team.Store, connections map[st
 		}
 		name := teams[i].Name
 		if connections[name] != nil {
-			continue
+			if connections[name].Alive() {
+				continue
+			}
+			_ = connections[name].Close()
+			delete(connections, name)
 		}
-		connection, err := mcp.OpenRuntime(ctx, &mcp.RuntimeOptions{
+		connection, err := mcp.StartRuntime(ctx, &mcp.RuntimeOptions{
+			OnError:      func(err error) { fmt.Fprintln(os.Stderr, "team runtime:", name, err) },
 			JournalPath:  filepath.Join(store.Root, team.Slug(name)+".channel.jsonl"),
 			SubmitReport: mcp.PersistRuntimeReport,
 			Provider: func(ctx context.Context) (*team.Manager, error) {

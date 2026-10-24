@@ -24,8 +24,15 @@ func (m *Model) startChannel() tea.Cmd {
 	store, name := m.teams.Store, m.teams.Manager.Team.Name
 	readOnly := m.opts.ReadOnly
 	ctx := m.teams.RootContext()
+	events := m.events
 	return func() tea.Msg {
 		connection, err := mcp.OpenRuntime(ctx, &mcp.RuntimeOptions{
+			OnError: func(err error) {
+				select {
+				case events <- actionMsg{Err: fmt.Errorf("channel runtime: %w", err)}:
+				case <-ctx.Done():
+				}
+			},
 			SubmitReport: mcp.PersistRuntimeReport,
 			JournalPath:  filepath.Join(store.Root, team.Slug(name)+".channel.jsonl"),
 			Provider: func(ctx context.Context) (*team.Manager, error) {

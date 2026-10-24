@@ -27,10 +27,12 @@ type runtimeFixture struct {
 func newRuntimeFixture(t *testing.T) *runtimeFixture {
 	t.Helper()
 	f := &runtimeFixture{busy: true}
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	dir := t.TempDir()
 	f.manager.Team = team.Team{
 		Name: "runtime-test", Rules: "team rules", Model: "provider/default", Repo: dir, Base: "main",
 		Members: []team.Member{{
+			ID:   "bob-membership",
 			Name: "bob", Role: "worker", Session: "session-bob", Dir: dir,
 			Agent: "build", Model: "provider/member", System: "worker rules", Mode: "shared",
 		}},

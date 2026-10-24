@@ -2,11 +2,13 @@ package team
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	api "github.com/qivs/agent-deck/internal/opencode"
+	"github.com/qivs/agent-deck/internal/server"
 )
 
 // LeaseRules builds ordered session rules; the repository must be the Git worktree root.
@@ -32,6 +34,11 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		}
 		rules = appendEditLeases(rules, member.Leases, action)
 		rules = append(rules, workerGitRules()...)
+		privateRules, err := workerPrivateRules()
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, privateRules...)
 	} else {
 		action := member.Permissions["edit"]
 		if action == "" {
@@ -43,6 +50,40 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 			if other.Name != member.Name {
 				rules = appendEditLeases(rules, other.Leases, "deny")
 			}
+		}
+	}
+	return rules, nil
+}
+
+func workerPrivateRules() ([]api.Rule, error) {
+	state, err := server.StateRoot()
+	if err != nil {
+		return nil, fmt.Errorf("resolve worker private state policy: %w", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolve worker home policy: %w", err)
+	}
+	var rules []api.Rule
+	for _, root := range []string{DefaultRoot(), state} {
+		absolute, err := filepath.Abs(root)
+		if err != nil {
+			return nil, fmt.Errorf("resolve worker private root: %w", err)
+		}
+		paths := []string{filepath.ToSlash(absolute)}
+		if resolved, err := filepath.EvalSymlinks(absolute); err == nil && resolved != absolute {
+			paths = append(paths, filepath.ToSlash(resolved))
+		}
+		if relative, err := filepath.Rel(home, absolute); err == nil && !strings.HasPrefix(relative, "..") {
+			for _, prefix := range []string{"~/", "$HOME/", "${HOME}/"} {
+				paths = append(paths, prefix+filepath.ToSlash(relative))
+			}
+		}
+		for _, path := range paths {
+			for _, pattern := range []string{path, path + "/*"} {
+				rules = append(rules, api.Rule{Permission: "read", Pattern: pattern, Action: "deny"})
+			}
+			rules = append(rules, api.Rule{Permission: "bash", Pattern: "*" + path + "*", Action: "deny"})
 		}
 	}
 	return rules, nil

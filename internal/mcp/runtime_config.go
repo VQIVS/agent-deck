@@ -50,11 +50,21 @@ func installRuntimeConfig(credential *runtimeCredential, endpoint string) error 
 }
 
 func removeRuntimeConfig(credential *runtimeCredential) error {
+	if _, err := os.Lstat(credential.config); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	return changeRuntimeConfig(credential, "", true)
 }
 
 func changeRuntimeConfig(credential *runtimeCredential, endpoint string, remove bool) error {
-	lockPath := credential.config + ".agent-deck.lock"
+	lockPath := credential.lockPath
+	if lockPath == "" {
+		options := RuntimeOptions{}
+		if err := runtimeStateDirectory(&options); err != nil {
+			return err
+		}
+		lockPath = runtimeStatePath(options.StateDir, credential.config, "config.lock")
+	}
 	fd, err := syscall.Open(lockPath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return fmt.Errorf("open credential config lock: %w", err)

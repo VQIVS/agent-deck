@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -18,6 +19,7 @@ type ManagerProvider func(context.Context) (*team.Manager, error)
 type RuntimeOptions struct {
 	Provider     ManagerProvider
 	JournalPath  string
+	StateDir     string
 	Address      string
 	Interval     time.Duration
 	Timeout      time.Duration
@@ -53,21 +55,19 @@ func StartRuntime(ctx context.Context, options *RuntimeOptions) (*Runtime, error
 		return nil, fmt.Errorf("runtime requires provider and journal path")
 	}
 	o := *options
-	if o.Address == "" {
-		o.Address = "127.0.0.1:0"
-	}
-	if o.Interval <= 0 {
-		o.Interval = 5 * time.Second
-	}
-	if o.Timeout <= 0 {
-		o.Timeout = 15 * time.Second
-	}
+	runtimeDefaults(&o)
 	manager, err := o.Provider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load runtime team: %w", err)
 	}
 	if manager == nil || manager.Team.Name == "" {
 		return nil, fmt.Errorf("runtime provider requires a named team")
+	}
+	if err := runtimeMemberships(manager); err != nil {
+		return nil, err
+	}
+	if err := runtimeStateDirectory(&o); err != nil {
+		return nil, err
 	}
 	listener, err := listenRuntime(ctx, o.Address)
 	if err != nil {
@@ -87,6 +87,9 @@ func StartRuntime(ctx context.Context, options *RuntimeOptions) (*Runtime, error
 		Team: manager.Team.Name, Journal: journal, Members: r.members, ReadOnly: r.readOnly,
 		Transport: r, Instructions: r.instructions,
 	})
+	if err == nil {
+		err = r.seedRoster(ctx)
+	}
 	if err != nil {
 		_ = journal.Close()
 		_ = listener.Close()
@@ -101,6 +104,32 @@ func StartRuntime(ctx context.Context, options *RuntimeOptions) (*Runtime, error
 	r.cancel = cancel
 	go r.run(runCtx)
 	return r, nil
+}
+
+func runtimeDefaults(options *RuntimeOptions) {
+	if options.Address == "" {
+		options.Address = "127.0.0.1:0"
+	}
+	if options.Interval <= 0 {
+		options.Interval = 5 * time.Second
+	}
+	if options.Timeout <= 0 {
+		options.Timeout = 15 * time.Second
+	}
+}
+
+func (r *Runtime) seedRoster(ctx context.Context) error {
+	records, err := r.journal.Snapshot(ctx)
+	if err != nil {
+		return fmt.Errorf("seed runtime roster: %w", err)
+	}
+	for i := len(records) - 1; i >= 0; i-- {
+		if records[i].Kind == "roster" {
+			r.roster = records[i].Text
+			break
+		}
+	}
+	return nil
 }
 
 func listenRuntime(ctx context.Context, address string) (net.Listener, error) {
@@ -161,6 +190,15 @@ func (r *Runtime) Close() error {
 	return nil
 }
 
+func (r *Runtime) Alive() bool {
+	select {
+	case <-r.done:
+		return false
+	default:
+		return true
+	}
+}
+
 func (r *Runtime) cleanup() {
 	r.mu.Lock()
 	r.closed = true
@@ -202,19 +240,21 @@ func (r *Runtime) Step(ctx context.Context) error {
 	r.manager, r.failed = manager, false
 	changed := r.roster != text
 	r.mu.Unlock()
+	var failures []error
 	if err := r.revokeChanged(manager); err != nil {
-		return err
+		failures = append(failures, err)
 	}
 	if changed && !manager.ReadOnly {
 		if _, err := r.Service.BroadcastRoster(ctx, text); err != nil {
-			return err
+			failures = append(failures, err)
+		} else {
+			r.mu.Lock()
+			r.roster = text
+			r.mu.Unlock()
 		}
-		r.mu.Lock()
-		r.roster = text
-		r.mu.Unlock()
 	}
 	if err := r.Service.Deliver(ctx); err != nil {
-		return fmt.Errorf("deliver runtime channel: %w", err)
+		failures = append(failures, fmt.Errorf("deliver runtime channel: %w", err))
 	}
-	return nil
+	return errors.Join(failures...)
 }

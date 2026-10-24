@@ -29,8 +29,44 @@ func TestImplicitReplyCannotResetHops(t *testing.T) {
 	if err := s.event(t.Context(), "delivered", "bob", &r); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Post(t.Context(), bob, Post{Text: "reset", Member: "alice"}, true); err == nil {
+	if _, err := s.Post(t.Context(), bob, Post{Text: "reset", Member: "eve"}, true); err == nil {
 		t.Fatal("omitting reply_to reset delivered thread hop count")
+	}
+}
+
+func TestWakeHopsClearAfterPostAndAllowMasterEscalation(t *testing.T) {
+	f := newFakeTransport()
+	s := newTestService(t, transportOptions(f))
+	ctx := t.Context()
+	alice, bob := Identity{"test", "alice"}, Identity{"test", "bob"}
+	inbound, err := s.Post(ctx, alice, Post{Text: "wake", Member: "bob"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inbound.ID += "high"
+	inbound.Hops = 3
+	if err := s.options.Journal.Append(ctx, &inbound); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.event(ctx, "delivered", "bob", &inbound); err != nil {
+		t.Fatal(err)
+	}
+	escalation, err := s.Post(ctx, bob, Post{Text: "need help", Member: "alice"}, true)
+	if err != nil || escalation.Hops != 4 {
+		t.Fatalf("master escalation blocked: %+v, %v", escalation, err)
+	}
+	if !s.senderAllowed(&escalation) {
+		t.Fatal("accepted master escalation cannot be delivered")
+	}
+	independent, err := s.Post(ctx, bob, Post{Text: "new work", Member: "eve"}, true)
+	if err != nil || independent.Hops != 1 {
+		t.Fatalf("old wake poisoned later post: %+v, %v", independent, err)
+	}
+	if err := s.event(ctx, "delivered", "bob", &inbound); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Post(ctx, bob, Post{Text: "new wake", Member: "eve"}, true); err == nil {
+		t.Fatal("new wake did not restore hop guard")
 	}
 }
 

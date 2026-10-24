@@ -147,7 +147,7 @@ func (s *Service) senderAllowed(r *channel.Record) bool {
 		return true
 	}
 	sender, err := s.member(Identity{Team: s.options.Team, Member: r.Sender})
-	return err == nil && !sender.Muted && (r.Hops <= s.options.MaxHops || sender.Role == "master")
+	return err == nil && !sender.Muted && s.hopsAllowed(r, sender.Role)
 }
 
 func (s *Service) deliverMember(ctx context.Context, member string) error {

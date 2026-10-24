@@ -32,7 +32,7 @@ func (r *Runtime) submitReport(ctx context.Context, identity Identity, raw json.
 		return nil, fmt.Errorf("find report member: %w", err)
 	}
 	member := &manager.Team.Members[index]
-	if member.Role != "worker" || (r.options.Muted != nil && r.options.Muted(member.Name)) {
+	if member.Role != "worker" || member.Muted || (r.options.Muted != nil && r.options.Muted(member.Name)) {
 		return nil, fmt.Errorf("report submission requires an unmuted worker")
 	}
 	report, err := team.DecodeDoneReport(raw)

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,7 @@ type runtimeCredential struct {
 	config   string
 	entry    string
 	token    string
+	lockPath string
 }
 
 // InstallCredential explicitly installs a private directory credential for one isolated worktree.
@@ -57,6 +59,7 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 		identity: identity, dir: m.Dir, session: m.Session, role: m.Role,
 		config: filepath.Join(m.Dir, "opencode.json"), entry: "agent_deck_" + team.Slug(manager.Team.Name), token: token,
 	}
+	credential.lockPath = runtimeStatePath(r.options.StateDir, credential.config, "config.lock")
 	if err := installRuntimeConfig(&credential, r.URL); err != nil {
 		r.Tokens.Revoke(identity)
 		return err
@@ -71,6 +74,9 @@ func isolatedMember(ctx context.Context, manager *team.Manager, member *team.Mem
 	}
 	if member.Session == "" {
 		return fmt.Errorf("credentials require a current member session")
+	}
+	if member.Muted {
+		return fmt.Errorf("muted member cannot receive credentials")
 	}
 	dir, err := filepath.EvalSymlinks(member.Dir)
 	if err != nil {
@@ -149,16 +155,14 @@ func (r *Runtime) RevokeCredential(ctx context.Context, name string) error {
 		return nil
 	}
 	r.Tokens.Revoke(credential.identity)
-	if err := removeRuntimeConfig(&credential); err != nil {
-		return err
-	}
 	delete(r.credentials, name)
-	return nil
+	return removeRuntimeConfig(&credential)
 }
 
 func (r *Runtime) revokeChanged(manager *team.Manager) error {
 	r.credentialMu.Lock()
 	defer r.credentialMu.Unlock()
+	var failures []error
 	for name := range r.credentials {
 		credential := r.credentials[name]
 		index, err := manager.MemberIndex(name)
@@ -170,10 +174,10 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 			}
 		}
 		r.Tokens.Revoke(credential.identity)
-		if err := removeRuntimeConfig(&credential); err != nil {
-			return err
-		}
 		delete(r.credentials, name)
+		if err := removeRuntimeConfig(&credential); err != nil {
+			failures = append(failures, err)
+		}
 	}
-	return nil
+	return errors.Join(failures...)
 }

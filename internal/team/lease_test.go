@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -138,6 +139,27 @@ func TestLeaseWorkerEditCeiling(t *testing.T) {
 			assertLeaseAction(t, rules, "edit", "other/file.go", "deny")
 		})
 	}
+}
+
+func TestWorkerPrivateRootDenies(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	worker := Member{Name: "worker", Role: "worker", Permissions: Preset("full"), Leases: []string{"owned/**"}}
+	rules, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range []string{
+		DefaultRoot(), filepath.Join(home, ".local", "state", "agent-deck"),
+		"~/.config/agent-deck/teams", "$HOME/.local/state/agent-deck", "${HOME}/.config/agent-deck/teams",
+	} {
+		assertLeaseAction(t, rules, "read", root+"/secret.json", "deny")
+		assertLeaseAction(t, rules, "bash", "cat "+root+"/secret.json", "deny")
+	}
+	assertLeaseAction(t, rules, "read", "/repo/internal/team/config.go", "allow")
+	assertLeaseAction(t, rules, "bash", "go test ./internal/team/...", "allow")
 }
 
 func assertLeaseAction(t *testing.T, rules []api.Rule, permission, target, want string) {

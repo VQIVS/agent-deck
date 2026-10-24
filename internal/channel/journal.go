@@ -204,6 +204,38 @@ func visibleMessage(r *Record, member, identity string) bool {
 		(r.Audience[member] == identity && slices.Contains(r.Recipients, member))
 }
 
+// ReadUserMessages is a privileged bounded forward read, including private messages.
+func (j *Journal) ReadUserMessages(ctx context.Context, since string, limit int) ([]Record, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	start := 0
+	if since != "" {
+		position, exists := j.positions[since]
+		if !exists {
+			return nil, fmt.Errorf("unknown user channel cursor")
+		}
+		start = position + 1
+	}
+	result := make([]Record, 0, limit)
+	for i := start; i < len(j.records) && len(result) < limit; i++ {
+		r := &j.records[i]
+		if r.Kind != "message" && r.Kind != "roster" {
+			continue
+		}
+		copyRecord := *r
+		copyRecord.Recipients = slices.Clone(r.Recipients)
+		copyRecord.Audience = cloneAudience(r.Audience)
+		result = append(result, copyRecord)
+	}
+	return result, nil
+}
+
 // ReadMessages bounds member-facing results and applies immutable membership identities.
 func (j *Journal) ReadMessages(ctx context.Context, member, identity, since string, limit int) ([]Record, error) {
 	j.mu.Lock()

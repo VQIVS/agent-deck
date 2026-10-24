@@ -62,7 +62,7 @@ func TestRuntimeOwnerEndpointRejectsWrongCredentialAndDiscoveryPermissions(t *te
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatal("forged owner token accepted")
 	}
-	path := owner.options.JournalPath + ".runtime.json"
+	path := discoveryPath(&owner.options)
 	os.Chmod(path, 0o644)
 	if _, err := readDiscovery(path); err == nil {
 		t.Fatal("public discovery accepted")

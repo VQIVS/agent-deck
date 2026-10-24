@@ -162,7 +162,7 @@ func (s *Service) Post(ctx context.Context, identity Identity, post Post, privat
 		return channel.Record{}, err
 	}
 	s.bindAudience(&r)
-	if r.Hops > s.options.MaxHops && member.Role != "master" {
+	if !s.hopsAllowed(&r, member.Role) {
 		return channel.Record{}, fmt.Errorf("thread hop limit reached; master authorization required")
 	}
 	now := s.options.Now()

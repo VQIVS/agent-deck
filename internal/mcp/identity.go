@@ -52,6 +52,9 @@ func (s *Service) inheritHops(ctx context.Context, member string, record *channe
 	}
 	for i := range records {
 		r := &records[i]
+		if r.Kind == "message" && r.Sender == member && r.SenderID == current.ID {
+			clear(delivered)
+		}
 		if r.Sender == member && r.SenderID == current.ID &&
 			(r.Kind == "delivered" || r.Kind == "ack") {
 			delivered[r.Message] = true
@@ -64,4 +67,20 @@ func (s *Service) inheritHops(ctx context.Context, member string, record *channe
 		}
 	}
 	return nil
+}
+
+func (s *Service) masterEscalation(record *channel.Record) bool {
+	if !record.Private || len(record.Recipients) != 1 {
+		return false
+	}
+	for _, member := range s.options.Members() {
+		if member.Name == record.Recipients[0] && member.Role == "master" && !member.Muted {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) hopsAllowed(record *channel.Record, role string) bool {
+	return record.Hops <= s.options.MaxHops || role == "master" || s.masterEscalation(record)
 }

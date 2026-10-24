@@ -13,9 +13,13 @@ import (
 )
 
 func serverCommand(action string, args []string) error {
+	stateRoot, err := server.DefaultRoot()
+	if err != nil {
+		return fmt.Errorf("resolve supervisor state: %w", err)
+	}
 	f := flag.NewFlagSet(action, flag.ContinueOnError)
 	port := f.Int("port", 4096, "loopback OpenCode port")
-	root := f.String("state", server.DefaultRoot(), "private supervisor state directory")
+	root := f.String("state", stateRoot, "private supervisor state directory")
 	opencode := f.String("opencode", "opencode", "OpenCode executable")
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("parse server flags: %w", err)
@@ -28,8 +32,9 @@ func serverCommand(action string, args []string) error {
 	controller.OnExit = func(err error) { fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC3339), err) }
 	if action == "supervise" {
 		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
-		defer cancel()
-		go superviseTeams(ctx)
+		done := make(chan struct{})
+		go func() { defer close(done); superviseTeams(ctx) }()
+		defer func() { cancel(); <-done }()
 		if err := controller.Supervise(ctx, *port); err != nil {
 			return fmt.Errorf("supervise local server: %w", err)
 		}

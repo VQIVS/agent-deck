@@ -13,6 +13,14 @@ func (r *Runtime) Endpoint() string {
 	return r.URL
 }
 
+func (r *Runtime) ReadUserSince(ctx context.Context, since string, limit int) ([]channel.Record, error) {
+	records, err := r.journal.ReadUserMessages(ctx, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("read incremental user channel: %w", err)
+	}
+	return records, nil
+}
+
 // ReadUser is an explicit privileged UI view including DMs, bounded to the latest 1000 messages.
 func (r *Runtime) ReadUser(ctx context.Context) ([]channel.Record, error) {
 	records, err := r.journal.Snapshot(ctx)

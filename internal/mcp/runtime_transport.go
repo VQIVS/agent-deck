@@ -25,6 +25,9 @@ func (r *Runtime) current(ctx context.Context) (*team.Manager, error) {
 	if manager == nil || manager.Team.Name != name {
 		return nil, fmt.Errorf("runtime provider changed team identity")
 	}
+	if err := runtimeMemberships(manager); err != nil {
+		return nil, err
+	}
 	return manager, nil
 }
 
@@ -34,16 +37,24 @@ func (r *Runtime) members() []Member {
 	result := make([]Member, 0, len(r.manager.Team.Members))
 	for i := range r.manager.Team.Members {
 		m := &r.manager.Team.Members[i]
-		id := m.Session
-		if id == "" {
-			id = "unstarted:" + m.Name
-		}
 		result = append(result, Member{
-			ID: id, Name: m.Name, Role: m.Role,
-			Muted: r.failed || (r.options.Muted != nil && r.options.Muted(m.Name)),
+			ID: m.ID, Name: m.Name, Role: m.Role,
+			Muted: r.failed || m.Muted || (r.options.Muted != nil && r.options.Muted(m.Name)),
 		})
 	}
 	return result
+}
+
+func runtimeMemberships(manager *team.Manager) error {
+	ids := make(map[string]bool)
+	for i := range manager.Team.Members {
+		member := &manager.Team.Members[i]
+		if member.ID == "" || ids[member.ID] {
+			return fmt.Errorf("team members need unique persistent IDs; explicitly save/migrate the team before runtime")
+		}
+		ids[member.ID] = true
+	}
+	return nil
 }
 
 func (r *Runtime) readOnly() bool {
@@ -155,6 +166,9 @@ func (r *Runtime) Send(ctx context.Context, name, prompt string) error {
 	index, err := manager.MemberIndex(name)
 	if err != nil {
 		return fmt.Errorf("find runtime recipient: %w", err)
+	}
+	if manager.Team.Members[index].Muted {
+		return fmt.Errorf("runtime recipient is muted")
 	}
 	if err := manager.Send(ctx, index, prompt); err != nil {
 		return fmt.Errorf("send runtime prompt: %w", err)

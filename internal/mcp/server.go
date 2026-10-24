@@ -144,9 +144,10 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, identity Ident
 
 func (s *Server) initialize(w http.ResponseWriter, call *request) {
 	var params struct {
-		ProtocolVersion string         `json:"protocolVersion"`
-		Capabilities    map[string]any `json:"capabilities"`
-		ClientInfo      map[string]any `json:"clientInfo"`
+		ProtocolVersion string          `json:"protocolVersion"`
+		Capabilities    map[string]any  `json:"capabilities"`
+		ClientInfo      map[string]any  `json:"clientInfo"`
+		Meta            json.RawMessage `json:"_meta,omitempty"`
 	}
 	if err := decode(bytes.NewReader(call.Params), &params); err != nil {
 		writeError(w, call.ID, -32602, "invalid initialize parameters")

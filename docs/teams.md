@@ -173,9 +173,12 @@ and UI integration are described as they become available below.
 
 Managed dashboards start or attach to a loopback-only team MCP runtime. `agent-deck up`
 supervisors also start runtimes for lease-pool teams; both use the same private journal
-and authenticated discovery file, so only one owns it. Start the supervisor first for a
+and authenticated discovery file in XDG state, so only one owns it. Start the supervisor first for a
 persistent owner. A dashboard-created owner closes with that dashboard; attachments do
 not stop an existing owner. Read-only dashboards do not start runtime services.
+The supervisor only becomes an owner, never an attachment: it retries while a dashboard
+owns the journal, takes over after that owner exits, and waits for cleanup on shutdown.
+Unchanged restarts seed the last journal roster instead of waking every member again.
 
 Open **Channel** (`c`), press `m` to post as the user, and mention `@member` to queue a
 wakeup. Ordinary unmentioned posts do not wake agents. Busy/waiting members queue until
@@ -188,6 +191,18 @@ entry into its `opencode.json`. The file must already be Git-ignored; JSON is me
 atomically, preserving unrelated configuration. Tokens rotate/revoke on binding/role
 changes and owner shutdown. This is local credential separation, not a filesystem sandbox.
 Roster changes broadcast through the guarded queue. Delivery is at-least-once across crashes.
+Persistent membership UUIDs survive session changes and distinguish removed/re-added members;
+existing teams must be explicitly saved once to migrate before starting their runtime.
+`muted: true` in private member configuration blocks posting/delivery/credentials.
+Hop inheritance covers the current wake only and resets on an accepted post; escalation
+to the master remains possible. Credential cleanup failures are visible and do not block
+other members' delivery. Runtime config locks live in private state, never in worktrees.
+
+The owner token permits privileged user-channel reads/posts and is stored under private
+state. Credential installation/revocation is local-owner-only, not an HTTP user action.
+Worker read/bash rules deny access to agent-deck configuration/state paths cooperatively.
+All processes still share the same OS user: agents with other filesystem access can defeat
+these guards, so this is not a security boundary against hostile same-user code.
 
 ## Structured worker reports
 

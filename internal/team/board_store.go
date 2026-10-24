@@ -157,6 +157,9 @@ func (s BoardStore) write(ctx context.Context, name string, value any) error {
 	if err != nil {
 		return fmt.Errorf("encode board state: %w", err)
 	}
+	if len(data) > 8<<20 {
+		return fmt.Errorf("board state exceeds 8 MiB")
+	}
 	return replaceReport(ctx, filepath.Join(dir, name), data)
 }
 
@@ -176,6 +179,7 @@ func (s BoardStore) Append(ctx context.Context, entry *ReconcileEntry) error {
 		return err
 	}
 	entries = append(entries, *entry)
+	entries = compactBoardActions(entries, entry.Action.Revision)
 	return s.write(ctx, "actions.json", entries)
 }
 
@@ -183,25 +187,33 @@ func (s BoardStore) Approve(ctx context.Context, actionID string, userConfirmed 
 	if !userConfirmed || actionID == "" {
 		return fmt.Errorf("board approval requires privileged confirmed user action")
 	}
-	state, err := s.Load(ctx)
-	if err != nil {
-		return err
-	}
-	if state.Approved == nil {
-		state.Approved = map[string]bool{}
-	}
-	state.Approved[actionID] = true
 	// Approval does not change the desired revision encoded in action IDs.
 	return s.Exclusive(ctx, func() error {
-		current, err := s.Load(ctx)
+		state, err := s.Load(ctx)
 		if err != nil {
 			return err
 		}
-		if current.Revision != state.Revision {
-			return fmt.Errorf("board changed during approval")
+		if state.Approved == nil {
+			state.Approved = make(map[string]bool)
 		}
+		state.Approved[actionID] = true
 		return s.write(ctx, "board.json", &state)
 	})
+}
+
+func compactBoardActions(entries []ReconcileEntry, revision string) []ReconcileEntry {
+	latest := make(map[string]int, len(entries))
+	for i := range entries {
+		latest[entries[i].Action.ID] = i
+	}
+	result := make([]ReconcileEntry, 0, len(entries))
+	for i := range entries {
+		entry := &entries[i]
+		if entry.Action.Revision == revision || (latest[entry.Action.ID] == i && entry.State == "intent") {
+			result = append(result, *entry)
+		}
+	}
+	return result
 }
 
 func (s BoardStore) Snapshot(ctx context.Context, manager *Manager, workers []SchedulerWorker,

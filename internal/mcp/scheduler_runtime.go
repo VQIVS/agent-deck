@@ -154,3 +154,16 @@ func proposePoolWorkers(
 	}
 	return result, nil
 }
+
+// AutoReconcile runs the policy-allowed automatic pass on the cached pool runtime.
+func (a *poolSchedulerActions) AutoReconcile(ctx context.Context) ([]team.TaskNotice, error) {
+	pool, err := a.open(ctx)
+	if err != nil {
+		return nil, err
+	}
+	notices, err := pool.AutoReconcile(ctx)
+	if err != nil {
+		return notices, fmt.Errorf("automatic reconcile: %w", err)
+	}
+	return notices, nil
+}

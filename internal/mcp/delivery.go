@@ -140,7 +140,7 @@ func (s *Service) pending(records []channel.Record, member string) []channel.Rec
 }
 
 func (s *Service) senderAllowed(r *channel.Record) bool {
-	if r.Sender == "user" && r.SenderID == "user" && r.Hops == 0 {
+	if (r.Sender == "user" || r.Sender == systemSender) && r.SenderID == r.Sender && r.Hops == 0 {
 		return true
 	}
 	if r.Kind != "message" {

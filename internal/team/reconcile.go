@@ -15,8 +15,9 @@ import (
 
 // ReconcileActor comes from authenticated integration, never caller-supplied role claims.
 type ReconcileActor struct {
-	Member string
-	User   bool
+	Member     string
+	User       bool
+	Automation bool
 }
 
 // ReconcileSnapshot is an owned current policy snapshot; revision changes with desired state.
@@ -169,7 +170,7 @@ func authorizeReconcile(snapshot *ReconcileSnapshot, actor ReconcileActor) error
 	if snapshot.Input.ReadOnly {
 		return fmt.Errorf("read-only: reconcile disabled")
 	}
-	if actor.User {
+	if actor.User || actor.Automation {
 		return nil
 	}
 	for i := range snapshot.Team.Members {

@@ -16,6 +16,7 @@ import (
 // Server provides stateless MCP streamable HTTP with bearer authentication on every request.
 type Server struct {
 	Scheduler    *SchedulerTools
+	Tasks        *TaskTools
 	Tokens       *Tokens
 	Service      *Service
 	SubmitReport func(context.Context, Identity, json.RawMessage) (any, error)
@@ -124,6 +125,9 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, identity Ident
 		catalog := tools()
 		if s.Scheduler != nil {
 			catalog = append(catalog, s.Scheduler.Definitions()...)
+		}
+		if s.Tasks != nil {
+			catalog = append(catalog, s.Tasks.Definitions()...)
 		}
 		if s.SubmitReport != nil {
 			catalog = append(catalog, reportTool())

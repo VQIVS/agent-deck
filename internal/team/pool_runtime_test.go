@@ -94,3 +94,43 @@ func TestPoolRuntimeRejectPersistsAndBlocksApproval(t *testing.T) {
 		t.Fatal("rejected action bypassed transport gate")
 	}
 }
+
+func TestAutoReconcileAskModeNeverCreatesOrApproves(t *testing.T) {
+	store, board := poolRuntimeFixture(t, "http://127.0.0.1:1")
+	tm, version, err := store.Load(t.Context(), "pool")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm.Members[1].Session = ""
+	if _, err := store.Save(t.Context(), &tm, version); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := OpenPool(t.Context(), store, "pool", board)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if notices, err := pool.AutoReconcile(t.Context()); err != nil || notices != nil {
+		t.Fatal("unconfigured board reconciled", notices, err)
+	}
+	state := BoardState{
+		Version: 1, Board: TaskBoard{Version: 1},
+		Policy: SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
+	}
+	if err := pool.Configure(t.Context(), ReconcileActor{User: true}, &state, 0); err != nil {
+		t.Fatal(err)
+	}
+	actions, err := pool.Actions(t.Context(), ReconcileActor{User: true})
+	if err != nil || len(actions) != 1 || actions[0].Kind != "create" {
+		t.Fatal(actions, err)
+	}
+	if _, err := pool.AutoReconcile(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	after, _, err := store.Load(t.Context(), "pool")
+	if err != nil || len(after.Members) != len(tm.Members) || after.Members[1].Session != "" {
+		t.Fatal("ask mode created a worker without approval", err)
+	}
+	if err := pool.Approve(t.Context(), ReconcileActor{Automation: true}, actions[0].ID); err == nil {
+		t.Fatal("automation approved a creation")
+	}
+}

@@ -18,6 +18,7 @@ type ManagerProvider func(context.Context) (*team.Manager, error)
 // RuntimeOptions configures one team server; credentials are never installed implicitly.
 type RuntimeOptions struct {
 	Scheduler    *SchedulerTools
+	Tasks        *TaskTools
 	Provider     ManagerProvider
 	JournalPath  string
 	StateDir     string
@@ -153,7 +154,7 @@ func (r *Runtime) run(ctx context.Context) {
 	defer close(r.done)
 	serverDone := make(chan error, 1)
 	go func() {
-		server := &Server{Tokens: r.Tokens, Service: r.Service, Scheduler: r.options.Scheduler}
+		server := &Server{Tokens: r.Tokens, Service: r.Service, Scheduler: r.options.Scheduler, Tasks: r.taskTools()}
 		server.UserHandler = r.serveUser
 		if r.options.SubmitReport != nil {
 			server.SubmitReport = r.submitReport
@@ -255,6 +256,11 @@ func (r *Runtime) Step(ctx context.Context) error {
 			r.mu.Lock()
 			r.roster = text
 			r.mu.Unlock()
+		}
+	}
+	if !manager.ReadOnly {
+		if err := r.autoReconcile(ctx); err != nil {
+			failures = append(failures, fmt.Errorf("automatic board reconcile: %w", err))
 		}
 	}
 	if err := r.Service.Deliver(ctx); err != nil {

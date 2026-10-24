@@ -10,7 +10,12 @@ import (
 )
 
 func RuntimeScheduler(provider ManagerProvider) (*SchedulerTools, error) {
-	return NewPoolScheduler(func(ctx context.Context) (*team.Manager, team.BoardStore, error) {
+	return NewPoolScheduler(RuntimePool(provider))
+}
+
+// RuntimePool resolves the current team and its private board store.
+func RuntimePool(provider ManagerProvider) PoolProvider {
+	return func(ctx context.Context) (*team.Manager, team.BoardStore, error) {
 		manager, err := provider(ctx)
 		if err != nil {
 			return nil, team.BoardStore{}, err
@@ -21,7 +26,7 @@ func RuntimeScheduler(provider ManagerProvider) (*SchedulerTools, error) {
 		}
 		board := team.BoardStore{Root: filepath.Join(root, "boards"), Team: manager.Team.Name, ReadOnly: manager.ReadOnly}
 		return manager, board, nil
-	})
+	}
 }
 
 func configureScheduler(o *RuntimeOptions) error {

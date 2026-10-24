@@ -44,12 +44,10 @@ func (s *Server) call(ctx context.Context, identity Identity, params json.RawMes
 	if len(call.Arguments) == 0 {
 		call.Arguments = json.RawMessage(`{}`)
 	}
+	if result, handled, err := s.callWorkflow(ctx, identity, call.Name, call.Arguments); handled {
+		return result, err
+	}
 	switch call.Name {
-	case "propose_workers", "assign_task", "retire_worker":
-		if s.Scheduler == nil {
-			return nil, fmt.Errorf("pool scheduling is not configured")
-		}
-		return s.Scheduler.Call(ctx, identity, call.Name, call.Arguments)
 	case "submit_report":
 		if s.SubmitReport == nil {
 			return nil, fmt.Errorf("report submission is not configured")
@@ -76,6 +74,27 @@ func (s *Server) call(ctx context.Context, identity Identity, params json.RawMes
 		return s.post(ctx, identity, call.Name, call.Arguments)
 	default:
 		return nil, fmt.Errorf("unknown tool")
+	}
+}
+
+func (s *Server) callWorkflow(ctx context.Context, identity Identity, name string,
+	arguments json.RawMessage,
+) (result any, handled bool, err error) {
+	switch {
+	case IsTaskTool(name):
+		if s.Tasks == nil {
+			return nil, true, fmt.Errorf("task board is not configured")
+		}
+		result, err = s.Tasks.Call(ctx, identity, name, arguments)
+		return result, true, err
+	case name == "propose_workers" || name == "assign_task" || name == "retire_worker":
+		if s.Scheduler == nil {
+			return nil, true, fmt.Errorf("pool scheduling is not configured")
+		}
+		result, err = s.Scheduler.Call(ctx, identity, name, arguments)
+		return result, true, err
+	default:
+		return nil, false, nil
 	}
 }
 

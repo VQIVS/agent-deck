@@ -1,0 +1,9 @@
+Inbox · / search · Tab kind · Esc back
+› [question] reviewer · Question
+  /workspace/review · session-review · Scope: Review all changes or only health?
+  [permission] health · Permission: bash
+  /workspace/project · session-health · go test -race ./internal/state/...
+  [done] Sol · Done report
+  /workspace/project · session-sol · Package tests passed; integration review pending.
+Enter open · y approve once · Y always · x reject · a attach question · n nudge
+Worker reports ready · 2 members need input

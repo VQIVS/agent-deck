@@ -1,0 +1,47 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   ╭────────────────────────────────────────────────────────────────────────────────────────╮
+                                   │Team: review-pool                                                                       │
+                                   │[Settings] [+ Worker] [Back] [Teams]                                                    │
+                                   │  IDLE · Sol · master                                                                   │
+                                   │  leases: none · coder · creation rules (not live verification)                         │
+                                   │  /workspace/project · session-sol                                                      │
+                                   │› ! NEEDS PERMISSION / INPUT · 1 permission · 0 question · health · worker              │
+                                   │  leases: internal/state/** · coder · creation rules (not live verification)            │
+                                   │  /workspace/project · session-health                                                   │
+                                   │  ! NEEDS PERMISSION / INPUT · 0 permission · 1 question · reviewer · worker            │
+                                   │  leases: none · inherited from session                                                 │
+                                   │  /workspace/review · session-review                                                    │
+                                   │[Edit] [Start] [Remove] [Change master] [Apply leases]                                  │
+                                   │Worker reports ready · 2 members need input                                             │
+                                   │[Team tools]                                                                            │
+                                   ╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Tab next field  ·  Ctrl+S save  ·  Esc back  ·  Click to focus

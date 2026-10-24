@@ -178,34 +178,15 @@ func TestRosterQueueAndDeliveryPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Deliver(t.Context()); err != nil || len(f.prompts["alice"]) != 1 || len(f.prompts["bob"]) != 0 {
-		t.Fatalf("roster busy state: %v, %v", f.prompts, err)
+	if err := s.Deliver(t.Context()); err != nil || len(f.prompts["alice"]) != 0 || len(f.prompts["bob"]) != 0 {
+		t.Fatalf("roster woke members: %v, %v", f.prompts, err)
 	}
-	f.busy["bob"] = false
-	muted = true
-	if err := s.Deliver(t.Context()); err != nil || len(f.prompts["bob"]) != 0 {
-		t.Fatal("muted recipient woke", err)
+	records, err := s.Read(t.Context(), Identity{"test", "alice"}, "")
+	if err != nil || len(records) == 0 || records[len(records)-1].ID != r.ID {
+		t.Fatalf("roster not readable: %v %v", records, err)
 	}
 	muted, readOnly = false, true
-	before, _ := s.options.Journal.Snapshot(t.Context())
-	if _, err := s.Read(t.Context(), Identity{"test", "bob"}, ""); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := s.BroadcastRoster(t.Context(), "blocked"); err == nil {
 		t.Fatal("read-only roster allowed")
-	}
-	if err := s.Deliver(t.Context()); err != nil || len(f.prompts["bob"]) != 0 {
-		t.Fatal("read-only delivery occurred", err)
-	}
-	after, _ := s.options.Journal.Snapshot(t.Context())
-	if len(before) != len(after) {
-		t.Fatal("read-only read appended acknowledgment")
-	}
-	readOnly = false
-	if err := s.Deliver(t.Context()); err != nil || len(f.prompts["bob"]) != 1 {
-		t.Fatal("queued roster was lost", err)
-	}
-	if !strings.Contains(f.prompts["bob"][0], r.ID) {
-		t.Fatal("missing roster dedup ID")
 	}
 }

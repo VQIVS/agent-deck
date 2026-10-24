@@ -221,11 +221,10 @@ func (s *Service) BroadcastRoster(ctx context.Context, text string) (channel.Rec
 	if count >= s.options.Rate {
 		return channel.Record{}, fmt.Errorf("roster rate limit reached")
 	}
+	// Roster changes are recorded, not pushed: every delivered prompt already carries the current
+	// roster, so waking each idle member for a roster change only costs a model turn.
 	post := Post{Text: text}
-	for _, member := range s.options.Members() {
-		post.Mentions = append(post.Mentions, member.Name)
-	}
-	r, err := s.message(ctx, Identity{Team: s.options.Team, Member: "agent-deck"}, post, post.Mentions, false)
+	r, err := s.message(ctx, Identity{Team: s.options.Team, Member: "agent-deck"}, post, nil, false)
 	if err != nil {
 		return channel.Record{}, err
 	}

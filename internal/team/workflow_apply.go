@@ -259,6 +259,9 @@ const masterManual = `Board operating manual (you are the master; the task board
   notified on review, blocked, done and comments. Answer blocked tasks quickly, re-plan when work fails.
 - Review with review_task (accept or changes with a concrete comment). Never mark your own work accepted.
 - Use propose_workers when ready tasks outnumber idle workers; the user approves new workers.
+- Workers' permission requests come to you, not the user. Decide each with answer_request: allow work
+  that fits the worker's task (once, or always for routine tools), reject anything outside the task's
+  paths, destructive, or touching secrets, with a short message.
 - Keep the board current: cancel obsolete tasks, comment decisions on the task they affect.`
 
 const workerManual = `Board operating manual (you are a worker; the task board is the source of truth):

@@ -49,6 +49,7 @@ type Runtime struct {
 	cancel       context.CancelFunc
 	done         chan struct{}
 	credentials  map[string]runtimeCredential
+	routed       map[string]bool
 	userToken    string
 }
 
@@ -261,6 +262,9 @@ func (r *Runtime) Step(ctx context.Context) error {
 	if !manager.ReadOnly {
 		if err := r.autoReconcile(ctx); err != nil {
 			failures = append(failures, fmt.Errorf("automatic board reconcile: %w", err))
+		}
+		if err := r.routeWorkerRequests(ctx, manager); err != nil {
+			failures = append(failures, fmt.Errorf("route worker requests: %w", err))
 		}
 	}
 	if err := r.Service.Deliver(ctx); err != nil {

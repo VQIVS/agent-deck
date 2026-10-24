@@ -22,7 +22,7 @@ type TaskTools struct {
 
 var taskToolNames = []string{
 	"list_tasks", "create_task", "update_task", "split_task", "set_assignee", "move_task",
-	"comment_task", "review_task", "my_tasks", "update_my_task",
+	"comment_task", "review_task", "my_tasks", "update_my_task", "answer_request",
 }
 
 // IsTaskTool reports whether a tool name belongs to the workflow board.
@@ -58,6 +58,8 @@ func (t *TaskTools) Definitions() []map[string]any {
 		tool("review_task", "Reviewer: accept a task or request changes, with a comment",
 			map[string]any{"id": text, "decision": text, "comment": text}, []string{"id", "decision", "comment"}),
 		tool("my_tasks", "Tasks assigned to you or waiting for your review", nil, nil),
+		tool("answer_request", "Master: answer a worker's permission request (reply once, always or reject)",
+			map[string]any{"id": text, "reply": text, "message": text}, []string{"id", "reply"}),
 		tool("update_my_task", "Worker: tick criteria (checked = criterion IDs), comment, or move your task "+
 			"to review, blocked or in_progress", map[string]any{"id": text, "checked": list, "comment": text, "state": text},
 			[]string{"id"}),
@@ -65,6 +67,9 @@ func (t *TaskTools) Definitions() []map[string]any {
 }
 
 func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, arguments json.RawMessage) (any, error) {
+	if name == "answer_request" {
+		return t.answerRequest(ctx, identity, arguments)
+	}
 	var call team.WorkflowCall
 	if err := decode(bytes.NewReader(arguments), &call); err != nil {
 		return nil, err
@@ -79,14 +84,7 @@ func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, ar
 		return nil, fmt.Errorf("resolve task actor: %w", err)
 	}
 	if name == "list_tasks" || name == "my_tasks" {
-		state, err := store.Load(ctx)
-		if errors.Is(err, os.ErrNotExist) {
-			return []taskSummary{}, nil
-		}
-		if err != nil {
-			return nil, fmt.Errorf("read task board: %w", err)
-		}
-		return listTasks(&state.Board, name, identity.Member, &call), nil
+		return readTasks(ctx, store, name, identity.Member, &call)
 	}
 	change, err := team.WorkflowChange(name, &call)
 	if err != nil {
@@ -116,4 +114,15 @@ func (t *TaskTools) now() time.Time {
 		return t.Now()
 	}
 	return time.Now()
+}
+
+func readTasks(ctx context.Context, store team.BoardStore, name, member string, call *team.WorkflowCall) (any, error) {
+	state, err := store.Load(ctx)
+	if errors.Is(err, os.ErrNotExist) {
+		return []taskSummary{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read task board: %w", err)
+	}
+	return listTasks(&state.Board, name, member, call), nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -352,4 +353,15 @@ func TestReleaseWorkerGitRules(t *testing.T) {
 		!strings.Contains(prompt, "Release workers are the exception") {
 		t.Fatalf("release prompt: %s", prompt)
 	}
+}
+
+func TestLeaseRulesAllowToolOutput(t *testing.T) {
+	worker := Member{Name: "w", Role: "worker", Permissions: Preset("coder")}
+	rules, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	output := filepath.Join(home, ".local", "share", "opencode", "tool-output")
+	assertLeaseAction(t, rules, "external_directory", output+"/*", "allow")
 }

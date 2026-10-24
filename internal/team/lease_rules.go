@@ -29,6 +29,7 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		{Permission: "*", Pattern: "*", Action: "ask"},
 		{Permission: "agent_deck_*", Pattern: "*", Action: "allow"},
 	}, baseLeaseRules(member)...)
+	rules = append(rules, toolOutputRules()...)
 	rules = append(rules, selfInvocationRules()...)
 	if member.Role == "worker" {
 		rules = append(rules, api.Rule{Permission: "edit", Pattern: "*", Action: "deny"})
@@ -180,4 +181,17 @@ func selfInvocationRules() []api.Rule {
 		}
 	}
 	return rules
+}
+
+// toolOutputRules let members read back large tool results that OpenCode saves outside the repo.
+func toolOutputRules() []api.Rule {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	dir := filepath.Join(home, ".local", "share", "opencode", "tool-output")
+	return []api.Rule{
+		{Permission: "external_directory", Pattern: dir, Action: "allow"},
+		{Permission: "external_directory", Pattern: dir + "/*", Action: "allow"},
+	}
 }

@@ -159,11 +159,12 @@ const ReleaseWorkspace = "/tmp/agent-deck-release-"
 
 func releaseWorkspaceRules() []api.Rule {
 	roots := []string{ReleaseWorkspace, "/private" + ReleaseWorkspace}
-	rules := make([]api.Rule, 0, len(roots))
+	rules := make([]api.Rule, 0, len(roots)+1)
 	for _, root := range roots {
 		rules = append(rules, api.Rule{Permission: "external_directory", Pattern: root + "*", Action: "allow"})
 	}
-	return rules
+	// Edit patterns are relative to the session root, so match the changelog inside any release worktree.
+	return append(rules, api.Rule{Permission: "edit", Pattern: "*agent-deck-release-*/CHANGELOG.md", Action: "allow"})
 }
 
 // selfInvocationRules deny running agent-deck's control commands from a pool session. They match

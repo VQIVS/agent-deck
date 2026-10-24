@@ -41,6 +41,7 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		rules = appendEditLeases(rules, member.Leases, action)
 		if member.Capability == "release" {
 			rules = append(rules, gitDenyRules(releaseDeniedGit)...)
+			rules = append(rules, releaseWorkspaceRules()...)
 		} else {
 			rules = append(rules, workerGitRules()...)
 		}
@@ -150,6 +151,19 @@ func gitDenyRules(commands []string) []api.Rule {
 		} {
 			rules = append(rules, api.Rule{Permission: "bash", Pattern: prefix + command + "*", Action: "deny"})
 		}
+	}
+	return rules
+}
+
+// ReleaseWorkspace is the prefix for a release worker's temporary worktrees; /private/tmp is the
+// resolved form of /tmp on macOS.
+const ReleaseWorkspace = "/tmp/agent-deck-release-"
+
+func releaseWorkspaceRules() []api.Rule {
+	roots := []string{ReleaseWorkspace, "/private" + ReleaseWorkspace}
+	rules := make([]api.Rule, 0, len(roots))
+	for _, root := range roots {
+		rules = append(rules, api.Rule{Permission: "external_directory", Pattern: root + "*", Action: "allow"})
 	}
 	return rules
 }

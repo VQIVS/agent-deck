@@ -79,11 +79,18 @@ func LeasePrompt(members []Member) string {
 		if leases == "" {
 			leases = "none"
 		}
-		fmt.Fprintf(&text, "%s %s: %s\n", member.Role, member.Name, leases)
+		role := member.Role
+		if member.Capability == "release" {
+			role = "release worker"
+		}
+		fmt.Fprintf(&text, "%s %s: %s\n", role, member.Name, leases)
 	}
 	text.WriteString("Workers edit only their leases and never run git write commands. " +
-		"Only the master commits. The master may edit paths not leased to another member. " +
+		"Only the master commits code. The master may edit paths not leased to another member. " +
 		"Ask the master before editing another member's paths. Run package-scoped tests; " +
-		"the master runs full checks when workers are idle.")
+		"the master runs full checks when workers are idle. Release workers are the exception for " +
+		"releases: they may commit their leased files, fast-forward and push main, tag, push tags and run " +
+		"goreleaser from temporary worktrees under " + ReleaseWorkspace + "*; they never rewrite history " +
+		"(no force-push, reset, rebase, checkout or deletes).")
 	return text.String()
 }

@@ -337,4 +337,10 @@ func TestReleaseWorkerGitRules(t *testing.T) {
 	}
 	assertLeaseAction(t, rules, "edit", "CHANGELOG.md", "allow")
 	assertLeaseAction(t, rules, "edit", "internal/ui/x.go", "deny")
+	assertLeaseAction(t, rules, "external_directory", "/private/tmp/agent-deck-release-abc/*", "allow")
+	assertLeaseAction(t, rules, "external_directory", "/Users/x/other/*", "ask")
+	if prompt := LeasePrompt([]Member{release}); !strings.Contains(prompt, "release worker rm") ||
+		!strings.Contains(prompt, "Release workers are the exception") {
+		t.Fatalf("release prompt: %s", prompt)
+	}
 }

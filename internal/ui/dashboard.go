@@ -70,6 +70,7 @@ type (
 
 // Model owns terminal state and dispatches asynchronous results through Bubble Tea.
 type Model struct {
+	channel                      channelUI
 	deck                         config.Deck
 	client                       *api.Client
 	context                      func() context.Context
@@ -173,7 +174,7 @@ func (m *Model) Init() tea.Cmd {
 			func(err error) { m.emit(streamMsg{Dir: dir, Err: err, Connection: true}) },
 		)
 	}
-	cmds := []tea.Cmd{m.wait(), m.discover()}
+	cmds := []tea.Cmd{m.wait(), m.discover(), m.startChannel()}
 	if !m.skipTick {
 		cmds = append(cmds, tick())
 	}
@@ -305,6 +306,9 @@ func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
 func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	m.frame++
 	cmds := []tea.Cmd{tick()}
+	if m.channel.Open {
+		cmds = append(cmds, m.readChannel())
+	}
 	cmds = append(cmds, m.safeCommandReplies()...)
 	cmds = append(cmds, m.healthTick()...)
 	second := time.Time(v).Unix()
@@ -318,6 +322,7 @@ func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 		return cmds
 	}
 	if second%3 == 0 {
+		cmds = append(cmds, m.readReports())
 		for dir := range m.connections {
 			cmds = append(cmds, m.requests(dir))
 		}
@@ -428,6 +433,10 @@ func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
+	if m.channel.Open {
+		cmd := m.channelKey(v)
+		return m, cmd
+	}
 	if m.inbox.Open {
 		cmd := m.inboxKey(&m.inbox, v)
 		return m, cmd
@@ -506,6 +515,8 @@ func (m *Model) emptyKey(key string) tea.Cmd {
 
 func (m *Model) paneNavigation(key string) bool {
 	switch key {
+	case "c":
+		m.channel.Open = true
 	case "i":
 		m.inbox.Open = true
 	case "C":
@@ -762,6 +773,9 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 
 func (m *Model) View() string {
 	m.zones = nil
+	if m.channel.Open {
+		return m.channelView()
+	}
 	if m.inbox.Open {
 		return m.inboxView(&m.inbox)
 	}

@@ -169,6 +169,11 @@ func (m *Model) loadDashboard() tea.Cmd {
 	n.teams = u
 	n.opts.Auto = false
 	n.w, n.h = m.w, m.h
+	if u.Manager != nil && m.channel.Team == u.Manager.Team.Name {
+		n.channel = m.channel
+	} else {
+		m.CloseChannel()
+	}
 	*m = *n
 	return m.Init()
 }
@@ -212,6 +217,12 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 			e = manager.Roster(m.context(), "manual roster refresh")
 		case "leases":
 			e = manager.ApplyLeases(m.context(), index)
+		case "channel-credentials":
+			if runtime, ok := m.channel.Runtime.(channelCredentials); ok {
+				e = runtime.InstallCredential(m.context(), manager.Team.Members[index].Name)
+			} else {
+				e = fmt.Errorf("channel runtime unavailable")
+			}
 		}
 		return teamOperationMsg{&manager, e}
 	}
@@ -258,6 +269,9 @@ func (m *Model) teamConfirmation() string {
 	}
 	if text == "leases" {
 		text = "Apply complete lease policy to this idle session? Existing permissions reset; context is retained."
+	}
+	if text == "channel-credentials" {
+		text = "Install private team MCP config for this isolated worktree? Shared/adopt members are refused."
 	}
 	out := fit(
 		text,
@@ -338,6 +352,7 @@ func (m *Model) membersView() string {
 			m.w,
 		),
 	)
+	b.WriteString("\n" + m.buttonRow([]button{{"Team tools", "member-channel", m.opts.ReadOnly}}, 0, y+2, m.w, -1))
 	return b.String()
 }
 
@@ -481,6 +496,10 @@ func (m *Model) teamSelection(action string) bool {
 
 func (m *Model) teamNavigation(action string) (bool, tea.Cmd) {
 	u := m.teams
+	if action == "member-channel" && !m.opts.ReadOnly {
+		u.Confirm = "channel-credentials"
+		return true, nil
+	}
 	if action == "team-all" {
 		u.Screen = ""
 		u.Manager = nil
@@ -685,7 +704,7 @@ func (m *Model) confirmTeam() tea.Cmd {
 	switch confirm {
 	case "remove":
 		return m.teamOperation("remove", u.MemberIndex, u.Force)
-	case "start", "master", "leases":
+	case "start", "master", "leases", "channel-credentials":
 		return m.teamOperation(confirm, u.MemberIndex, false)
 	default:
 		return nil

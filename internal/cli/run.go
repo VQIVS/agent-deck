@@ -123,6 +123,7 @@ func dashboard(args []string) error {
 	}
 	flags.options.Auto = flags.path == "" && saved == nil
 	model := ui.New(ctx, &deck, flags.options)
+	defer model.CloseChannel()
 	if saved != nil {
 		model.OpenTeam(saved, revision, team.DefaultRoot())
 	} else if flags.path == "" && !flags.all {

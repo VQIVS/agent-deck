@@ -45,6 +45,15 @@ func (s *Server) call(ctx context.Context, identity Identity, params json.RawMes
 		call.Arguments = json.RawMessage(`{}`)
 	}
 	switch call.Name {
+	case "submit_report":
+		if s.SubmitReport == nil {
+			return nil, fmt.Errorf("report submission is not configured")
+		}
+		result, err := s.SubmitReport(ctx, identity, call.Arguments)
+		if err != nil {
+			return nil, fmt.Errorf("submit authenticated report: %w", err)
+		}
+		return result, nil
 	case "team_members":
 		if err := decode(bytes.NewReader(call.Arguments), &struct{}{}); err != nil {
 			return nil, err

@@ -29,6 +29,7 @@ func serverCommand(action string, args []string) error {
 	if action == "supervise" {
 		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 		defer cancel()
+		go superviseTeams(ctx)
 		if err := controller.Supervise(ctx, *port); err != nil {
 			return fmt.Errorf("supervise local server: %w", err)
 		}

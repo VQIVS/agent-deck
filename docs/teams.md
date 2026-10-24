@@ -169,6 +169,34 @@ and UI integration are described as they become available below.
 
 ## Structured report core
 
+## Team channel runtime
+
+Managed dashboards start or attach to a loopback-only team MCP runtime. `agent-deck up`
+supervisors also start runtimes for lease-pool teams; both use the same private journal
+and authenticated discovery file, so only one owns it. Start the supervisor first for a
+persistent owner. A dashboard-created owner closes with that dashboard; attachments do
+not stop an existing owner. Read-only dashboards do not start runtime services.
+
+Open **Channel** (`c`), press `m` to post as the user, and mention `@member` to queue a
+wakeup. Ordinary unmentioned posts do not wake agents. Busy/waiting members queue until
+idle; successful delivery is journaled and retries carry stable IDs. The user view can
+see DMs; member reads remain identity-filtered. Shared/adopted members cannot receive
+authenticated tools: directory credentials cannot isolate sessions sharing a directory.
+
+For an isolated worktree, **Team → Team tools** confirms installation of a private MCP
+entry into its `opencode.json`. The file must already be Git-ignored; JSON is merged
+atomically, preserving unrelated configuration. Tokens rotate/revoke on binding/role
+changes and owner shutdown. This is local credential separation, not a filesystem sandbox.
+Roster changes broadcast through the guarded queue. Delivery is at-least-once across crashes.
+
+## Structured worker reports
+
+The runtime registers `submit_report` for authenticated workers. Identity comes from the
+credential/current session, and checks use private `definition_of_done` criteria. Required
+criteria need passing test evidence with matching `criterion_id`; `not_run` does not pass.
+Reports persist privately and queue a master notification. The inbox refreshes current
+report cards, labeled worker-reported DONE versus inferred text and independent metadata.
+
 The report store validates a worker's current identity/session, trusted checklist criteria,
 reported checks and open issues before private atomic persistence. Worker-reported claims
 and independently observed metadata are separate fields. Inferred last-message reports are

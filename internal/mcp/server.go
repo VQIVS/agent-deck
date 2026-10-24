@@ -15,8 +15,10 @@ import (
 
 // Server provides stateless MCP streamable HTTP with bearer authentication on every request.
 type Server struct {
-	Tokens  *Tokens
-	Service *Service
+	Tokens       *Tokens
+	Service      *Service
+	SubmitReport func(context.Context, Identity, json.RawMessage) (any, error)
+	UserHandler  http.HandlerFunc
 }
 
 type request struct {
@@ -46,6 +48,10 @@ func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !localRequest(r) || r.Header.Get("Origin") != "" {
 		http.Error(w, "loopback clients only", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == "/user" && s.UserHandler != nil {
+		s.UserHandler(w, r)
 		return
 	}
 	identity, ok := s.authenticate(r)
@@ -114,7 +120,11 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, identity Ident
 	case "ping":
 		writeResult(w, call.ID, struct{}{})
 	case "tools/list":
-		writeResult(w, call.ID, map[string]any{"tools": tools()})
+		catalog := tools()
+		if s.SubmitReport != nil {
+			catalog = append(catalog, reportTool())
+		}
+		writeResult(w, call.ID, map[string]any{"tools": catalog})
 	case "tools/call":
 		result, err := s.call(r.Context(), identity, call.Params)
 		if err != nil {

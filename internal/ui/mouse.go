@@ -61,6 +61,7 @@ func (m *Model) headerButtons() []button {
 	out := []button{
 		{"Sessions", "p", false},
 		{"Inbox", "i", false},
+		{"Channel", "c", false},
 		{"Refresh", "r", false},
 		{notify, "N", false},
 		{"Help", "?", false},

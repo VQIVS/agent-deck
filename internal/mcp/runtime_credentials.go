@@ -186,7 +186,9 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 		delete(r.credentials, name)
 		if err := removeRuntimeConfig(&credential); err != nil {
 			failures = append(failures, err)
-		} else {
+		} else if member == nil || member.ControlDir != credential.dir {
+			// Only a removed member or a moved control directory loses its directory; a rename or
+			// rebind keeps it, because the member's session still lives there.
 			r.removeEmptyWorkflowControl(&credential)
 		}
 	}

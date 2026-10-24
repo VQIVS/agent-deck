@@ -48,6 +48,10 @@ func (r *Runtime) registerLive(ctx context.Context, manager *team.Manager, membe
 		"headers": map[string]string{"Authorization": "Bearer " + credential.token},
 	}
 	client := api.New(manager.Team.Server, false)
+	// An open connection keeps its old token; drop it so the new credential is used.
+	if err := client.DisconnectMCP(ctx, credential.dir, credential.entry); err != nil {
+		return fmt.Errorf("drop stale tools connection: %w", err)
+	}
 	if err := client.RegisterMCP(ctx, credential.dir, credential.entry, config); err != nil {
 		return fmt.Errorf("register live tools: %w", err)
 	}

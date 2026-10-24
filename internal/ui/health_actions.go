@@ -86,13 +86,11 @@ func (m *Model) autoNudge(index int) tea.Cmd {
 			err = manager.Send(m.context(), index, member.Nudge.Message)
 			if err == nil {
 				member.NudgeStatus.Sent(time.Now())
-				err = manager.Save(m.context())
+				return nudgeResult{Manager: &manager, Err: manager.Save(m.context())}
 			}
 		}
-		if err != nil {
-			member.Nudge.Enabled = false
-			err = errors.Join(err, manager.Save(m.context()))
-		}
+		member.Nudge.Enabled = false
+		err = errors.Join(err, manager.Save(m.context()))
 		return nudgeResult{Manager: &manager, Err: err}
 	}
 }

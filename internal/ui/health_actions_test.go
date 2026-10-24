@@ -161,3 +161,35 @@ func TestNudgeRaceAndFailureIsolation(t *testing.T) {
 		})
 	}
 }
+
+func TestSuccessfulNudgeSaveFailureKeepsPolicy(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/session/status":
+			fmt.Fprint(w, `{}`)
+		case "/session":
+			fmt.Fprint(w, `[{"id":"session-a"}]`)
+		case "/session/session-a/prompt_async":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			fmt.Fprint(w, `[]`)
+		}
+	}))
+	defer s.Close()
+	m := requestModel(s.URL, false)
+	tm := team.Team{
+		Version: 1, Name: "save-failure", Server: s.URL, Repo: "/tmp/team", Base: "main", Capacity: 1,
+		Members: []team.Member{{
+			Name: "Master", Role: "master", Mode: "adopt", Dir: "/tmp/team", Session: "session-a",
+			Capability: "inherited",
+			Nudge:      team.NudgePolicy{Enabled: true, MaxNudges: 2, MinInterval: time.Second, Message: "continue"},
+		}},
+	}
+	m.OpenTeam(&tm, nil, t.TempDir())
+	m.teams.Manager.Store.ReadOnly = true
+	result := m.autoNudge(0)().(nudgeResult)
+	if result.Err == nil || !result.Manager.Team.Members[0].Nudge.Enabled ||
+		result.Manager.Team.Members[0].NudgeStatus.Count != 1 {
+		t.Fatal("successful send disabled policy", result)
+	}
+}

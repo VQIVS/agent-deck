@@ -11,6 +11,7 @@ import (
 	"time"
 
 	api "github.com/qivs/agent-deck/internal/opencode"
+	"github.com/qivs/agent-deck/internal/server"
 	"github.com/qivs/agent-deck/internal/team"
 )
 
@@ -18,14 +19,13 @@ type sendReceipt struct {
 	Server, Session, Directory, AssistantID string
 }
 
-func receiptPath(manager *team.Manager, index int) string {
-	root := os.Getenv("XDG_STATE_HOME")
-	if root == "" {
-		home, _ := os.UserHomeDir()
-		root = filepath.Join(home, ".local", "state")
+func receiptPath(manager *team.Manager, index int) (string, error) {
+	root, err := server.StateRoot()
+	if err != nil {
+		return "", fmt.Errorf("resolve receipt directory: %w", err)
 	}
-	return filepath.Join(root, "agent-deck", "sent", team.Slug(manager.Team.Name),
-		team.Slug(manager.Team.Members[index].Name)+".json")
+	return filepath.Join(root, "sent", team.Slug(manager.Team.Name),
+		team.Slug(manager.Team.Members[index].Name)+".json"), nil
 }
 
 func teamSend(ctx context.Context, manager *team.Manager, index int, opts *teamFlags, out io.Writer) error {
@@ -45,7 +45,10 @@ func teamSend(ctx context.Context, manager *team.Manager, index int, opts *teamF
 	if latest := team.LatestAssistant(messages); latest != nil {
 		receipt.AssistantID = latest.Info.ID
 	}
-	path := receiptPath(manager, index)
+	path, err := receiptPath(manager, index)
+	if err != nil {
+		return err
+	}
 	if err := saveReceipt(path, receipt); err != nil {
 		return err
 	}
@@ -83,7 +86,11 @@ func saveReceipt(path string, receipt sendReceipt) error {
 }
 
 func loadReceipt(manager *team.Manager, index int) (*sendReceipt, error) {
-	b, err := os.ReadFile(receiptPath(manager, index))
+	path, err := receiptPath(manager, index)
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}

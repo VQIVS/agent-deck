@@ -18,7 +18,10 @@ import (
 	"time"
 
 	"github.com/vqivs/agent-deck/internal/channel"
+	"github.com/vqivs/agent-deck/internal/team"
 )
+
+const maxTaskNotices = 20
 
 // RuntimeConnection is a local owner or authenticated attachment. Closing an attachment leaves its owner running.
 type RuntimeConnection struct {
@@ -35,12 +38,13 @@ type runtimeDiscovery struct {
 }
 
 type userRequest struct {
-	Action   string   `json:"action"`
-	Text     string   `json:"text,omitempty"`
-	Mentions []string `json:"mentions,omitempty"`
-	Member   string   `json:"member,omitempty"`
-	Since    string   `json:"since,omitempty"`
-	Limit    int      `json:"limit,omitempty"`
+	Action   string            `json:"action"`
+	Text     string            `json:"text,omitempty"`
+	Mentions []string          `json:"mentions,omitempty"`
+	Member   string            `json:"member,omitempty"`
+	Since    string            `json:"since,omitempty"`
+	Limit    int               `json:"limit,omitempty"`
+	Notices  []team.TaskNotice `json:"notices,omitempty"`
 }
 
 func (r *Runtime) publishDiscovery() error {
@@ -183,6 +187,44 @@ func (c *RuntimeConnection) PostUser(ctx context.Context, text string, mentions 
 	return c.call(ctx, &userRequest{Action: "post", Text: text, Mentions: mentions}, nil)
 }
 
+// Notify forwards saved board notices through the privileged owner path.
+func (c *RuntimeConnection) Notify(ctx context.Context, notices []team.TaskNotice) error {
+	if c.readOnly {
+		return fmt.Errorf("read-only: task notifications disabled")
+	}
+	if c.owner != nil {
+		return c.owner.notifyUser(ctx, notices)
+	}
+	return c.call(ctx, &userRequest{Action: "notify", Notices: notices}, nil)
+}
+
+func (r *Runtime) notifyUser(ctx context.Context, notices []team.TaskNotice) error {
+	manager, err := r.current(ctx)
+	if err != nil {
+		return err
+	}
+	if manager.ReadOnly || r.readOnly() {
+		return fmt.Errorf("read-only: task notifications disabled")
+	}
+	if len(notices) == 0 || len(notices) > maxTaskNotices {
+		return fmt.Errorf("task notices require 1 to %d entries", maxTaskNotices)
+	}
+	for _, notice := range notices {
+		if strings.TrimSpace(notice.Text) == "" || len(notice.Text) > r.Service.options.MaxBytes ||
+			strings.TrimSpace(notice.Task) == "" || len(notice.Task) > 200 {
+			return fmt.Errorf("invalid task notification content")
+		}
+		index, err := manager.MemberIndex(notice.To)
+		if err != nil || manager.Team.Members[index].ID == "" || manager.Team.Members[index].Muted {
+			return fmt.Errorf("task notification recipient is absent or muted")
+		}
+	}
+	if err := r.Service.Notify(ctx, notices); err != nil {
+		return fmt.Errorf("queue task notifications: %w", err)
+	}
+	return nil
+}
+
 func (c *RuntimeConnection) InstallCredential(ctx context.Context, member string) error {
 	if c.owner != nil {
 		return c.owner.InstallCredential(ctx, member)
@@ -281,6 +323,8 @@ func (r *Runtime) userAction(ctx context.Context, input *userRequest) (any, erro
 		return nil, r.RevokeCredential(ctx, input.Member)
 	case "post":
 		return nil, r.PostUser(ctx, input.Text, input.Mentions)
+	case "notify":
+		return nil, r.notifyUser(ctx, input.Notices)
 	default:
 		return nil, fmt.Errorf("unknown runtime user action")
 	}

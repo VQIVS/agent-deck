@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -112,10 +113,43 @@ func TaskNotices(before, after *TaskBoard, t *Team, actor TaskActor) []TaskNotic
 	for i := range after.Tasks {
 		task := &after.Tasks[i]
 		notices = append(notices, taskNotices(previous[task.ID], task, master)...)
+		if actor.User {
+			notices = appendUserChange(notices, previous[task.ID], task, master)
+		}
 	}
 	return slices.DeleteFunc(notices, func(n TaskNotice) bool {
 		return n.To == "" || n.To == actor.Member || !onRoster(t, n.To)
 	})
+}
+
+// appendUserChange tells the master about board changes the user made, since the master owns
+// the board; it adds nothing when another notice already covers the task.
+func appendUserChange(notices []TaskNotice, old, task *Task, master string) []TaskNotice {
+	if master == "" || (old != nil && plannedFields(old) == plannedFields(task)) {
+		return notices
+	}
+	if slices.ContainsFunc(notices, func(n TaskNotice) bool { return n.To == master && n.Task == task.ID }) {
+		return notices
+	}
+	verb := "changed"
+	if old == nil {
+		verb = "created"
+	}
+	assignee := task.Assignee
+	if assignee == "" {
+		assignee = "unassigned"
+	}
+	return append(notices, TaskNotice{To: master, Task: task.ID, Text: fmt.Sprintf("The user %s task %s %q "+
+		"(%s, %s). It is on your board: review it, plan or assign it as needed.", verb, task.ID, task.Title,
+		task.State, assignee)})
+}
+
+func plannedFields(task *Task) string {
+	b, _ := json.Marshal([]any{
+		task.State, task.Assignee, task.Reviewer, task.Title, task.Description, task.Priority,
+		task.Criteria, task.Paths, task.Dependencies, task.Labels, task.Estimate,
+	})
+	return string(b)
 }
 
 func taskNotices(old, task *Task, master string) []TaskNotice {

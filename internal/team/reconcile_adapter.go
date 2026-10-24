@@ -8,6 +8,8 @@ import (
 	"os"
 	"slices"
 	"time"
+
+	api "github.com/qivs/agent-deck/internal/opencode"
 )
 
 // LifecycleTransport adapts Manager lifecycle calls under the BoardStore exclusive lock.
@@ -19,8 +21,9 @@ type LifecycleTransport struct {
 }
 
 type lifecycleEffect struct {
-	State  string          `json:"state"`
-	Result ReconcileResult `json:"result"`
+	State   string            `json:"state"`
+	Result  ReconcileResult   `json:"result"`
+	Request *ReconcileRequest `json:"request,omitempty"`
 }
 
 func effectName(id string) string { return fmt.Sprintf("effect-%x.json", sha256.Sum256([]byte(id))) }
@@ -57,7 +60,8 @@ func (t *LifecycleTransport) Execute(ctx context.Context, request *ReconcileRequ
 	if err := t.Gate(ctx, &request.Action); err != nil {
 		return ReconcileResult{}, fmt.Errorf("recheck lifecycle policy gate: %w", err)
 	}
-	if err := t.Store.write(ctx, effectName(request.Action.ID), &lifecycleEffect{State: "started"}); err != nil {
+	started := lifecycleEffect{State: "started", Request: request}
+	if err := t.Store.write(ctx, effectName(request.Action.ID), &started); err != nil {
 		return ReconcileResult{}, err
 	}
 	result, err := t.execute(ctx, manager, request)
@@ -113,16 +117,7 @@ func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,
 ) (ReconcileResult, error) {
 	switch request.Action.Kind {
 	case "create":
-		if slices.ContainsFunc(manager.Team.Members, func(member Member) bool { return member.Name == request.Member.Name }) {
-			return ReconcileResult{}, fmt.Errorf("generated worker already exists")
-		}
-		manager.Team.LeasePool = true
-		manager.Team.Members = append(manager.Team.Members, request.Member)
-		index := len(manager.Team.Members) - 1
-		if err := manager.Start(ctx, index); err != nil {
-			return ReconcileResult{}, err
-		}
-		return ReconcileResult{Worker: manager.Team.Members[index].Name, Session: manager.Team.Members[index].Session}, nil
+		return t.create(ctx, manager, request)
 	case "assign":
 		index, err := manager.MemberIndex(request.Action.Worker)
 		if err != nil {
@@ -151,12 +146,66 @@ func retireLifecycle(ctx context.Context, manager *Manager, request *ReconcileRe
 		return ReconcileResult{}, err
 	}
 	member := &manager.Team.Members[index]
-	if member.Role != "worker" || member.Session != request.Member.Session || member.Owned {
+	if member.Role != "worker" || member.Session != request.Member.Session || member.Owned ||
+		!member.PoolCreated || member.Mode != "shared" {
 		return ReconcileResult{}, fmt.Errorf("retirement requires unchanged shared worker binding")
 	}
 	if status := manager.Observe(ctx, index); status.State != "idle" {
 		return ReconcileResult{}, fmt.Errorf("retirement requires idle worker")
 	}
 	result := ReconcileResult{Worker: member.Name, Session: member.Session}
-	return result, manager.Remove(ctx, index, false)
+	client := api.New(manager.Team.Server, false)
+	if err := client.Abort(ctx, member.Dir, member.Session); err != nil {
+		return result, fmt.Errorf("abort idle pool worker: %w", err)
+	}
+	manager.Team.Members = append(manager.Team.Members[:index], manager.Team.Members[index+1:]...)
+	return result, manager.Save(ctx)
+}
+
+func (t *LifecycleTransport) create(ctx context.Context, manager *Manager,
+	request *ReconcileRequest,
+) (ReconcileResult, error) {
+	if slices.ContainsFunc(manager.Team.Members, func(member Member) bool { return member.Name == request.Member.Name }) {
+		return ReconcileResult{}, fmt.Errorf("generated worker already exists")
+	}
+	member := request.Member
+	if member.Mode != "shared" || member.Session != "" || member.Role != "worker" {
+		return ReconcileResult{}, fmt.Errorf("pool creation requires a fresh shared worker")
+	}
+	member.PoolCreated = true
+	manager.Team.LeasePool = true
+	manager.Team.Members = append(manager.Team.Members, member)
+	index := len(manager.Team.Members) - 1
+	if err := manager.Team.CanStart(index); err != nil {
+		return ReconcileResult{}, err
+	}
+	if err := manager.Team.Validate(); err != nil {
+		return ReconcileResult{}, err
+	}
+	if _, err := Options(ctx, &manager.Team, &member, member.Brief); err != nil {
+		return ReconcileResult{}, err
+	}
+	rules, err := manager.creationRules(ctx, &member)
+	if err != nil {
+		return ReconcileResult{}, err
+	}
+	session, err := api.New(manager.Team.Server, false).CreateMember(ctx, member.Dir,
+		member.Name+" [pool action "+request.Action.ID+"]", rules)
+	if err != nil {
+		return ReconcileResult{}, fmt.Errorf("create pool session: %w", err)
+	}
+	result := ReconcileResult{Worker: member.Name, Session: session.ID}
+	effect := lifecycleEffect{State: "session-created", Result: result, Request: request}
+	if err := t.Store.write(context.WithoutCancel(ctx), effectName(request.Action.ID), &effect); err != nil {
+		return result, fmt.Errorf("record created pool session %q before binding: %w", session.ID, err)
+	}
+	manager.Team.Members[index].Session = session.ID
+	manager.Team.Members[index].LeasePolicy = manager.Team.LeaseFingerprint(&manager.Team.Members[index])
+	if err := manager.Save(ctx); err != nil {
+		return result, err
+	}
+	if err := manager.Send(ctx, index, member.Brief); err != nil {
+		return result, err
+	}
+	return result, nil
 }

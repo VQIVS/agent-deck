@@ -70,7 +70,7 @@ func (r *Reconciler) prepare(ctx context.Context, actor ReconcileActor,
 	if action.Kind == "retire" {
 		for i := range snapshot.Team.Members {
 			member := &snapshot.Team.Members[i]
-			if member.Name == action.Worker && member.Role == "worker" && member.Session != "" {
+			if member.Name == action.Worker && member.Role == "worker" && member.Session != "" && member.PoolCreated {
 				request.Member = *member
 				return request, nil
 			}

@@ -10,6 +10,7 @@ func (input *SchedulingInput) scale(plan *SchedulingPlan, reserved map[string]bo
 		}
 	}
 	if input.Policy.Approval == "off" {
+		input.retire(plan, reserved)
 		return
 	}
 	if input.coolingDown() {
@@ -22,10 +23,36 @@ func (input *SchedulingInput) scale(plan *SchedulingPlan, reserved map[string]bo
 		})
 		plan.Desired++
 	}
-	if len(plan.Blocked) != 0 || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 {
+	if input.hasRunnablePending() || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 {
 		return
 	}
 	input.retire(plan, reserved)
+}
+
+func (input *SchedulingInput) hasRunnablePending() bool {
+	for i := range input.Board.Tasks {
+		task := &input.Board.Tasks[i]
+		if task.State == "pending" && !input.failedDependency(task, map[string]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func (input *SchedulingInput) failedDependency(task *Task, visited map[string]bool) bool {
+	if visited[task.ID] {
+		return false
+	}
+	visited[task.ID] = true
+	for _, dependency := range task.Dependencies {
+		for i := range input.Board.Tasks {
+			other := &input.Board.Tasks[i]
+			if other.ID == dependency && (other.State == "failed" || input.failedDependency(other, visited)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (input *SchedulingInput) coolingDown() bool {

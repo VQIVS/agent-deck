@@ -155,9 +155,10 @@ func TestReconcileRejectsForgedActionAndWorker(t *testing.T) {
 
 func TestReconcileAssignmentAndRetirement(t *testing.T) {
 	r, snapshot, _, transport := reconcileFixture(t)
-	snapshot.Input.Policy = SchedulingPolicy{MaxWorkers: 2, Approval: "auto"}
+	snapshot.Input.Policy = SchedulingPolicy{MaxWorkers: 2, Approval: "off"}
 	snapshot.Team.Members = append(snapshot.Team.Members, Member{
 		Name: "worker", Role: "worker", Session: "ses_worker", Mode: "shared", Dir: "/repo", Permissions: Preset("coder"),
+		PoolCreated: true,
 	})
 	snapshot.Input.Workers = []SchedulerWorker{
 		{Name: "worker", State: "idle", IdleSince: snapshot.Input.Now.Add(-time.Hour)},
@@ -189,5 +190,49 @@ func TestReconcileAssignmentAndRetirement(t *testing.T) {
 	}
 	if transport.requests[1].Member.Session != "ses_worker" {
 		t.Fatal("retirement lost bound identity")
+	}
+}
+
+func TestReconcileNeverRetiresUnmanagedWorker(t *testing.T) {
+	r, snapshot, _, transport := reconcileFixture(t)
+	snapshot.Input.Policy = SchedulingPolicy{MaxWorkers: 2, Approval: "ask"}
+	snapshot.Team.Members = append(snapshot.Team.Members, Member{
+		Name: "personal", Role: "worker", Session: "ses_personal", Mode: "adopt", Dir: "/repo",
+	})
+	snapshot.Input.Workers = []SchedulerWorker{
+		{Name: "personal", State: "idle", IdleSince: snapshot.Input.Now.Add(-time.Hour)},
+	}
+	actions, err := DesiredReconcileActions(snapshot)
+	if err != nil || len(actions) != 1 {
+		t.Fatal(actions, err)
+	}
+	if _, err := r.Apply(t.Context(), ReconcileActor{User: true}, &actions[0]); err == nil {
+		t.Fatal("unmanaged worker retirement accepted")
+	}
+	if len(transport.requests) != 0 {
+		t.Fatal("unmanaged worker reached transport")
+	}
+}
+
+func TestReconcileAskAllowsAssignmentWithoutApproval(t *testing.T) {
+	r, snapshot, _, transport := reconcileFixture(t)
+	snapshot.Input.Policy = SchedulingPolicy{MaxWorkers: 2, Approval: "ask"}
+	snapshot.Team.Members = append(snapshot.Team.Members, Member{
+		Name: "worker", Role: "worker", Session: "ses_worker", Mode: "shared", Dir: "/repo",
+		Permissions: Preset("coder"),
+	})
+	snapshot.Input.Workers = []SchedulerWorker{{Name: "worker", State: "idle"}}
+	snapshot.Input.Board.Tasks = []Task{
+		{ID: "task", Title: "task", Paths: Leases{"own/**"}, State: "pending", Estimate: TaskEstimate{Parallel: true}},
+	}
+	actions, err := DesiredReconcileActions(snapshot)
+	if err != nil || len(actions) != 1 || actions[0].Kind != "assign" {
+		t.Fatal(actions, err)
+	}
+	if _, err := r.Apply(t.Context(), ReconcileActor{Member: "lead"}, &actions[0]); err != nil {
+		t.Fatal("ask policy incorrectly required assignment approval", err)
+	}
+	if len(transport.requests) != 1 {
+		t.Fatal("assignment not executed")
 	}
 }

@@ -188,10 +188,10 @@ func eligibleReconcile(snapshot *ReconcileSnapshot, action *ReconcileAction) err
 	if !slices.ContainsFunc(actions, func(current ReconcileAction) bool { return sameReconcileAction(&current, action) }) {
 		return fmt.Errorf("action is no longer desired by current scheduler")
 	}
-	if snapshot.Input.Policy.Approval == "off" {
+	if action.Kind == "create" && snapshot.Input.Policy.Approval == "off" {
 		return fmt.Errorf("reconcile policy is off")
 	}
-	if snapshot.Input.Policy.Approval != "auto" && !snapshot.Approved[action.ID] {
+	if action.Kind == "create" && snapshot.Input.Policy.Approval != "auto" && !snapshot.Approved[action.ID] {
 		return fmt.Errorf("action requires explicit user approval")
 	}
 	return nil

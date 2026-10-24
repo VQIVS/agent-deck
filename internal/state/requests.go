@@ -86,7 +86,7 @@ func (s *State) ApplyRequest(e api.Event, session string, now time.Time) bool {
 			request.Permission = p.Action
 			request.Patterns = p.Resources
 		}
-		permissions = upsertPermission(permissions, request)
+		permissions = upsertPermission(permissions, &request)
 	case "question.asked", "question.v2.asked":
 		var request api.Question
 		if json.Unmarshal(e.Properties, &request) != nil || request.ID == "" {
@@ -103,14 +103,14 @@ func (s *State) ApplyRequest(e api.Event, session string, now time.Time) bool {
 	return s.UpdateRequests(permissions, questions, now)
 }
 
-func upsertPermission(requests []api.Permission, request api.Permission) []api.Permission {
+func upsertPermission(requests []api.Permission, request *api.Permission) []api.Permission {
 	for i := range requests {
 		if requests[i].ID == request.ID {
-			requests[i] = request
+			requests[i] = *request
 			return requests
 		}
 	}
-	return append(requests, request)
+	return append(requests, *request)
 }
 
 func upsertQuestion(requests []api.Question, request api.Question) []api.Question {

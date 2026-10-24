@@ -55,6 +55,7 @@ type Status struct {
 
 // Part is a text, reasoning, or tool fragment within a message.
 type Part struct {
+	CallID    string `json:"callID"`
 	Role      string `json:"-"`
 	Created   int64  `json:"-"`
 	ID        string `json:"id"`

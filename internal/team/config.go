@@ -41,6 +41,8 @@ type Member struct {
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
+	Approval       string   `yaml:"approval,omitempty"`
+	SafeCommands   []string `yaml:"safe_commands,omitempty"`
 	LeasePool      bool     `yaml:"lease_pool,omitempty"`
 	Version        int      `yaml:"version"`
 	Name           string   `yaml:"name"`
@@ -84,7 +86,7 @@ func Preset(name string) map[string]string {
 }
 
 func (t *Team) Validate() error {
-	if err := ValidateLeases(t.Members); err != nil {
+	if err := t.validatePolicies(); err != nil {
 		return err
 	}
 	if Slug(t.Name) == "" || t.Version != 1 || !filepath.IsAbs(t.Repo) || t.Base == "" || t.Capacity < 1 {

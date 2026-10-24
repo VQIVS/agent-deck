@@ -57,6 +57,7 @@ func (m *Model) memberForm() {
 		{Label: "Branch template", Value: member.BranchTemplate},
 		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "full"}},
 		{Label: "Leases (one repository-relative glob per line)", Value: strings.Join(member.Leases, "\n")},
+		{Label: "Role template", Choices: m.roleTemplateNames()},
 	}
 	for _, k := range []string{"read", "edit", "bash", "webfetch", "external_directory"} {
 		u.Fields = append(u.Fields, formField{
@@ -78,6 +79,10 @@ func (m *Model) saveForm() tea.Cmd {
 	values := map[string]string{}
 	for _, f := range u.Fields {
 		values[f.Label] = f.Value
+	}
+	if err := m.applyRoleTemplate(values); err != nil {
+		m.note = err.Error()
+		return nil
 	}
 	if u.Screen == "team-form" {
 		m.applyTeamValues(values)

@@ -89,6 +89,8 @@ type Model struct {
 	permissionTarget             permissionTarget
 	permissionConfirm, rejecting bool
 	compactConfirm               bool
+	safeReplies                  map[string]bool
+	inbox                        InboxScreen
 	zones                        []zone
 	mouseX, mouseY               int
 	hoverAction                  string
@@ -113,6 +115,7 @@ func New(ctx context.Context, d *config.Deck, opts Options) *Model {
 		h:           40,
 	}
 	m.requestEvents = map[string][]api.Event{}
+	m.safeReplies = map[string]bool{}
 	m.theme, _ = ResolveTheme(opts.Theme)
 	m.transcript = transcript.New()
 	m.input = textarea.New()
@@ -302,6 +305,7 @@ func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
 func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	m.frame++
 	cmds := []tea.Cmd{tick()}
+	cmds = append(cmds, m.safeCommandReplies()...)
 	cmds = append(cmds, m.healthTick()...)
 	second := time.Time(v).Unix()
 	if m.teams != nil && second%3 == 0 {
@@ -424,6 +428,10 @@ func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
+	if m.inbox.Open {
+		cmd := m.inboxKey(&m.inbox, v)
+		return m, cmd
+	}
 	if m.picker {
 		cmd := m.updatePicker(v)
 		return m, cmd
@@ -498,6 +506,8 @@ func (m *Model) emptyKey(key string) tea.Cmd {
 
 func (m *Model) paneNavigation(key string) bool {
 	switch key {
+	case "i":
+		m.inbox.Open = true
 	case "C":
 		m.compactConfirm = !m.opts.ReadOnly
 	case "tab":
@@ -752,6 +762,9 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 
 func (m *Model) View() string {
 	m.zones = nil
+	if m.inbox.Open {
+		return m.inboxView(&m.inbox)
+	}
 	if m.teams != nil && (m.teams.Screen != "" || m.teams.Confirm != "") {
 		return m.teamView()
 	}

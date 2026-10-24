@@ -8,6 +8,10 @@ import (
 
 // Permission describes an unresolved tool authorization request.
 type Permission struct {
+	Tool struct {
+		MessageID string `json:"messageID"`
+		CallID    string `json:"callID"`
+	} `json:"tool"`
 	ID         string   `json:"id"`
 	SessionID  string   `json:"sessionID"`
 	Permission string   `json:"permission"`

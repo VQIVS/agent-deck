@@ -121,14 +121,32 @@ inherited tool permissions reset to ask, so an explicit preset is required befor
 Apply each affected live member, including the master, after changing ownership. Existing
 sessions keep their prior effective rules until explicitly applied. Read-only blocks apply.
 
+## Project setup
+
+`agent-deck init --dir /path/to/repo --template bugfix-tester` detects the Git root and
+base branch, then saves a private team without creating sessions. `--list-templates`
+lists built-ins and user overrides. `--project FILE` selects portable policy explicitly;
+otherwise a root `agent-deck.yaml` is used when present. Existing teams are never overwritten.
+`--team`, `--base`, `--server` and `--model` override detected/default values.
+
+`agent-deck doctor --team NAME [--project FILE] [--dir DIR]` adds repository/base,
+project schema, prompt-file and unapplied-lease checks to server/model diagnostics.
+With `approval: allowlist`, the dashboard approves bash requests once only when it can
+match a complete tool command by call ID against `safe_commands`. Missing tool input,
+abbreviated patterns, shell syntax, other permission types and read-only mode never auto-approve.
+
 ## Portable project policy and templates
 
 `internal/team` provides strict version-1 `agent-deck.yaml` project policy and role
 templates. Project policy accepts portable roles, prompts, model, base, capacity and an
 exact-command allowlist; it rejects session IDs and workspace bindings. Merging requires
-explicit private local bindings. Built-in templates are `upgrade-team`, `review-pair`,
+explicit private local bindings. Opening a saved team merges root `agent-deck.yaml` with
+its private bindings; live session permissions still require explicit Apply leases.
+Built-in templates are `upgrade-team`, `review-pair`,
 `bugfix-tester` and `custom`. User YAML templates under the config directory replace an
-entire built-in by name. Unknown fields and multiple documents are rejected.
+entire built-in by name. Advanced worker forms offer **Role template** choices; selecting
+one applies its system prompt and creation capability on save, plus agent/model when set.
+An existing brief is retained. Unknown fields and multiple documents are rejected.
 
 Safe-command matching compares complete parsed argument lists, rejecting shell operators,
 substitutions, expansions and executable paths. Permission patterns alone are insufficient
@@ -160,8 +178,13 @@ context limit, or **unknown** when unavailable. Warnings begin at 75%, danger at
 Choose **Compact** or press `C`, then confirm with `y`. Compaction rechecks live requests
 and status and uses the model from the session's latest assistant message. Busy or waiting
 sessions must first become idle (resolve the request or explicitly stop/abort, then wait).
-Read-only blocks compaction. The dashboard resyncs after completion; the inbox UI follows
-in a separate integration step.
+Read-only blocks compaction. The dashboard resyncs after completion.
+
+Open **Inbox** (`i`) for a filterable team feed of permissions, questions, errors and
+stalls. Arrows select, `/` searches, Tab filters kind, Enter opens the owning pane.
+Permission approvals/rejections retain the exact request and member identity across
+confirmation; `a` attaches to questions and `n` nudges the selected member. Read-only
+blocks mutations. Structured report adapters and historical events follow separately.
 
 ## API integration
 

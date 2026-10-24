@@ -39,10 +39,11 @@ type RolePolicy struct {
 
 // ProjectBindings supplies private defaults and existing member identities at merge time.
 type ProjectBindings struct {
-	Repo    string
-	Server  string
-	Base    string
-	Members map[string]Member
+	Repo      string
+	Server    string
+	Base      string
+	Members   map[string]Member
+	LeasePool bool
 }
 
 func decodePolicy(data []byte, out any) error {
@@ -125,6 +126,8 @@ func (p *ProjectPolicy) Merge(bindings ProjectBindings) (Team, error) {
 		return Team{}, err
 	}
 	t := Team{
+		LeasePool: bindings.LeasePool,
+		Approval:  p.Approval, SafeCommands: append([]string(nil), p.Commands...),
 		Version: 1, Name: p.Name, Server: bindings.Server, Repo: bindings.Repo,
 		Base: p.Base, Model: p.Model, Capacity: p.Capacity, Rules: p.Rules,
 	}

@@ -54,6 +54,8 @@ func Run(args []string, build Build) int {
 func run(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
+		case "init":
+			return initCommand(context.Background(), args[1:], os.Stdout)
 		case "team":
 			return teamCommand(context.Background(), args[1:], os.Stdout)
 		case "import":
@@ -149,6 +151,9 @@ func loadDeck(ctx context.Context, flags *dashboardFlags) (config.Deck, *team.Te
 		loaded, rev, err := store.Load(ctx, flags.teamName)
 		if err != nil {
 			return deck, nil, nil, fmt.Errorf("load team %q: %w", flags.teamName, err)
+		}
+		if err := mergeProject(ctx, &loaded); err != nil {
+			return deck, nil, nil, err
 		}
 		deck, saved, revision = loaded.Deck(), &loaded, rev
 	case flags.path != "":

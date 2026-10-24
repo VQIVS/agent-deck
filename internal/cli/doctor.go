@@ -32,13 +32,19 @@ type finding struct {
 func doctor(args []string) error {
 	f := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	server := f.String("server", "", "OpenCode server URL")
+	name := f.String("team", "", "check saved team")
+	project := f.String("project", "", "check portable project file")
+	directory := f.String("dir", "", "check project repository")
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("parse doctor flags: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	checks := newDiagnostics(resolveServer(*server, ""))
-	if printFindings(os.Stdout, checks.check(ctx, true)) {
+	findings := checks.check(ctx, true)
+	findings = append(findings, projectTeamChecks(ctx, team.Store{Root: team.DefaultRoot(), ReadOnly: true},
+		*name, *project, *directory)...)
+	if printFindings(os.Stdout, findings) {
 		return fmt.Errorf("setup needs attention; run the fix commands above")
 	}
 	return nil

@@ -60,6 +60,7 @@ func (m *Model) headerButtons() []button {
 	}
 	out := []button{
 		{"Sessions", "p", false},
+		{"Inbox", "i", false},
 		{"Refresh", "r", false},
 		{notify, "N", false},
 		{"Help", "?", false},
@@ -114,6 +115,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	}
 	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return nil
+	}
+	if m.inbox.Open {
+		return m.inboxClick(&m.inbox, z, ok)
 	}
 	if m.teams != nil && (m.teams.Screen != "" || m.teams.Confirm != "") {
 		return m.teamClick(z, ok)

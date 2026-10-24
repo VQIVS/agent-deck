@@ -12,6 +12,21 @@ type CommandAllowlist struct {
 	commands [][]string
 }
 
+func (t *Team) validateApproval() error {
+	if t.Approval != "" && t.Approval != "ask" && t.Approval != "allowlist" {
+		return fmt.Errorf("approval must be ask or allowlist")
+	}
+	_, err := NewCommandAllowlist(t.SafeCommands)
+	return err
+}
+
+func (t *Team) validatePolicies() error {
+	if err := t.validateApproval(); err != nil {
+		return err
+	}
+	return ValidateLeases(t.Members)
+}
+
 // ParseLiteralCommand accepts plain words and quoted literals, with no shell expansion or operators.
 func ParseLiteralCommand(command string) ([]string, error) {
 	if strings.ContainsAny(command, "\x00\r\n;&|<>$`(){}[]*?~#!\\") {

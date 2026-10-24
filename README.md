@@ -68,6 +68,10 @@ agent-deck up
 agent-deck
 ```
 
+For a new project, use `agent-deck init --template bugfix-tester` to save a team from
+repository defaults or `agent-deck.yaml`; list recipes with `agent-deck init --list-templates`.
+Check project bindings with `agent-deck doctor --team NAME`.
+
 ```sh
 agent-deck run --all                  # discover active sessions
 agent-deck --read-only --all          # observe without mutations

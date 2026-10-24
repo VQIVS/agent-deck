@@ -54,6 +54,42 @@ func (s ReportStore) Submit(ctx context.Context, t *Team, authenticatedMember st
 	return record, nil
 }
 
+// SubmitTask validates task-specific criteria and current binding before persisting a task-linked report.
+func (s ReportStore) SubmitTask(ctx context.Context, t *Team, board *TaskBoard, authenticatedMember string,
+	reported *DoneReport, observed *ReportMetadata,
+) (ReportRecord, error) {
+	definition, err := TaskReportDefinition(t, board, authenticatedMember, reported)
+	if err != nil {
+		return ReportRecord{}, err
+	}
+	policy := *t
+	policy.DefinitionOfDone = definition
+	return s.Submit(ctx, &policy, authenticatedMember, definition, reported, observed)
+}
+
+// LoadTask verifies stored task criteria and current membership before returning completion evidence.
+func (s ReportStore) LoadTask(ctx context.Context, t *Team, board *TaskBoard,
+	memberName, taskID string,
+) (ReportRecord, error) {
+	task, err := taskByID(board, taskID)
+	if err != nil {
+		return ReportRecord{}, err
+	}
+	if task.Assignee != memberName {
+		return ReportRecord{}, fmt.Errorf("task report assignee mismatch")
+	}
+	policy := *t
+	policy.DefinitionOfDone = taskDefinition(task)
+	record, err := s.Load(ctx, &policy, memberName)
+	if err != nil {
+		return record, err
+	}
+	if record.Reported.TaskID != taskID {
+		return ReportRecord{}, fmt.Errorf("stored report belongs to another task")
+	}
+	return record, nil
+}
+
 func (s ReportStore) reportPath(teamName, memberName string) (string, error) {
 	if s.Root == "" || Slug(teamName) == "" || Slug(memberName) == "" {
 		return "", fmt.Errorf("report store needs root, team and member names")

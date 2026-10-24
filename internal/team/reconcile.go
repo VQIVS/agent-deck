@@ -42,6 +42,7 @@ type ReconcileAction struct {
 
 // ReconcileRequest carries native lease permissions for session creation or assignment.
 type ReconcileRequest struct {
+	Actor  TaskActor
 	Action ReconcileAction
 	Member Member
 	Rules  []api.Rule

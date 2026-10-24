@@ -53,6 +53,7 @@ type ReportTest struct {
 
 // DoneReport is the untrusted worker payload; identity is checked against authenticated membership.
 type DoneReport struct {
+	TaskID     string       `json:"task_id,omitempty"`
 	Member     string       `json:"member"`
 	Session    string       `json:"session"`
 	Summary    string       `json:"summary"`

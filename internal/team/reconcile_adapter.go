@@ -85,7 +85,7 @@ func (t *LifecycleTransport) writableManager(manager *Manager) bool {
 func (t *LifecycleTransport) commitBoard(ctx context.Context, request *ReconcileRequest,
 	result *ReconcileResult,
 ) error {
-	state, err := t.Store.Load(ctx)
+	state, err := t.Store.LoadMigratedUnlocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 		for i := range state.Board.Tasks {
 			task := &state.Board.Tasks[i]
 			if task.ID == taskID {
-				if err := recordTaskAssignment(&state.Board, taskID, result.Worker); err != nil {
+				if err := recordTaskAssignmentAs(&state.Board, taskID, result.Worker, request.Actor); err != nil {
 					return err
 				}
 			}
@@ -115,6 +115,10 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 }
 
 func recordTaskAssignment(board *TaskBoard, id, worker string) error {
+	return recordTaskAssignmentAs(board, id, worker, TaskActor{User: true})
+}
+
+func recordTaskAssignmentAs(board *TaskBoard, id, worker string, actor TaskActor) error {
 	if board.Version < 2 {
 		for i := range board.Tasks {
 			if board.Tasks[i].ID == id {
@@ -124,7 +128,7 @@ func recordTaskAssignment(board *TaskBoard, id, worker string) error {
 		}
 		return fmt.Errorf("unknown assigned task %q", id)
 	}
-	mutation := TaskMutation{Actor: TaskActor{User: true}, Now: time.Now().UTC()}
+	mutation := TaskMutation{Actor: actor, Now: time.Now().UTC()}
 	if err := board.SetAssignee(id, worker, mutation); err != nil {
 		return err
 	}

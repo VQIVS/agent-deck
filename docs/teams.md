@@ -13,9 +13,11 @@ of the current task content or a passing structured report against its exact acc
 criteria. Checklist checks are progress claims, not verification. Workers may progress,
 comment on or block their own assignments; task planning belongs to the master/user.
 
-Legacy boards migrate in memory on read without rewriting files. The next private save
-persists version 2 with an exact-byte history backup. Legacy unstructured done/failed
-outcomes become blocked for explicit verification rather than fabricated accepted reviews.
+Writable legacy loads migrate once under the board lock with an exact-byte backup;
+read-only loads only migrate in memory. Legacy done outcomes retain an explicit legacy
+completion marker so dependents remain schedulable; failed outcomes become blocked,
+and pending tasks with unmet dependencies return to backlog. Legacy markers are not new
+accepted reviews. History/comment budgets and bounded backup retention prevent unbounded growth.
 The workflow model is the foundation; task MCP/CLI and Kanban integration follow separately.
 
 ## Shared-checkout workflow identity (v0.2)

@@ -1,10 +1,8 @@
 package team
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -67,15 +65,7 @@ func (p *PoolRuntime) Configure(ctx context.Context, actor ReconcileActor, state
 		return err
 	}
 	if !actor.User {
-		current, err := p.Status(ctx)
-		if err != nil {
-			return err
-		}
-		before, _ := json.Marshal(current.Policy)
-		after, _ := json.Marshal(state.Policy)
-		if !bytes.Equal(before, after) || len(state.Approved) != 0 {
-			return fmt.Errorf("only privileged user may change scaling policy or approvals")
-		}
+		return fmt.Errorf("whole-board configuration requires privileged user; masters use task mutations")
 	}
 	return p.board.Save(ctx, state, expected)
 }

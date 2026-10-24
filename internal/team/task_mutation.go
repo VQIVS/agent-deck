@@ -48,6 +48,7 @@ func (b *TaskBoard) CreateTask(task *Task, m TaskMutation) error {
 	created.Comments = nil
 	created.Review = nil
 	created.Completion = nil
+	created.LegacyCompletion = false
 	candidate := TaskBoard{Version: 2, Tasks: slices.Clone(b.Tasks), History: slices.Clone(b.History)}
 	taskEvent(&candidate, &created, m, "created", "", "backlog")
 	candidate.Tasks = append(candidate.Tasks, created)
@@ -73,6 +74,7 @@ func (b *TaskBoard) UpdateTask(id string, replacement *Task, m TaskMutation) err
 		updated.CreatedAt = task.CreatedAt
 		updated.Review = nil
 		updated.Completion = nil
+		updated.LegacyCompletion = false
 		*task = updated
 		taskEvent(board, task, m, "edited", "", "")
 		return nil
@@ -91,6 +93,10 @@ func (b *TaskBoard) SetAssignee(id, member string, m TaskMutation) error {
 		task.Completion = nil
 		task.Report = nil
 		task.Measured = nil
+		task.LegacyCompletion = false
+		if task.State == "review" {
+			task.State = "ready"
+		}
 		taskEvent(board, task, m, "assignee", before, member)
 		return nil
 	})
@@ -150,8 +156,12 @@ func (b *TaskBoard) CommentTask(id, text string, m TaskMutation) error {
 		if !boundedTaskText(text) {
 			return fmt.Errorf("comment must contain bounded text")
 		}
-		task.Comments = append(task.Comments, TaskComment{Actor: m.name(), At: m.Now.UTC(), Text: text})
-		taskEvent(board, task, m, "comment", "", text)
+		if len(task.Comments) >= 500 {
+			return fmt.Errorf("task comment limit reached")
+		}
+		id := fmt.Sprintf("comment-%d-%d", m.Now.UnixNano(), len(task.Comments))
+		task.Comments = append(task.Comments, TaskComment{ID: id, Actor: m.name(), At: m.Now.UTC(), Text: text})
+		taskEvent(board, task, m, "comment", "", id)
 		return nil
 	})
 }
@@ -183,6 +193,8 @@ func (b *TaskBoard) ReviewTask(id, decision, comment string, m TaskMutation) err
 }
 
 // CompleteTask accepts a trusted stored report, not caller-supplied completion booleans.
+//
+// Deprecated: integration should use CompleteTaskForTeam to validate current membership and session binding.
 func (b *TaskBoard) CompleteTask(id string, record *ReportRecord, m TaskMutation) error {
 	return b.mutate(id, m, func(board *TaskBoard, task *Task) error {
 		if !m.manages() {
@@ -201,6 +213,21 @@ func (b *TaskBoard) CompleteTask(id string, record *ReportRecord, m TaskMutation
 		taskEvent(board, task, m, "state", before, "done")
 		return nil
 	})
+}
+
+// CompleteTaskForTeam checks report provenance against current trusted team bindings before completion.
+func (b *TaskBoard) CompleteTaskForTeam(id string, record *ReportRecord, current *Team, m TaskMutation) error {
+	if current == nil || record == nil || record.Team != current.Name || !record.CurrentBinding(current) {
+		return fmt.Errorf("task completion report must match current team and worker session binding")
+	}
+	if !m.Actor.User {
+		actor, err := current.ResolveTaskActor(m.Actor.Member)
+		if err != nil {
+			return err
+		}
+		m.Actor = actor
+	}
+	return b.CompleteTask(id, record, m)
 }
 
 func TaskPending(task *Task) bool { return task.State == "pending" || task.State == "ready" }

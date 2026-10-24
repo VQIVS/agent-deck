@@ -113,7 +113,10 @@ func (input *SchedulingInput) validate() error {
 		if !TaskActive(task) {
 			continue
 		}
-		if !names[task.Worker] || assigned[task.Worker] {
+		if !names[task.Worker] {
+			continue
+		}
+		if assigned[task.Worker] {
 			return fmt.Errorf("assigned tasks require distinct current workers")
 		}
 		assigned[task.Worker] = true

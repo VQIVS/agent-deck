@@ -33,33 +33,34 @@ type TaskReport struct {
 
 // Task is one independently owned unit of work on a versioned board.
 type Task struct {
-	StartedAt    time.Time       `json:"started_at,omitempty"`
-	CompletedAt  time.Time       `json:"completed_at,omitempty"`
-	Description  string          `json:"description,omitempty"`
-	Criteria     []TaskCriterion `json:"criteria,omitempty"`
-	Priority     string          `json:"priority,omitempty"`
-	Labels       []string        `json:"labels,omitempty"`
-	Assignee     string          `json:"assignee,omitempty"`
-	Reviewer     string          `json:"reviewer,omitempty"`
-	Branch       string          `json:"branch,omitempty"`
-	Commits      []string        `json:"commits,omitempty"`
-	CreatedAt    time.Time       `json:"created_at,omitempty"`
-	UpdatedAt    time.Time       `json:"updated_at,omitempty"`
-	History      []TaskChange    `json:"history,omitempty"`
-	Comments     []TaskComment   `json:"comments,omitempty"`
-	Review       *TaskReview     `json:"review,omitempty"`
-	Completion   *ReportRecord   `json:"completion,omitempty"`
-	ID           string          `json:"id"`
-	Title        string          `json:"title"`
-	Paths        Leases          `json:"paths"`
-	Dependencies []string        `json:"dependencies,omitempty"`
-	Role         string          `json:"role,omitempty"`
-	Skills       []string        `json:"skills,omitempty"`
-	Estimate     TaskEstimate    `json:"estimate"`
-	State        string          `json:"state"`
-	Worker       string          `json:"worker,omitempty"`
-	Report       *TaskReport     `json:"report,omitempty"`
-	Measured     *TaskUsage      `json:"measured,omitempty"`
+	LegacyCompletion bool            `json:"legacy_completion,omitempty"`
+	StartedAt        time.Time       `json:"started_at,omitempty"`
+	CompletedAt      time.Time       `json:"completed_at,omitempty"`
+	Description      string          `json:"description,omitempty"`
+	Criteria         []TaskCriterion `json:"criteria,omitempty"`
+	Priority         string          `json:"priority,omitempty"`
+	Labels           []string        `json:"labels,omitempty"`
+	Assignee         string          `json:"assignee,omitempty"`
+	Reviewer         string          `json:"reviewer,omitempty"`
+	Branch           string          `json:"branch,omitempty"`
+	Commits          []string        `json:"commits,omitempty"`
+	CreatedAt        time.Time       `json:"created_at,omitempty"`
+	UpdatedAt        time.Time       `json:"updated_at,omitempty"`
+	History          []TaskChange    `json:"history,omitempty"`
+	Comments         []TaskComment   `json:"comments,omitempty"`
+	Review           *TaskReview     `json:"review,omitempty"`
+	Completion       *ReportRecord   `json:"completion,omitempty"`
+	ID               string          `json:"id"`
+	Title            string          `json:"title"`
+	Paths            Leases          `json:"paths"`
+	Dependencies     []string        `json:"dependencies,omitempty"`
+	Role             string          `json:"role,omitempty"`
+	Skills           []string        `json:"skills,omitempty"`
+	Estimate         TaskEstimate    `json:"estimate"`
+	State            string          `json:"state"`
+	Worker           string          `json:"worker,omitempty"`
+	Report           *TaskReport     `json:"report,omitempty"`
+	Measured         *TaskUsage      `json:"measured,omitempty"`
 }
 
 // TaskBoard stores task state separately from team session bindings.
@@ -89,6 +90,9 @@ func (b *TaskBoard) Validate() error {
 		if err := b.visit(b.Tasks[i].ID, index, marks); err != nil {
 			return err
 		}
+	}
+	if b.Version == 2 {
+		return validateWorkflowBoard(b)
 	}
 	return nil
 }

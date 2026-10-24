@@ -60,13 +60,14 @@ func (r *Reconciler) prepare(ctx context.Context, actor ReconcileActor,
 	if err != nil {
 		return ReconcileRequest{}, fmt.Errorf("refresh reconcile snapshot: %w", err)
 	}
-	if err := authorizeReconcile(&snapshot, actor); err != nil {
-		return ReconcileRequest{}, err
-	}
-	if err := eligibleReconcile(&snapshot, action); err != nil {
+	if err := validateReconcileRequest(&snapshot, actor, action); err != nil {
 		return ReconcileRequest{}, err
 	}
 	request := ReconcileRequest{Action: *action}
+	request.Actor, err = reconcileTaskActor(&snapshot.Team, actor)
+	if err != nil {
+		return request, err
+	}
 	if action.Kind == "retire" {
 		for i := range snapshot.Team.Members {
 			member := &snapshot.Team.Members[i]
@@ -96,6 +97,20 @@ func (r *Reconciler) prepare(ctx context.Context, actor ReconcileActor,
 	}
 	request.Member, request.Rules = member, rules
 	return request, nil
+}
+
+func validateReconcileRequest(snapshot *ReconcileSnapshot, actor ReconcileActor, action *ReconcileAction) error {
+	if err := authorizeReconcile(snapshot, actor); err != nil {
+		return err
+	}
+	return eligibleReconcile(snapshot, action)
+}
+
+func reconcileTaskActor(t *Team, actor ReconcileActor) (TaskActor, error) {
+	if actor.User {
+		return TaskActor{User: true}, nil
+	}
+	return t.ResolveTaskActor(actor.Member)
 }
 
 func reconcileMember(snapshot *ReconcileSnapshot, action *ReconcileAction) (Member, error) {

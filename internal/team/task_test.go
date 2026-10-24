@@ -149,7 +149,7 @@ func TestWorkflowBoardMigrationAndPrivateHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	if state.Version != 2 || state.Board.Tasks[0].State != "ready" || state.Board.Tasks[1].Assignee != "worker" ||
-		state.Board.Tasks[2].State != "blocked" {
+		state.Board.Tasks[2].State != "done" || !state.Board.Tasks[2].LegacyCompletion {
 		t.Fatal("unsafe migration", state)
 	}
 	after, _ := os.ReadFile(path)
@@ -157,6 +157,20 @@ func TestWorkflowBoardMigrationAndPrivateHistory(t *testing.T) {
 		t.Fatal("Load wrote migration")
 	}
 	store.ReadOnly = false
+	if _, err := store.Load(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	migrated, _ := os.ReadFile(path)
+	if bytes.Equal(before, migrated) {
+		t.Fatal("writable Load did not persist migration")
+	}
+	if _, err := store.Load(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := os.ReadFile(path)
+	if !bytes.Equal(migrated, again) {
+		t.Fatal("migration repeated")
+	}
 	if err := store.Save(t.Context(), &state, 4); err != nil {
 		t.Fatal(err)
 	}
@@ -182,6 +196,7 @@ func TestTaskStructuredCompletionMatchesCurrentCriteria(t *testing.T) {
 	}
 	definition := taskDefinition(&board.Tasks[0])
 	report := &DoneReport{
+		TaskID: "task",
 		Member: "worker", Session: "ses_worker", Summary: "done",
 		Checklist: []ReportItem{{ID: "tests", Complete: true}},
 		Tests:     []ReportTest{{CriterionID: "tests", Command: "go test", Outcome: "pass"}},

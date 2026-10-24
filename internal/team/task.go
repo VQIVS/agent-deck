@@ -30,6 +30,7 @@ type TaskChange struct {
 
 // TaskComment is an attributed task discussion entry.
 type TaskComment struct {
+	ID    string    `json:"id"`
 	Actor string    `json:"actor"`
 	At    time.Time `json:"at"`
 	Text  string    `json:"text"`
@@ -50,6 +51,22 @@ type TaskActor struct {
 	Role   string
 	User   bool
 }
+
+// ResolveTaskActor derives role from current trusted membership, never tool arguments.
+func (t *Team) ResolveTaskActor(name string) (TaskActor, error) {
+	for i := range t.Members {
+		member := &t.Members[i]
+		if member.Name == name {
+			if member.Muted {
+				return TaskActor{}, fmt.Errorf("muted member cannot mutate tasks")
+			}
+			return TaskActor{Member: member.Name, Role: member.Role}, nil
+		}
+	}
+	return TaskActor{}, fmt.Errorf("task actor is not a current team member")
+}
+
+func (t *Team) TaskActor(name string) (TaskActor, error) { return t.ResolveTaskActor(name) }
 
 // TaskMutation supplies explicit authority, time and read-only policy for every mutation.
 type TaskMutation struct {
@@ -161,6 +178,9 @@ func cloneWorkflowFields(task *Task) {
 }
 
 func taskCompletionValid(task *Task) bool {
+	if task.LegacyCompletion {
+		return true
+	}
 	if acceptedTaskReview(task) {
 		return true
 	}
@@ -187,7 +207,7 @@ func acceptedTaskReview(task *Task) bool {
 func validTaskReportIdentity(task *Task, record *ReportRecord) bool {
 	return record != nil && record.Source == "structured" && record.Reported != nil && record.Member == task.Assignee &&
 		record.ReportedDone && record.Session != "" && record.Reported.Session == record.Session &&
-		record.Reported.Member == record.Member && !record.RecordedAt.IsZero()
+		record.Reported.Member == record.Member && !record.RecordedAt.IsZero() && record.Reported.TaskID == task.ID
 }
 
 func taskContentDigest(task *Task) string {
@@ -233,6 +253,41 @@ func taskEvent(board *TaskBoard, task *Task, mutation TaskMutation, field, from,
 	}
 	task.History = append(task.History, event)
 	board.History = append(board.History, event)
+	if len(task.History) > 2000 {
+		task.History = slices.Clone(task.History[len(task.History)-2000:])
+	}
+	if len(board.History) > 10000 {
+		board.History = slices.Clone(board.History[len(board.History)-10000:])
+	}
+}
+
+func validateWorkflowBoard(board *TaskBoard) error {
+	data, err := json.Marshal(board)
+	if err != nil {
+		return fmt.Errorf("encode workflow board budget: %w", err)
+	}
+	if len(data) > 7<<20 {
+		return fmt.Errorf("workflow board exceeds aggregate 7 MiB budget")
+	}
+	active := map[string]bool{}
+	for i := range board.Tasks {
+		task := &board.Tasks[i]
+		if TaskActive(task) {
+			if active[task.Assignee] {
+				return fmt.Errorf("assignee %q has multiple active tasks", task.Assignee)
+			}
+			active[task.Assignee] = true
+		}
+		if task.State == "ready" || TaskActive(task) {
+			for _, id := range task.Dependencies {
+				dependency, err := taskByID(board, id)
+				if err != nil || dependency.State != "done" {
+					return fmt.Errorf("planned active task has unfinished dependency")
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func boundedTaskText(text string) bool { return strings.TrimSpace(text) != "" && len(text) <= 16000 }

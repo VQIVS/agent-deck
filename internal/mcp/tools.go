@@ -36,6 +36,7 @@ func (s *Server) call(ctx context.Context, identity Identity, params json.RawMes
 	var call struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
+		Meta      json.RawMessage `json:"_meta,omitempty"`
 	}
 	if err := decode(bytes.NewReader(params), &call); err != nil {
 		return nil, err

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,23 +17,27 @@ import (
 
 // Record is an immutable message or delivery event in a team's private journal.
 type Record struct {
-	ID         string    `json:"id"`
-	Kind       string    `json:"kind"`
-	Thread     string    `json:"thread"`
-	Sender     string    `json:"sender"`
-	Recipients []string  `json:"recipients,omitempty"`
-	Text       string    `json:"text,omitempty"`
-	Private    bool      `json:"private,omitempty"`
-	Hops       int       `json:"hops"`
-	Message    string    `json:"message,omitempty"`
-	Time       time.Time `json:"time"`
+	ID         string            `json:"id"`
+	Kind       string            `json:"kind"`
+	Thread     string            `json:"thread"`
+	Sender     string            `json:"sender"`
+	Recipients []string          `json:"recipients,omitempty"`
+	Text       string            `json:"text,omitempty"`
+	Private    bool              `json:"private,omitempty"`
+	Hops       int               `json:"hops"`
+	Message    string            `json:"message,omitempty"`
+	Time       time.Time         `json:"time"`
+	SenderID   string            `json:"sender_id,omitempty"`
+	Audience   map[string]string `json:"audience,omitempty"`
 }
 
 // Journal serializes durable writes and exclusively owns one private JSONL file.
 type Journal struct {
-	mu      sync.Mutex
-	file    *os.File
-	records []Record
+	mu        sync.Mutex
+	file      *os.File
+	records   []Record
+	fatal     error
+	positions map[string]int
 }
 
 func Open(path string) (*Journal, error) {
@@ -44,7 +49,7 @@ func Open(path string) (*Journal, error) {
 		return nil, fmt.Errorf("open channel journal: %w", err)
 	}
 	f := os.NewFile(uintptr(fd), path)
-	j := &Journal{file: f}
+	j := &Journal{file: f, positions: make(map[string]int)}
 	if err := j.load(); err != nil {
 		_ = f.Close()
 		return nil, err
@@ -72,6 +77,7 @@ func (j *Journal) load() error {
 		if err := json.Unmarshal(line, &r); err != nil {
 			return fmt.Errorf("decode channel journal: %w", err)
 		}
+		j.positions[r.ID] = len(j.records)
 		j.records = append(j.records, r)
 	}
 	// Only discard an incomplete crash tail; complete records are never rewritten.
@@ -90,7 +96,13 @@ func (j *Journal) Append(ctx context.Context, record *Record) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if j.fatal != nil {
+		return fmt.Errorf("channel journal requires owner restart: %w", j.fatal)
+	}
 	if j.file == nil {
+		if j.fatal != nil {
+			return fmt.Errorf("channel journal requires owner restart: %w", j.fatal)
+		}
 		return fmt.Errorf("channel journal is closed")
 	}
 	if record == nil {
@@ -100,32 +112,32 @@ func (j *Journal) Append(ctx context.Context, record *Record) error {
 	if r.ID == "" || r.Sender == "" || r.Kind == "" {
 		return fmt.Errorf("channel record requires id, sender and kind")
 	}
-	for i := range j.records {
-		if j.records[i].ID == r.ID {
-			return fmt.Errorf("duplicate channel record id")
-		}
+	if _, exists := j.positions[r.ID]; exists {
+		return fmt.Errorf("duplicate channel record id")
 	}
 	b, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("encode channel record: %w", err)
 	}
 	if _, err := j.file.Write(append(b, '\n')); err != nil {
-		j.stopWrites()
+		j.stopWrites(err)
 		return fmt.Errorf("append channel record: %w", err)
 	}
 	if err := j.file.Sync(); err != nil {
-		j.stopWrites()
+		j.stopWrites(err)
 		return fmt.Errorf("sync channel record: %w", err)
 	}
 	r.Recipients = slices.Clone(r.Recipients)
+	r.Audience = cloneAudience(r.Audience)
+	j.positions[r.ID] = len(j.records)
 	j.records = append(j.records, r)
 	return nil
 }
 
-func (j *Journal) stopWrites() {
+func (j *Journal) stopWrites(err error) {
 	// An uncertain write must be recovered on reopen before accepting another record.
-	_ = j.file.Close()
-	j.file = nil
+	// Retain the file lock until the owner explicitly closes this journal.
+	j.fatal = err
 }
 
 func (j *Journal) Read(ctx context.Context, member, since string) ([]Record, error) {
@@ -136,7 +148,15 @@ func (j *Journal) Read(ctx context.Context, member, since string) ([]Record, err
 	}
 	result := []Record{}
 	found := since == ""
-	for i := range j.records {
+	start := 0
+	if since != "" {
+		position, exists := j.positions[since]
+		if !exists {
+			return nil, fmt.Errorf("unknown channel cursor")
+		}
+		start = position
+	}
+	for i := start; i < len(j.records); i++ {
 		r := &j.records[i]
 		visible := !r.Private || r.Sender == member || slices.Contains(r.Recipients, member)
 		if !visible {
@@ -145,6 +165,7 @@ func (j *Journal) Read(ctx context.Context, member, since string) ([]Record, err
 		if found {
 			copyRecord := *r
 			copyRecord.Recipients = slices.Clone(r.Recipients)
+			copyRecord.Audience = cloneAudience(r.Audience)
 			result = append(result, copyRecord)
 		} else if r.ID == since {
 			found = true
@@ -166,6 +187,62 @@ func (j *Journal) Snapshot(ctx context.Context) ([]Record, error) {
 	result := slices.Clone(j.records)
 	for i := range result {
 		result[i].Recipients = slices.Clone(result[i].Recipients)
+		result[i].Audience = cloneAudience(result[i].Audience)
+	}
+	return result, nil
+}
+
+func cloneAudience(audience map[string]string) map[string]string {
+	return maps.Clone(audience)
+}
+
+func visibleMessage(r *Record, member, identity string) bool {
+	if r.Kind != "message" && r.Kind != "roster" {
+		return false
+	}
+	return !r.Private || (r.Sender == member && r.SenderID == identity) ||
+		(r.Audience[member] == identity && slices.Contains(r.Recipients, member))
+}
+
+// ReadMessages bounds member-facing results and applies immutable membership identities.
+func (j *Journal) ReadMessages(ctx context.Context, member, identity, since string, limit int) ([]Record, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	result := make([]Record, 0, limit)
+	found := since == ""
+	start := 0
+	if since != "" {
+		position, exists := j.positions[since]
+		if !exists {
+			return nil, fmt.Errorf("unknown channel cursor")
+		}
+		start = position
+	}
+	for i := start; i < len(j.records); i++ {
+		r := &j.records[i]
+		if !visibleMessage(r, member, identity) {
+			continue
+		}
+		if !found {
+			found = r.ID == since
+			continue
+		}
+		copyRecord := *r
+		copyRecord.Recipients = slices.Clone(r.Recipients)
+		copyRecord.Audience = cloneAudience(r.Audience)
+		result = append(result, copyRecord)
+		if len(result) == limit {
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("unknown channel cursor")
 	}
 	return result, nil
 }

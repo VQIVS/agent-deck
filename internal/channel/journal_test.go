@@ -2,6 +2,7 @@ package channel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,6 +64,30 @@ func TestJournalRecoveryAndPrivacy(t *testing.T) {
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("permissions: %v", info.Mode())
 	}
+}
+
+func TestFatalWriteRetainsOwnershipUntilClose(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "journal")
+	j, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.mu.Lock()
+	j.stopWrites(errors.New("uncertain fsync"))
+	j.mu.Unlock()
+	if err := j.Append(t.Context(), &Record{ID: "x", Kind: "message", Sender: "a"}); err == nil {
+		t.Fatal("fatal journal continued writing")
+	}
+	if other, err := Open(path); err == nil {
+		other.Close()
+		t.Fatal("fatal journal released ownership before owner restart")
+	}
+	j.Close()
+	other, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
 }
 
 func TestJournalConcurrentWritesAndCopies(t *testing.T) {

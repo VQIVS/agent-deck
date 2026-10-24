@@ -22,6 +22,16 @@ func newTestService(t *testing.T, configure func(*Options)) *Service {
 	if configure != nil {
 		configure(&options)
 	}
+	members := options.Members
+	options.Members = func() []Member {
+		roster := append([]Member(nil), members()...)
+		for i := range roster {
+			if roster[i].ID == "" {
+				roster[i].ID = roster[i].Name + "-membership-1"
+			}
+		}
+		return roster
+	}
 	s, err := NewService(&options)
 	if err != nil {
 		t.Fatal(err)

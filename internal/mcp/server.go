@@ -31,7 +31,10 @@ func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 	if !ok || !address.IP.IsLoopback() {
 		return fmt.Errorf("MCP listener must bind an explicit loopback address")
 	}
-	server := &http.Server{Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second}
+	server := &http.Server{
+		Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
+		WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute,
+	}
 	stop := context.AfterFunc(ctx, func() { _ = server.Close() })
 	defer stop()
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -56,7 +59,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+	if !strings.EqualFold(strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]), "application/json") {
 		http.Error(w, "application/json required", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -93,10 +96,10 @@ func (s *Server) authenticate(r *http.Request) (Identity, bool) {
 		return Identity{}, false
 	}
 	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, "Bearer ") {
+	if len(header) < 7 || !strings.EqualFold(header[:7], "Bearer ") {
 		return Identity{}, false
 	}
-	identity, ok := s.Tokens.Authenticate(strings.TrimPrefix(header, "Bearer "))
+	identity, ok := s.Tokens.Authenticate(header[7:])
 	if !ok {
 		return Identity{}, false
 	}

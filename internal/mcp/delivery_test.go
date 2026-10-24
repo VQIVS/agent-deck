@@ -113,7 +113,7 @@ func TestDeliveryCrashReplayRetainsIDs(t *testing.T) {
 	f := newFakeTransport()
 	f.fail = true
 	options := Options{Team: "test", Journal: j, Members: func() []Member {
-		return []Member{{Name: "alice", Role: "master"}, {Name: "bob", Role: "worker"}}
+		return []Member{{ID: "alice-1", Name: "alice", Role: "master"}, {ID: "bob-1", Name: "bob", Role: "worker"}}
 	}}
 	transportOptions(f)(&options)
 	s, err := NewService(&options)

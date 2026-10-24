@@ -15,6 +15,7 @@ import (
 
 // Member is the current public roster and posting policy for one member.
 type Member struct {
+	ID    string `json:"id,omitempty"`
 	Name  string `json:"name"`
 	Role  string `json:"role"`
 	Muted bool   `json:"muted"`
@@ -36,8 +37,9 @@ type Options struct {
 
 // Service validates authenticated channel actions before any journal side effect.
 type Service struct {
-	mu      sync.Mutex
-	options Options
+	mu            sync.Mutex
+	options       Options
+	deliveryLocks sync.Map
 }
 
 // Post describes content and recipients, with an optional visible parent message.
@@ -71,6 +73,11 @@ func NewService(config *Options) (*Service, error) {
 	if options.Rate <= 0 {
 		options.Rate = 30
 	}
+	for _, member := range options.Members() {
+		if member.Name == "agent-deck" || member.Name == "user" || member.ID == "" {
+			return nil, fmt.Errorf("members require immutable membership IDs and nonreserved names")
+		}
+	}
 	return &Service{options: options}, nil
 }
 
@@ -80,6 +87,9 @@ func (s *Service) member(identity Identity) (Member, error) {
 	}
 	for _, member := range s.options.Members() {
 		if member.Name == identity.Member {
+			if member.ID == "" || member.Name == "agent-deck" || member.Name == "user" {
+				return Member{}, fmt.Errorf("invalid membership identity")
+			}
 			return member, nil
 		}
 	}
@@ -103,17 +113,18 @@ func (s *Service) Read(ctx context.Context, identity Identity, since string) ([]
 	if s.options.ReadOnly != nil && s.options.ReadOnly() {
 		return records, nil
 	}
-	if err := s.acknowledge(ctx, identity.Member, records); err != nil {
+	if err := s.acknowledge(context.WithoutCancel(ctx), identity.Member, records); err != nil {
 		return nil, err
 	}
 	return records, nil
 }
 
 func (s *Service) read(ctx context.Context, identity Identity, since string) ([]channel.Record, error) {
-	if _, err := s.member(identity); err != nil {
+	member, err := s.member(identity)
+	if err != nil {
 		return nil, err
 	}
-	records, err := s.options.Journal.Read(ctx, identity.Member, since)
+	records, err := s.options.Journal.ReadMessages(ctx, identity.Member, memberID(&member), since, 100)
 	if err != nil {
 		return nil, fmt.Errorf("read team channel: %w", err)
 	}
@@ -147,6 +158,10 @@ func (s *Service) Post(ctx context.Context, identity Identity, post Post, privat
 	if err != nil {
 		return channel.Record{}, err
 	}
+	if err := s.inheritHops(ctx, identity.Member, &r); err != nil {
+		return channel.Record{}, err
+	}
+	s.bindAudience(&r)
 	if r.Hops > s.options.MaxHops && member.Role != "master" {
 		return channel.Record{}, fmt.Errorf("thread hop limit reached; master authorization required")
 	}
@@ -203,13 +218,17 @@ func (s *Service) message(
 	if post.ReplyTo == "" {
 		return r, nil
 	}
-	records, err := s.read(ctx, identity, "")
+	records, err := s.options.Journal.Snapshot(ctx)
 	if err != nil {
-		return channel.Record{}, err
+		return channel.Record{}, fmt.Errorf("read parent messages: %w", err)
 	}
 	for i := range records {
 		parent := &records[i]
 		if parent.ID == post.ReplyTo && parent.Kind == "message" {
+			member, err := s.member(identity)
+			if err != nil || !recordVisible(parent, identity.Member, memberID(&member)) {
+				return channel.Record{}, fmt.Errorf("unknown parent message")
+			}
 			if parent.Private && (!private || !sameParticipants(parent, &r)) {
 				return channel.Record{}, fmt.Errorf("private replies must keep the same participants")
 			}

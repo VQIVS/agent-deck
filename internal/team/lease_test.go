@@ -295,3 +295,20 @@ func TestLeaseRulesAllowOwnTeamTools(t *testing.T) {
 	assertLeaseAction(t, rules, "agent_deck_pool_my_tasks", "*", "allow")
 	assertLeaseAction(t, rules, "other_server_tool", "*", "ask")
 }
+
+func TestLeaseRulesSearchFollowsRead(t *testing.T) {
+	coder := Member{Name: "w", Role: "worker", Permissions: Preset("coder")}
+	rules, err := LeaseRules("/repo", []Member{coder}, &coder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range []string{"grep", "glob", "list", "todowrite"} {
+		assertLeaseAction(t, rules, tool, "*", "allow")
+	}
+	coder.Permissions["read"] = "ask"
+	rules, err = LeaseRules("/repo", []Member{coder}, &coder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertLeaseAction(t, rules, "grep", "*", "ask")
+}

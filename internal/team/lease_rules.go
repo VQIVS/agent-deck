@@ -102,9 +102,18 @@ func baseLeaseRules(member *Member) []api.Rule {
 		keys = append(keys, permission)
 	}
 	sort.Strings(keys)
-	rules := make([]api.Rule, 0, len(keys))
+	rules := make([]api.Rule, 0, len(keys)+5)
 	for _, permission := range keys {
 		rules = append(rules, api.Rule{Permission: permission, Pattern: "*", Action: member.Permissions[permission]})
+	}
+	// Search tools only read, so they follow read; todo tools touch nothing outside the session.
+	if read, ok := member.Permissions["read"]; ok {
+		for _, search := range []string{"grep", "glob", "list"} {
+			rules = append(rules, api.Rule{Permission: search, Pattern: "*", Action: read})
+		}
+	}
+	for _, todo := range []string{"todowrite", "todoread"} {
+		rules = append(rules, api.Rule{Permission: todo, Pattern: "*", Action: "allow"})
 	}
 	return rules
 }

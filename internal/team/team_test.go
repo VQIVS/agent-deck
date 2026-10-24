@@ -215,7 +215,7 @@ func TestManagerFakeServer(t *testing.T) {
 				Permission []struct{ Permission, Action string }
 			}
 			_ = json.NewDecoder(r.Body).Decode(&v)
-			if len(v.Permission) != 5 {
+			if len(v.Permission) != 10 { // 5 preset keys, 3 search tools following read, 2 todo tools
 				t.Error("missing rules")
 			}
 			fmt.Fprint(w, `{"id":"session-new"}`)

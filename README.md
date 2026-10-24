@@ -111,6 +111,10 @@ never starts one. You can also run `opencode serve --hostname 127.0.0.1 --port 4
 
 ## Headless team control
 
+The workflow board also has CLI parity: `agent-deck task ls|show|add|edit|move|assign|comment|review --team NAME`.
+Changes use the same validated task/history path as the UI, with notices delivered through
+an existing runtime owner or an explicit skipped-notice warning. See [task CLI details](docs/teams.md#task-cli-parity).
+
 Drive saved teams from scripts or another agent without opening the dashboard:
 
 ```sh

@@ -54,6 +54,8 @@ func Run(args []string, build Build) int {
 func run(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
+		case "task":
+			return taskCommand(context.Background(), args[1:], os.Stdout)
 		case "init":
 			return initCommand(context.Background(), args[1:], os.Stdout)
 		case "team":

@@ -2,6 +2,36 @@
 
 ## Workflow task model (v0.2)
 
+### Task CLI parity
+
+Task commands act as the privileged local user without requiring a TTY. All task changes
+use the same `team.ChangeTasks` transition/history/notice boundary as the board UI.
+
+```sh
+agent-deck task ls --team example --json
+agent-deck task show --team example --id T-1 --json
+agent-deck task add --team example --title 'Implement parser' \
+  --criteria 'Parser handles valid input' --criteria 'Regression tests pass' \
+  --path 'internal/parser/**' --estimate 45m --priority high
+agent-deck task edit --team example --id T-1 --description 'Handle the new input format'
+agent-deck task assign --team example --id T-1 --assignee Worker --reviewer Master
+agent-deck task move --team example --id T-1 --state ready
+agent-deck task comment --team example --id T-1 --text 'Clarified acceptance criteria'
+agent-deck task review --team example --id T-1 --decision changes --comment 'Cover empty input'
+```
+
+`add`/`edit` accept `--file PATH` containing a TaskSpec JSON object; explicitly supplied
+flags override file fields. Repeat `--criteria`, `--path`, `--dependency` and `--label`.
+Durations use values such as `10m` or `2h`. Assignee/reviewer names must be current members.
+All commands support `--read-only`, `--server` and `--json`; read-only rejects mutations.
+List/show are observation-only and do not start a runtime or migrate files on disk.
+
+After a durable mutation, notices are sent to an already-running authenticated runtime
+owner. The CLI never starts a runtime merely to notify. If none is available, the task
+change still succeeds and reports **notices skipped**; they are not claimed queued or
+automatically replayed. JSON mutation output includes a separate optional `warning`.
+These local-user privileges remain cooperative under the same-user bash trust model.
+
 Version-2 boards use `backlog → ready → in_progress → review → done`, with `blocked`
 and `cancelled` alternatives. Tasks carry descriptions, acceptance checklists, owned
 paths/dependencies, priority/labels, assignee/reviewer, Git links, timestamps, attributed

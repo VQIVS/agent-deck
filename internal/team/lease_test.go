@@ -285,3 +285,13 @@ func TestApplyLeasePermissions(t *testing.T) {
 		t.Fatalf("got %d requests, want one", calls)
 	}
 }
+
+func TestLeaseRulesAllowOwnTeamTools(t *testing.T) {
+	reviewer := Member{Name: "rev", Role: "worker", Permissions: Preset("reviewer")}
+	rules, err := LeaseRules("/repo", []Member{reviewer}, &reviewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertLeaseAction(t, rules, "agent_deck_pool_my_tasks", "*", "allow")
+	assertLeaseAction(t, rules, "other_server_tool", "*", "ask")
+}

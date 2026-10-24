@@ -3,6 +3,42 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-24
+
+### Added
+
+- Workflow task model: `backlog → ready → in_progress → review → done`, plus `blocked` and
+  `cancelled`; acceptance checklists, owned paths, dependencies, priority, labels, assignee and
+  reviewer, attributed history and comments, human-readable estimates (`"45m"`).
+- Master-driven board: MCP tools `create_task`, `update_task`, `split_task`, `set_assignee`,
+  `move_task`, `comment_task`, `review_task`, `list_tasks`; worker tools `my_tasks` and
+  `update_my_task`. Authority comes from the team roster, never from tool arguments.
+- agent-deck starts assigned ready tasks when the worker is free, applies its file leases and
+  sends a brief generated from the task; one active task per worker.
+- Board notices as private messages from agent-deck: review requests to the reviewer, requested
+  changes to the assignee, done/blocked/cancelled to the master, bounded comment wake-ups.
+- Board operating manuals in master and worker system prompts when the member has team tools.
+- Automatic board pass in the team runtime: assignments always; worker creation and retirement
+  only in `auto` mode; it never approves.
+- Shared-checkout workflow identity: per-member control sessions with their own MCP credentials,
+  explicit and confirmed, with a generated handoff and a reset action.
+- Kanban task manager (`b`): bordered cards, colored states, member colors, progress, filters,
+  swimlanes by assignee, detail panel, task forms, validated moves, user review.
+- Review stage with a team definition of done; accept or request changes with a comment.
+- Observed Git facts per task (branch, commits ahead, commits touching the task's paths), kept
+  separate from worker claims.
+- `agent-deck task ls|show|add|edit|move|assign|comment|review` for scripts and terminals.
+
+### Changed
+
+- Member names `agent-deck` and `user` are reserved.
+- Board storage moved to version 2; v0.1 boards migrate once with a backup.
+
+### Security
+
+- Team tools, leases and approvals remain cooperative guards; same-user agents with unrestricted
+  shell access can bypass them. Member-written comments are quoted and labelled in notices.
+
 ## [0.1.0] - 2026-10-24
 
 ### Added

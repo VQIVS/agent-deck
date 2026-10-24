@@ -7,6 +7,10 @@ import (
 )
 
 func (m *Model) dialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
+	if v.String() == "b" && !m.modalOpen() {
+		m.board.Open = true
+		return true, m.readBoard()
+	}
 	if m.compactConfirm {
 		m.compactConfirm = false
 		if v.String() == "y" {

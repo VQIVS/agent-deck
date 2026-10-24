@@ -45,6 +45,11 @@ func (s *Server) call(ctx context.Context, identity Identity, params json.RawMes
 		call.Arguments = json.RawMessage(`{}`)
 	}
 	switch call.Name {
+	case "propose_workers", "assign_task", "retire_worker":
+		if s.Scheduler == nil {
+			return nil, fmt.Errorf("pool scheduling is not configured")
+		}
+		return s.Scheduler.Call(ctx, identity, call.Name, call.Arguments)
 	case "submit_report":
 		if s.SubmitReport == nil {
 			return nil, fmt.Errorf("report submission is not configured")

@@ -17,6 +17,7 @@ type ManagerProvider func(context.Context) (*team.Manager, error)
 
 // RuntimeOptions configures one team server; credentials are never installed implicitly.
 type RuntimeOptions struct {
+	Scheduler    *SchedulerTools
 	Provider     ManagerProvider
 	JournalPath  string
 	StateDir     string
@@ -55,6 +56,9 @@ func StartRuntime(ctx context.Context, options *RuntimeOptions) (*Runtime, error
 		return nil, fmt.Errorf("runtime requires provider and journal path")
 	}
 	o := *options
+	if err := configureScheduler(&o); err != nil {
+		return nil, err
+	}
 	runtimeDefaults(&o)
 	manager, err := o.Provider(ctx)
 	if err != nil {
@@ -149,7 +153,7 @@ func (r *Runtime) run(ctx context.Context) {
 	defer close(r.done)
 	serverDone := make(chan error, 1)
 	go func() {
-		server := &Server{Tokens: r.Tokens, Service: r.Service}
+		server := &Server{Tokens: r.Tokens, Service: r.Service, Scheduler: r.options.Scheduler}
 		server.UserHandler = r.serveUser
 		if r.options.SubmitReport != nil {
 			server.SubmitReport = r.submitReport

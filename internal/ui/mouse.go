@@ -62,6 +62,7 @@ func (m *Model) headerButtons() []button {
 		{"Sessions", "p", false},
 		{"Inbox", "i", false},
 		{"Channel", "c", false},
+		{"Board", "b", false},
 		{"Refresh", "r", false},
 		{notify, "N", false},
 		{"Help", "?", false},

@@ -34,6 +34,8 @@ func parseTeamFlags(command string, args []string) (teamFlags, error) {
 	f.BoolVar(&opts.JSON, "json", false, "print JSON")
 	switch command {
 	case "status", "ls", "requests":
+	case "board":
+		f.StringVar(&opts.File, "file", "", "configure private board from JSON")
 	case "send":
 		f.StringVar(&opts.Member, "member", "", "member name")
 		f.StringVar(&opts.Text, "text", "", "message text")
@@ -100,6 +102,8 @@ func executeTeam(ctx context.Context, command string, manager *team.Manager, opt
 		return teamRequests(ctx, manager, opts, out)
 	case "approve", "reject":
 		return teamReply(ctx, command, manager, opts, out)
+	case "board":
+		return poolBoard(ctx, manager, opts, out)
 	}
 	if opts.Member == "" {
 		return fmt.Errorf("--member is required")

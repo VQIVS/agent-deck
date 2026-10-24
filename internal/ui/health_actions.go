@@ -23,6 +23,13 @@ func (m *Model) modalOpen() bool {
 
 func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 	switch v := msg.(type) {
+	case boardResult:
+		if v.Err != nil {
+			m.note = v.Err.Error()
+		} else {
+			m.board.State, m.board.Actions = v.State, v.Actions
+		}
+		return true, nil
 	case channelStarted:
 		if v.Err != nil {
 			m.note = "Channel: " + v.Err.Error()

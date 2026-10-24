@@ -37,6 +37,7 @@ func (m *Model) inboxEntries(screen *InboxScreen) []InboxEntry {
 		sources = append(sources, InboxSource{Identity: identity, State: &p.State, Reports: screen.Reports[identity]})
 	}
 	entries := FilterInbox(ProjectInbox(sources, time.Now()), screen.Filter)
+	entries = append(entries, m.poolInboxEntries()...)
 	screen.Selection.Reconcile(entries)
 	return entries
 }
@@ -149,6 +150,11 @@ func (m *Model) inboxPane(entry *InboxEntry) int {
 }
 
 func (m *Model) inboxAction(screen *InboxScreen, entry *InboxEntry, key string) tea.Cmd {
+	if entry.Kind == "pool" && key == "enter" {
+		m.board.Open = true
+		screen.Open = false
+		return m.readBoard()
+	}
 	index := m.inboxPane(entry)
 	if index < 0 {
 		m.note = "Inbox member is no longer available"

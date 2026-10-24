@@ -43,7 +43,24 @@ func teamRequests(ctx context.Context, manager *team.Manager, opts *teamFlags, o
 		return fmt.Errorf("read team requests: %w", err)
 	}
 	if opts.JSON {
-		return writeJSON(out, requests)
+		actions, poolErr := poolRequests(ctx, manager)
+		if poolErr != nil {
+			return poolErr
+		}
+		if len(actions) == 0 {
+			return writeJSON(out, requests)
+		}
+		return writeJSON(out, map[string]any{"requests": requests, "pool_actions": actions})
+	}
+	actions, err := poolRequests(ctx, manager)
+	if err != nil {
+		return err
+	}
+	for i := range actions {
+		action := &actions[i]
+		if err := writeText(out, fmt.Sprintf("pool\t%s\tpool:%s\t%s", action.Kind, action.ID, action.Worker)); err != nil {
+			return err
+		}
 	}
 	for i := range requests {
 		r := &requests[i]
@@ -64,6 +81,9 @@ func teamRequests(ctx context.Context, manager *team.Manager, opts *teamFlags, o
 }
 
 func teamReply(ctx context.Context, command string, manager *team.Manager, opts *teamFlags, out io.Writer) error {
+	if strings.HasPrefix(opts.ID, "pool:") {
+		return poolReply(ctx, manager, strings.TrimPrefix(opts.ID, "pool:"), command == "approve", out)
+	}
 	if opts.ReadOnly {
 		return fmt.Errorf("read-only: permission replies disabled")
 	}

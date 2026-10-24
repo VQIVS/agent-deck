@@ -224,6 +224,26 @@ and DONE-card integration remain separate runtime work.
 
 ## Session health
 
+## Work board and policy-gated pool
+
+Private work boards live under `$XDG_STATE_HOME/agent-deck/boards/<team>/`. Configure one
+with `agent-deck team board --team NAME --file board.json`; inspect it with the same command
+without `--file`. Missing boards default to scaling off. Board policy contains min/max
+workers, cooldown, role models, budgets and approval mode (`ask`, `auto`, `off`). Only the
+privileged user can configure that policy or approve scaling; repository files cannot.
+
+Authenticated masters get `propose_workers`, `assign_task` and `retire_worker` MCP tools.
+Each action is rechecked against current team revision, task dependencies, idle workers,
+lease contention, capacity and budgets before lifecycle effects. Native worker edit/Git
+rules are applied by the lifecycle adapter. Effects and completion are journaled with
+stable action IDs; uncertain effects stop for inspection rather than being blindly repeated.
+
+Open **Board** (`b`) to inspect tasks/proposals, `y` to approve the selected proposal or
+`x` to reject it. Pending proposals also appear in Inbox (Enter opens the board) and
+`agent-deck team requests`; approve/reject using `--id pool:<action-id>`. CLI approvals are
+explicit privileged-user operations. Read-only blocks every board/lifecycle mutation.
+Rejected IDs remain rejected across restarts. Changing desired state produces new action IDs.
+
 Live team reloads preserve focus, zoom and transcript state only for the same server,
 directory and session. Canceled snapshot results are ignored. Team overview rows expose
 status, request counts, permission policy and leases with matching three-line click targets.

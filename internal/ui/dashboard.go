@@ -70,6 +70,7 @@ type (
 
 // Model owns terminal state and dispatches asynchronous results through Bubble Tea.
 type Model struct {
+	board                        boardUI
 	channel                      channelUI
 	deck                         config.Deck
 	client                       *api.Client
@@ -300,6 +301,9 @@ func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	if m.channel.Open {
 		cmds = append(cmds, m.readChannel())
 	}
+	if m.board.Open || m.inbox.Open {
+		cmds = append(cmds, m.readBoard())
+	}
 	cmds = append(cmds, m.safeCommandReplies()...)
 	cmds = append(cmds, m.healthTick()...)
 	second := time.Time(v).Unix()
@@ -423,6 +427,10 @@ func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := v.String()
 	if key == "ctrl+c" {
 		return m, tea.Quit
+	}
+	if m.board.Open {
+		cmd := m.boardKey(v)
+		return m, cmd
 	}
 	if m.channel.Open {
 		cmd := m.channelKey(v)
@@ -764,6 +772,9 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 
 func (m *Model) View() string {
 	m.zones = nil
+	if m.board.Open {
+		return m.boardView()
+	}
 	if m.channel.Open {
 		return m.channelView()
 	}

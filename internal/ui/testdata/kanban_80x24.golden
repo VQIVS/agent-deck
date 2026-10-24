@@ -1,0 +1,24 @@
+Tasks · in_progress · / filter · s swimlanes
+ ready 1                                 in_progress 1
+╭─────────────────────────────────────╮ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+│W2 Add task schema                   │ ┃W3 Build Kanban                      ┃
+│[waiting for lease] · ▲ high         │ ┃[health] · ▲ urgent                  ┃
+│□□□ 0/2 · 2h                         │ ┃□□□ 0/2 · 3h                         ┃
+│workflow · v0.2                      │ ┃workflow · v0.2                      ┃
+│                                     │ ┃deps 1                               ┃
+│[<] [>]                              │ ┃[<] [>]                              ┃
+╰─────────────────────────────────────╯ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+
+
+
+
+
+
+
+
+
+
+←→ columns · ↑↓ cards · Enter detail · m move · n new · e edit · w worker
+f assignee · t label · z state · 0 clear

@@ -122,6 +122,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.palette.Open {
 		return m.paletteClick(&m.palette, z, ok)
 	}
+	if m.board.Open {
+		return m.kanbanBoardClick(z, ok)
+	}
 	if m.inbox.Open {
 		return m.inboxClick(&m.inbox, z, ok)
 	}
@@ -132,6 +135,13 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 func (m *Model) mouseWheel(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
+	if m.board.Open && !m.board.Approvals {
+		key := tea.KeyDown
+		if msg.Button == tea.MouseButtonWheelUp {
+			key = tea.KeyUp
+		}
+		return m.kanbanBoardKey(tea.KeyMsg{Type: key})
+	}
 	if m.teams != nil && m.teams.Screen != "" {
 		key := tea.KeyDown
 		if msg.Button == tea.MouseButtonWheelUp {

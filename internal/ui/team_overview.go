@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/vqivs/agent-deck/internal/team"
@@ -19,6 +20,7 @@ type TeamOverviewRow struct {
 	Permissions int
 	Questions   int
 	Policy      string
+	Task        string
 }
 
 func (m *Model) teamOverviewRows(t *team.Team) []TeamOverviewRow {
@@ -33,6 +35,7 @@ func (m *Model) teamOverviewRows(t *team.Team) []TeamOverviewRow {
 			Identity: InboxIdentity{Agent: member.Name, Directory: member.SessionDir(), Session: member.Session},
 			Leases:   append([]string(nil), member.Leases...),
 			Policy:   member.PermissionSummary(),
+			Task:     m.activeTask(member.Name),
 		}
 		if member.Session != "" {
 			row.Status = "OFFLINE"
@@ -65,8 +68,9 @@ func RenderTeamOverviewRow(row *TeamOverviewRow, selected bool, width int) strin
 		leases = "none"
 	}
 	lines := []string{
-		fmt.Sprintf("%s%s · %s · %s", marker, alert, row.Identity.Agent, row.Role),
-		"  leases: " + leases + overviewPolicy(row.Policy),
+		fmt.Sprintf("%s%s · %s · %s", marker, alert,
+			lipgloss.NewStyle().Foreground(MemberColor(row.Identity.Agent)).Render(row.Identity.Agent), row.Role),
+		"  leases: " + leases + overviewPolicy(row.Policy) + overviewTask(row.Task),
 		"  " + row.Identity.Directory + " · " + row.Identity.Session,
 	}
 	for i := range lines {
@@ -77,6 +81,13 @@ func RenderTeamOverviewRow(row *TeamOverviewRow, selected bool, width int) strin
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func overviewTask(task string) string {
+	if task == "" {
+		return ""
+	}
+	return " · task: " + task
 }
 
 func overviewPolicy(policy string) string {

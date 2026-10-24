@@ -821,6 +821,9 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 }
 
 func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
+	if result, ok := msg.(kanbanResult); ok {
+		return true, m.applyKanbanResult(&result)
+	}
 	if action, ok := msg.(PaletteAction); ok {
 		return true, m.dispatchPalette(&action)
 	}

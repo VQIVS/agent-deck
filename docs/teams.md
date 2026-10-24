@@ -22,6 +22,29 @@ The workflow model is the foundation; task MCP/CLI and Kanban integration follow
 
 ## Shared-checkout workflow identity (v0.2)
 
+## Kanban task manager (v0.2)
+
+**Board (`b`)** opens a visual Kanban with bordered cards and colored state headers.
+Selected cards use a thick accent border. Member badges use the same stable color as
+session headers and member rows; cards show priority, checklist progress, labels, age and
+dependency/blocked tags. Assigned ready work shows **waiting for member** until agent-deck
+starts it. At 80 columns, navigate horizontally instead of compressing every state.
+
+Arrows/hjkl navigate, Enter or double-click opens the detail panel, PgUp/PgDown scrolls
+detail, and Esc returns. `f` cycles assignee, `t` label, `z` state, `/` searches, `0` clears
+filters, and `s` groups by assignee. `n` creates, `e` edits, `a` assigns, `c` comments,
+`m` then 1–7 requests a state move, and `w` opens the assignee's current session pane.
+Card `[<]`/`[>]` buttons also request validated moves. Task forms use Tab/Shift+Tab,
+Ctrl+J newline and Ctrl+S save. `v` opens user review (accept or changes with a comment).
+`p` switches to the policy approval view.
+
+Every UI task edit uses `team.ChangeTasks` as privileged user and forwards its notices
+through the runtime owner. A one-active-task conflict or invalid dependency/state move
+appears as a board/form error without changing the stored task. Successful saves remain
+successful if notice delivery fails, and that separate delivery error is shown. Read-only
+allows navigation/filtering/detail but blocks mutations. Member rows and pane headers
+show each member's active task.
+
 Shared members can use distinct authenticated team tools through private per-member
 control directories. **Team → Workflow identity** is an explicit confirmed setup action:
 the member must be idle (or unstarted) and have an explicit permission preset. It creates

@@ -14,11 +14,17 @@ import (
 
 type (
 	boardUI struct {
-		Open    bool
-		State   team.BoardState
-		Actions []team.ReconcileAction
-		Index   int
-		Confirm *team.ReconcileAction
+		Open      bool
+		State     team.BoardState
+		Actions   []team.ReconcileAction
+		Index     int
+		Confirm   *team.ReconcileAction
+		Kanban    KanbanScreen
+		Targets   []KanbanTarget
+		Form      *KanbanForm
+		Approvals bool
+		Saving    bool
+		Loading   bool
 	}
 	boardResult struct {
 		State   team.BoardState
@@ -56,9 +62,10 @@ func (m *Model) poolInboxEntries() []InboxEntry {
 }
 
 func (m *Model) readBoard() tea.Cmd {
-	if m.teams == nil || m.teams.Manager == nil {
+	if m.teams == nil || m.teams.Manager == nil || m.board.Loading {
 		return nil
 	}
+	m.board.Loading = true
 	snapshot := *m
 	return func() tea.Msg {
 		pool, err := snapshot.pool(snapshot.context())
@@ -68,6 +75,9 @@ func (m *Model) readBoard() tea.Cmd {
 		state, err := pool.Status(snapshot.context())
 		if err != nil {
 			return boardResult{Err: err}
+		}
+		if snapshot.opts.ReadOnly {
+			return boardResult{State: state}
 		}
 		actor := team.ReconcileActor{User: true}
 		actions, err := pool.Pending(snapshot.context(), actor)
@@ -80,6 +90,9 @@ func (m *Model) boardView() string {
 		lines := append([]string{"Confirm pool approval · y apply · any other key cancel"},
 			boardApprovalDetails(m.board.Confirm)...)
 		return boardLines(lines, m.w, m.h)
+	}
+	if !m.board.Approvals {
+		return m.kanbanBoardView()
 	}
 	lines := make([]string, 0, 1+len(m.board.State.Board.Tasks)+len(m.board.Actions))
 	lines = append(lines, "Work board · Esc back · y approve · x reject · r refresh")
@@ -136,7 +149,15 @@ func (m *Model) boardKey(v tea.KeyMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if v.String() == "y" && len(m.board.Actions) > 0 && m.board.Form == nil && !m.board.Kanban.searching {
+		return m.approveBoard()
+	}
+	if !m.board.Approvals {
+		return m.kanbanBoardKey(v)
+	}
 	switch v.String() {
+	case "p":
+		m.board.Approvals = false
 	case "esc", "b":
 		m.board.Open = false
 	case "up":

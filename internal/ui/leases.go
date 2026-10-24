@@ -14,6 +14,9 @@ func parseLeases(text string) []string {
 
 func (m *Model) leasedName(index int) string {
 	agent := m.panes[index].Agent
+	if task := m.activeTask(agent.Name); task != "" {
+		agent.Name += " · " + task
+	}
 	if leases := m.memberLeases(agent.Session); leases != "" {
 		return agent.Name + " · " + leases
 	}

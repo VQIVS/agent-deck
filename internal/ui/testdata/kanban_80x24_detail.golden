@@ -1,0 +1,23 @@
+
+ ╭────────────────────────────────────────────────────────────────────────────╮
+ │Task W3 · in_progress · Build Kanban                                        │
+ │Assignee: health · Reviewer: Sol                                            │
+ │Priority: urgent · Labels: workflow, v0.2                                   │
+ │Paths: internal/ui/**                                                       │
+ │Dependencies: W2                                                            │
+ │                                                                            │
+ │Description                                                                 │
+ │Render the workflow clearly and preserve task identity.                     │
+ │                                                                            │
+ │Acceptance criteria (claimed progress)                                      │
+ │[ ] tests: Package tests pass                                               │
+ │[ ] review: Changes reviewed                                                │
+ │                                                                            │
+ │Git links                                                                   │
+ │Branch: feat/workflow                                                       │
+ │Commit: abc123 add task view                                                │
+ │Worker pane: health                                                         │
+ │                                                                            │
+ │Report                                                                      │
+ │Esc board · PgUp/PgDown scroll · e edit · c comment · a assign · m move · w…│
+ ╰────────────────────────────────────────────────────────────────────────────╯

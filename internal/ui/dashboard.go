@@ -308,7 +308,7 @@ func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	if m.channel.Open {
 		cmds = append(cmds, m.readChannel())
 	}
-	if m.board.Open || m.inbox.Open {
+	if m.shouldReadBoard() {
 		cmds = append(cmds, m.readBoard())
 	}
 	cmds = append(cmds, m.safeCommandReplies()...)
@@ -699,7 +699,8 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 		name = "↳ " + name
 	}
 	m.zones = append(m.zones, zone{Rect: Rect{x, y, w, h}, Action: "focus", Pane: i})
-	header := m.theme.StateBadge(p.State.DisplayStatus()) + " " + fit(name, max(1, inner-12))
+	header := m.theme.StateBadge(p.State.DisplayStatus()) + " " +
+		lipgloss.NewStyle().Foreground(MemberColor(p.Agent.Name)).Render(fit(name, max(1, inner-12)))
 	buttons := m.paneControlRows(controls, &plan, x, inner, i)
 	atBottom := p.View.AtBottom()
 	p.View.Width = inner

@@ -24,6 +24,7 @@ func (m *Model) modalOpen() bool {
 func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 	switch v := msg.(type) {
 	case boardResult:
+		m.board.Loading = false
 		if v.Err != nil {
 			m.note = v.Err.Error()
 		} else {

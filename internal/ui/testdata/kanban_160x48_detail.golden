@@ -1,0 +1,39 @@
+
+
+
+
+
+
+
+
+
+                        ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+                        │Task W3 · in_progress · Build Kanban                                                                          │
+                        │Assignee: health · Reviewer: Sol                                                                              │
+                        │Priority: urgent · Labels: workflow, v0.2                                                                     │
+                        │Paths: internal/ui/**                                                                                         │
+                        │Dependencies: W2                                                                                              │
+                        │                                                                                                              │
+                        │Description                                                                                                   │
+                        │Render the workflow clearly and preserve task identity.                                                       │
+                        │                                                                                                              │
+                        │Acceptance criteria (claimed progress)                                                                        │
+                        │[ ] tests: Package tests pass                                                                                 │
+                        │[ ] review: Changes reviewed                                                                                  │
+                        │                                                                                                              │
+                        │Git links                                                                                                     │
+                        │Branch: feat/workflow                                                                                         │
+                        │Commit: abc123 add task view                                                                                  │
+                        │Worker pane: health                                                                                           │
+                        │                                                                                                              │
+                        │Report                                                                                                        │
+                        │Focused tests pass                                                                                            │
+                        │Reported tests: go test ./internal/ui/...                                                                     │
+                        │                                                                                                              │
+                        │History                                                                                                       │
+                        │2026-10-24 11:00 Sol · state: ready → in_progress                                                             │
+                        │                                                                                                              │
+                        │Comments                                                                                                      │
+                        │2026-10-24 12:00 health: Ready for integration review.                                                        │
+                        │Esc board · PgUp/PgDown scroll · e edit · c comment · a assign · m move · w worker                            │
+                        ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

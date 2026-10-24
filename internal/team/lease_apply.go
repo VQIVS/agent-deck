@@ -2,8 +2,6 @@ package team
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -97,15 +95,7 @@ func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule
 }
 
 func (t *Team) LeaseFingerprint(member *Member) string {
-	if !t.LeasePool && !HasLeases(t.Members) {
-		return ""
-	}
-	rules, err := LeaseRules(t.Repo, t.Members, member)
-	if err != nil {
-		return "invalid"
-	}
-	b, _ := json.Marshal(rules)
-	return fmt.Sprintf("%x", sha256.Sum256(b))
+	return t.PolicyFingerprint(member)
 }
 
 func (t *Team) LeaseStatus(member *Member) string {

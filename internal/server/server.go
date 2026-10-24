@@ -30,9 +30,8 @@ type Controller struct {
 	OnExit     func(error)
 }
 
-func DefaultRoot() string {
-	root, _ := StateRoot()
-	return root
+func DefaultRoot() (string, error) {
+	return StateRoot()
 }
 
 func URL(port int) string { return "http://127.0.0.1:" + strconv.Itoa(port) }

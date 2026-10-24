@@ -121,6 +121,20 @@ inherited tool permissions reset to ask, so an explicit preset is required befor
 Apply each affected live member, including the master, after changing ownership. Existing
 sessions keep their prior effective rules until explicitly applied. Read-only blocks apply.
 
+## Portable project policy and templates
+
+`internal/team` provides strict version-1 `agent-deck.yaml` project policy and role
+templates. Project policy accepts portable roles, prompts, model, base, capacity and an
+exact-command allowlist; it rejects session IDs and workspace bindings. Merging requires
+explicit private local bindings. Built-in templates are `upgrade-team`, `review-pair`,
+`bugfix-tester` and `custom`. User YAML templates under the config directory replace an
+entire built-in by name. Unknown fields and multiple documents are rejected.
+
+Safe-command matching compares complete parsed argument lists, rejecting shell operators,
+substitutions, expansions and executable paths. Permission patterns alone are insufficient
+evidence for automatic approval; full tool commands must be verified first. Runtime setup
+and UI integration are described as they become available below.
+
 ## Session health
 
 Pane badges distinguish **STALLED** from **WAITING**. Busy sessions with no meaningful

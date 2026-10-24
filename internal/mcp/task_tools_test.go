@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vqivs/agent-deck/internal/team"
 )
@@ -44,11 +46,14 @@ func TestTaskToolsMasterPlansWorkerProgresses(t *testing.T) {
 	if _, err := callTask(t, tools, "lead", "set_assignee", `{"id":"T-1","assignee":"ana"}`); err != nil {
 		t.Fatal(err)
 	}
-	if len(*sent) != 1 || (*sent)[0].To != "ana" || !strings.Contains((*sent)[0].Text, "[c2] documented") {
-		t.Fatalf("brief notice=%+v", *sent)
+	if _, err := callTask(t, tools, "lead", "move_task", `{"id":"T-1","state":"in_progress"}`); err == nil {
+		t.Fatal("master started a ready task directly")
 	}
-	if _, err := callTask(t, tools, "lead", "move_task", `{"id":"T-1","state":"in_progress"}`); err != nil {
-		t.Fatal(err)
+	manager, store, _ := tools.Provider(t.Context())
+	_, notices, err := team.ChangeTasks(t.Context(), store, &manager.Team, team.AutomationActor, time.Now(),
+		func(b *team.TaskBoard, m team.TaskMutation) error { return b.MoveTask("T-1", "in_progress", m) })
+	if err != nil || len(notices) != 1 || notices[0].To != "ana" || !strings.Contains(notices[0].Text, "[c2] documented") {
+		t.Fatalf("start notices=%+v err=%v", notices, err)
 	}
 	if _, err := callTask(t, tools, "rev", "update_my_task", `{"id":"T-1","checked":["c1"]}`); err == nil {
 		t.Fatal("non-assignee updated task")
@@ -56,6 +61,9 @@ func TestTaskToolsMasterPlansWorkerProgresses(t *testing.T) {
 	progress := `{"id":"T-1","checked":["c1","c2"],"comment":"done, tests pass","state":"review"}`
 	if _, err := callTask(t, tools, "ana", "update_my_task", progress); err != nil {
 		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(*sent, func(n team.TaskNotice) bool { return n.To == "rev" }) {
+		t.Fatalf("reviewer not notified: %+v", *sent)
 	}
 	mine, err := callTask(t, tools, "rev", "my_tasks", `{}`)
 	if err != nil {

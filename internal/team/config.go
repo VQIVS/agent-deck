@@ -98,6 +98,17 @@ func Preset(name string) map[string]string {
 	return p
 }
 
+func memberSlug(name string, taken map[string]bool) (string, error) {
+	slug := Slug(name)
+	if slug == "" || taken[slug] {
+		return "", fmt.Errorf("member names must be unique and nonempty")
+	}
+	if slug == Slug(AutomationActor.Member) || slug == "user" {
+		return "", fmt.Errorf("member name %q is reserved", name)
+	}
+	return slug, nil
+}
+
 func (t *Team) Validate() error {
 	if err := t.validatePolicies(); err != nil {
 		return err
@@ -116,9 +127,9 @@ func (t *Team) Validate() error {
 		if err := m.validate(); err != nil {
 			return fmt.Errorf("member %q: %w", m.Name, err)
 		}
-		slug := Slug(m.Name)
-		if slug == "" || names[slug] {
-			return fmt.Errorf("member names must be unique and nonempty")
+		slug, err := memberSlug(m.Name, names)
+		if err != nil {
+			return err
 		}
 		names[slug] = true
 		if m.Role == "master" {

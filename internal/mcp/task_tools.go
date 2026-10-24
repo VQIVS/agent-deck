@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
@@ -78,8 +80,11 @@ func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, ar
 	}
 	if name == "list_tasks" || name == "my_tasks" {
 		state, err := store.Load(ctx)
+		if errors.Is(err, os.ErrNotExist) {
+			return []taskSummary{}, nil
+		}
 		if err != nil {
-			return []taskSummary{}, nil //nolint:nilerr // A team without a board simply has no tasks yet.
+			return nil, fmt.Errorf("read task board: %w", err)
 		}
 		return listTasks(&state.Board, name, identity.Member, &call), nil
 	}

@@ -9,10 +9,7 @@ import (
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
-const (
-	maxTaskNotices = 20
-	systemSender   = "agent-deck"
-)
+const systemSender = "agent-deck"
 
 type autoReconciler interface {
 	AutoReconcile(ctx context.Context) ([]team.TaskNotice, error)
@@ -56,9 +53,6 @@ func (r *Runtime) taskTools() *TaskTools {
 
 // Notify delivers board notices as private agent-deck messages; delivery wakes idle members.
 func (s *Service) Notify(ctx context.Context, notices []team.TaskNotice) error {
-	if len(notices) > maxTaskNotices {
-		return fmt.Errorf("too many task notices in one change (%d)", len(notices))
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.options.ReadOnly != nil && s.options.ReadOnly() {

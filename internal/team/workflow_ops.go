@@ -173,6 +173,18 @@ func (b *TaskBoard) UpdateOwnTask(id string, checked []string, comment, state st
 	return nil
 }
 
+// moveByTool leaves starting assigned work to agent-deck, which applies leases and one-task-per-worker.
+func (b *TaskBoard) moveByTool(id, state string, m TaskMutation) error {
+	task, err := taskByID(b, id)
+	if err != nil {
+		return err
+	}
+	if state == "in_progress" && task.State == "ready" && !m.Actor.User && !m.Actor.Automation {
+		return fmt.Errorf("agent-deck starts assigned ready tasks when the worker is free; use set_assignee")
+	}
+	return b.MoveTask(id, state, m)
+}
+
 // WorkflowCall is one decoded board tool call.
 type WorkflowCall struct {
 	TaskSpec
@@ -196,7 +208,7 @@ func WorkflowChange(name string, call *WorkflowCall) (func(*TaskBoard, TaskMutat
 		"set_assignee": func(b *TaskBoard, m TaskMutation) error {
 			return b.AssignTask(call.ID, call.Assignee, call.Reviewer, m)
 		},
-		"move_task":    func(b *TaskBoard, m TaskMutation) error { return b.MoveTask(call.ID, call.State, m) },
+		"move_task":    func(b *TaskBoard, m TaskMutation) error { return b.moveByTool(call.ID, call.State, m) },
 		"comment_task": func(b *TaskBoard, m TaskMutation) error { return b.CommentTask(call.ID, call.Text, m) },
 		"review_task": func(b *TaskBoard, m TaskMutation) error {
 			return b.ReviewTask(call.ID, call.Decision, call.Comment, m)

@@ -242,6 +242,9 @@ func (input *SchedulingInput) fitWorker(task *Task, reserved map[string]bool) st
 		if worker.State != "idle" || reserved[worker.Name] || input.assigned(worker.Name) {
 			continue
 		}
+		if task.Assignee != "" && task.Assignee != worker.Name {
+			continue
+		}
 		if input.leaseContention(task, worker.Name) {
 			continue
 		}

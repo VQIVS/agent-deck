@@ -269,3 +269,28 @@ func TestSchedulerBoardAddAndProposalRevalidation(t *testing.T) {
 		t.Fatalf("board round trip: %+v, %v", restored, err)
 	}
 }
+
+func TestSchedulerStartsPlannedTaskOnlyWithItsAssignee(t *testing.T) {
+	board := &TaskBoard{Version: 2}
+	m := TaskMutation{Actor: TaskActor{Member: "lead", Role: "master"}, Now: time.Unix(10000, 0)}
+	if _, err := board.PlanTask(&TaskSpec{
+		Title: "x", Criteria: []string{"a"}, Paths: []string{"x/*"},
+		Ready: true, Assignee: "alice", Reviewer: "bob",
+	}, m); err != nil {
+		t.Fatal(err)
+	}
+	input := &SchedulingInput{
+		Board: board, Policy: SchedulingPolicy{MaxWorkers: 4, Cooldown: time.Minute}, Now: time.Unix(10000, 0),
+		Workers: []SchedulerWorker{
+			{Name: "bob", Role: "worker", State: "idle"}, {Name: "alice", Role: "worker", State: "idle"},
+		},
+	}
+	plan, err := PlanSchedule(input)
+	if err != nil || len(plan.Assignments) != 1 || plan.Assignments[0].Worker != "alice" {
+		t.Fatalf("plan=%+v err=%v", plan.Assignments, err)
+	}
+	input.Workers = input.Workers[:1]
+	if plan, err = PlanSchedule(input); err != nil || len(plan.Assignments) != 0 {
+		t.Fatalf("planned task went to someone else: %+v err=%v", plan.Assignments, err)
+	}
+}

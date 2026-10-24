@@ -60,12 +60,14 @@ func TestChangeTasksFlowAndNotices(t *testing.T) {
 		return b.MoveTask("T-1", "ready", m)
 	})
 	notices := change(lead, func(b *TaskBoard, m TaskMutation) error { return b.SetAssignee("T-1", "ana", m) })
-	if !noticeFor(notices, "ana", "You are assigned task T-1") {
-		t.Fatalf("assignee brief missing: %+v", notices)
-	}
-	notices = change(lead, func(b *TaskBoard, m TaskMutation) error { return b.MoveTask("T-1", "in_progress", m) })
 	if noticeFor(notices, "ana", "You are assigned") {
-		t.Fatal("brief sent twice")
+		t.Fatal("brief sent before the task started")
+	}
+	notices = change(AutomationActor, func(b *TaskBoard, m TaskMutation) error {
+		return b.MoveTask("T-1", "in_progress", m)
+	})
+	if !noticeFor(notices, "ana", "You are assigned task T-1") {
+		t.Fatalf("brief missing on start: %+v", notices)
 	}
 	notices = change(ana, func(b *TaskBoard, m TaskMutation) error { return b.MoveTask("T-1", "review", m) })
 	if !noticeFor(notices, "rev", "ready for your review") || !noticeFor(notices, "lead", "moved to review") {
@@ -77,8 +79,9 @@ func TestChangeTasksFlowAndNotices(t *testing.T) {
 	if !noticeFor(notices, "ana", "requested changes") {
 		t.Fatalf("changes notice missing: %+v", notices)
 	}
-	notices = change(ana, func(b *TaskBoard, m TaskMutation) error { return b.CommentTask("T-1", "fixed", m) })
-	if noticeFor(notices, "ana", "") || !noticeFor(notices, "lead", "fixed") {
+	notices = change(ana, func(b *TaskBoard, m TaskMutation) error { return b.CommentTask("T-1", "fixed\nall", m) })
+	if noticeFor(notices, "ana", "") || !noticeFor(notices, "lead", "member-written text") ||
+		!noticeFor(notices, "lead", "> fixed\n> all") {
 		t.Fatalf("comment notices wrong: %+v", notices)
 	}
 	change(ana, func(b *TaskBoard, m TaskMutation) error { return b.MoveTask("T-1", "review", m) })
@@ -148,5 +151,93 @@ func TestAutomationActorAssignsButNeverReviews(t *testing.T) {
 	last := board.Tasks[0].History
 	if !strings.Contains(last[len(last)-2].Actor, "agent-deck") {
 		t.Fatalf("automation not attributed: %+v", last)
+	}
+}
+
+func TestCommentWakesAreBounded(t *testing.T) {
+	ctx := context.Background()
+	team := workflowTeam()
+	store := BoardStore{Root: t.TempDir(), Team: team.Name}
+	lead, _ := team.ResolveTaskActor("lead")
+	ana, _ := team.ResolveTaskActor("ana")
+	steps := []struct {
+		actor TaskActor
+		fn    func(*TaskBoard, TaskMutation) error
+	}{
+		{lead, func(b *TaskBoard, m TaskMutation) error {
+			_, err := b.PlanTask(&TaskSpec{
+				Title: "x", Criteria: []string{"a"}, Paths: []string{"a/*"}, Ready: true,
+				Assignee: "ana", Reviewer: "rev",
+			}, m)
+			return err
+		}},
+		{AutomationActor, func(b *TaskBoard, m TaskMutation) error { return b.MoveTask("T-1", "in_progress", m) }},
+	}
+	for _, step := range steps {
+		if _, _, err := ChangeTasks(ctx, store, team, step.actor, time.Now(), step.fn); err != nil {
+			t.Fatal(err)
+		}
+	}
+	woken := 0
+	for i := range 6 {
+		actor := []TaskActor{ana, lead}[i%2]
+		_, notices, err := ChangeTasks(ctx, store, team, actor, time.Now(), func(b *TaskBoard, m TaskMutation) error {
+			return b.CommentTask("T-1", "ping", m)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		woken += len(notices)
+	}
+	if woken != maxCommentWakes {
+		t.Fatalf("comment wakes=%d, want %d", woken, maxCommentWakes)
+	}
+}
+
+func TestChangeTasksRequiresRosterParticipants(t *testing.T) {
+	team := workflowTeam()
+	store := BoardStore{Root: t.TempDir(), Team: team.Name}
+	lead, _ := team.ResolveTaskActor("lead")
+	plan := func(b *TaskBoard, m TaskMutation) error {
+		_, err := b.PlanTask(&TaskSpec{Title: "x", Criteria: []string{"a"}, Paths: []string{"a/*"}, Reviewer: "ghost"}, m)
+		return err
+	}
+	_, _, err := ChangeTasks(context.Background(), store, team, lead, time.Now(), plan)
+	if err == nil {
+		t.Fatal("unknown reviewer accepted")
+	}
+}
+
+func TestOneActiveTaskPerWorkerAndToolStartGuard(t *testing.T) {
+	board := &TaskBoard{Version: 2}
+	m := TaskMutation{Actor: TaskActor{Member: "lead", Role: "master"}, Now: time.Now()}
+	for _, title := range []string{"one", "two"} {
+		if _, err := board.PlanTask(&TaskSpec{
+			Title: title, Criteria: []string{"a"}, Paths: []string{title + "/*"},
+			Ready: true, Assignee: "ana", Reviewer: "rev",
+		}, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := board.moveByTool("T-1", "in_progress", m); err == nil {
+		t.Fatal("master started a ready task directly")
+	}
+	auto := m
+	auto.Actor = AutomationActor
+	if err := board.MoveTask("T-1", "in_progress", auto); err != nil {
+		t.Fatal(err)
+	}
+	if err := board.MoveTask("T-2", "in_progress", auto); err == nil {
+		t.Fatal("worker got two active tasks")
+	}
+}
+
+func TestReservedMemberNames(t *testing.T) {
+	for _, name := range []string{"agent-deck", "User"} {
+		tm := example()
+		tm.Members[1].Name = name
+		if err := tm.Validate(); err == nil {
+			t.Fatalf("reserved name %q accepted", name)
+		}
 	}
 }

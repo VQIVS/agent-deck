@@ -94,7 +94,7 @@ func (b *TaskBoard) SetAssignee(id, member string, m TaskMutation) error {
 		task.Report = nil
 		task.Measured = nil
 		task.LegacyCompletion = false
-		if task.State == "review" {
+		if task.State == "review" || task.State == "in_progress" {
 			task.State = "ready"
 		}
 		taskEvent(board, task, m, "assignee", before, member)
@@ -110,13 +110,11 @@ func (b *TaskBoard) MoveTask(id, state string, m TaskMutation) error {
 		if !validTaskMove(task.State, state) {
 			return fmt.Errorf("invalid transition %s -> %s", task.State, state)
 		}
-		if state == "ready" || state == "in_progress" {
-			for _, dependency := range task.Dependencies {
-				other, err := taskByID(board, dependency)
-				if err != nil || other.State != "done" {
-					return fmt.Errorf("task dependencies must be done")
-				}
-			}
+		if (state == "ready" || state == "in_progress") && !dependenciesDone(board, task) {
+			return fmt.Errorf("task dependencies must be done")
+		}
+		if state == "in_progress" && task.Assignee != "" && otherActiveTask(board, task) {
+			return fmt.Errorf("%s already has an active task", task.Assignee)
 		}
 		before := task.State
 		task.State = state
@@ -126,6 +124,22 @@ func (b *TaskBoard) MoveTask(id, state string, m TaskMutation) error {
 		}
 		taskEvent(board, task, m, "state", before, state)
 		return nil
+	})
+}
+
+func dependenciesDone(board *TaskBoard, task *Task) bool {
+	for _, dependency := range task.Dependencies {
+		other, err := taskByID(board, dependency)
+		if err != nil || other.State != "done" {
+			return false
+		}
+	}
+	return true
+}
+
+func otherActiveTask(board *TaskBoard, task *Task) bool {
+	return slices.ContainsFunc(board.Tasks, func(other Task) bool {
+		return other.ID != task.ID && other.Assignee == task.Assignee && TaskActive(&other)
 	})
 }
 

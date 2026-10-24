@@ -169,8 +169,12 @@ def main():
                    XDG_STATE_HOME=str(directory / "state"), AGENT_DECK_SERVER=team["server"])
         terminal = Terminal(root, env)
         try:
+            terminal.wait(lambda: b"1 Dashboard" in terminal.output and b"3 Summary" in terminal.output,
+                          "persistent workspace tabs")
             terminal.wait(lambda: b"+ Worker" in terminal.output, "team dashboard")
-            terminal.send(b"\x1b[<0;12;2M\x1b[<0;12;2m")
+            # SGR mouse coordinates are 1-based: tabs occupy row 1, the status
+            # header row 2, and [Team] [+ Worker] controls row 3.
+            terminal.send(b"\x1b[<0;12;3M\x1b[<0;12;3m")
             terminal.wait(lambda: b"Member name" in terminal.output, "worker form")
             terminal.wait(lambda: any("/config/providers" in call[1] for call in fake.calls), "configured provider catalog")
             terminal.send(b"\x15Smoke Worker")

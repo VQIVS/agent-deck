@@ -48,6 +48,8 @@ def main():
         terminal = Terminal(root, env)
         try:
             terminal.deadline += 20
+            terminal.wait(lambda: b"1 Dashboard" in terminal.output and b"5 Board" in terminal.output,
+                          "persistent workspace tabs")
             terminal.wait(lambda: b"+ Worker" in terminal.output, "team dashboard")
             terminal.send(b"b")
             terminal.settle()

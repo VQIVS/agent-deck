@@ -135,6 +135,14 @@ substitutions, expansions and executable paths. Permission patterns alone are in
 evidence for automatic approval; full tool commands must be verified first. Runtime setup
 and UI integration are described as they become available below.
 
+## Structured report core
+
+The report store validates a worker's current identity/session, trusted checklist criteria,
+reported checks and open issues before private atomic persistence. Worker-reported claims
+and independently observed metadata are separate fields. Inferred last-message reports are
+explicitly labeled and do not imply checklist completion or passing tests. CLI/MCP submission
+and DONE-card integration remain separate runtime work.
+
 ## Session health
 
 Pane badges distinguish **STALLED** from **WAITING**. Busy sessions with no meaningful

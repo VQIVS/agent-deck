@@ -85,7 +85,7 @@ func workerPrivateRules() ([]api.Rule, error) {
 			for _, pattern := range []string{path, path + "/*"} {
 				rules = append(rules,
 					api.Rule{Permission: "read", Pattern: pattern, Action: "deny"},
-					api.Rule{Permission: "edit", Pattern: pattern, Action: "deny"})
+					api.Rule{Permission: "external_directory", Pattern: pattern, Action: "deny"})
 			}
 			rules = append(rules, api.Rule{Permission: "bash", Pattern: "*" + path + "*", Action: "deny"})
 		}

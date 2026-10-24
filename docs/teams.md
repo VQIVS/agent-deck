@@ -127,6 +127,9 @@ sessions keep their prior effective rules until explicitly applied. Read-only bl
 Apply leases is available for the master too. Adopted masters do not acquire these rules
 until explicitly applied; choose an explicit preset first. Private-path guards cover every
 pool session, including masters, and protect configuration/state/boards cooperatively.
+Private roots use absolute `external_directory` denies (including resolved XDG paths)
+to block both native reads and edits outside the worktree. Edit patterns themselves are
+worktree-relative; absolute private-path edit rules are not relied upon.
 
 ## Project setup
 
@@ -251,8 +254,10 @@ endpoints and a real PTY.
 Private work boards live under `$XDG_STATE_HOME/agent-deck/boards/<team>/`. Configure one
 with `agent-deck team board --team NAME --file board.json`; inspect it with the same command
 without `--file`. Missing boards default to scaling off. Board policy contains min/max
-workers, cooldown, role models, budgets and approval mode (`ask`, `auto`, `off`). Only the
-privileged user can configure that policy or approve scaling; repository files cannot.
+workers, cooldown, role models, budgets and approval mode (`ask`, `auto`, `off`). Through
+agent-deck's guarded interfaces only the privileged user can configure policy or approve
+scaling; these are cooperative controls, bypassable by unrestricted same-user bash.
+Repository files cannot raise policy through the supported merge path.
 
 Authenticated masters get `propose_workers`, `assign_task` and `retire_worker` MCP tools.
 Each action is rechecked against current team revision, task dependencies, idle workers,

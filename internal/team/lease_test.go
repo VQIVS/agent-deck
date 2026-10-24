@@ -156,6 +156,7 @@ func TestWorkerPrivateRootDenies(t *testing.T) {
 		"~/.config/agent-deck/teams", "$HOME/.local/state/agent-deck", "${HOME}/.config/agent-deck/teams",
 	} {
 		assertLeaseAction(t, rules, "read", root+"/secret.json", "deny")
+		assertLeaseAction(t, rules, "external_directory", root+"/boards/pool", "deny")
 		assertLeaseAction(t, rules, "bash", "cat "+root+"/secret.json", "deny")
 	}
 	assertLeaseAction(t, rules, "read", "/repo/internal/team/config.go", "allow")
@@ -170,7 +171,12 @@ func TestMasterPrivateRootDenies(t *testing.T) {
 	}
 	root := DefaultRoot()
 	assertLeaseAction(t, rules, "read", root+"/team.yaml", "deny")
-	assertLeaseAction(t, rules, "edit", root+"/team.yaml", "deny")
+	assertLeaseAction(t, rules, "external_directory", root+"/boards/pool", "deny")
+	for _, rule := range rules {
+		if rule.Permission == "edit" && filepath.IsAbs(rule.Pattern) {
+			t.Fatal("unverified absolute edit deny", rule)
+		}
+	}
 	assertLeaseAction(t, rules, "bash", "cat "+root+"/team.yaml", "deny")
 	assertLeaseAction(t, rules, "bash", "go test ./internal/team/...", "allow")
 }

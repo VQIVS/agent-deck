@@ -54,6 +54,9 @@ func TestInboxScreenRepliesToStoredRequest(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("confirmation did not submit")
 	}
+	if duplicate := m.inboxKey(screen, key("y")); duplicate != nil {
+		t.Fatal("duplicate approval accepted while first reply is in flight")
+	}
 	if result := cmd().(permissionReplyMsg); result.Err != nil {
 		t.Fatal(result.Err)
 	}

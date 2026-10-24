@@ -106,6 +106,13 @@ func (m *Model) applyPaneRequests(i int, v *requestsMsg, events []api.Event) boo
 	if was && p.State.Waiting() {
 		p.State.WaitingSince = since
 	}
+	if v.PermissionErr == nil {
+		ids := make([]string, 0, len(p.State.Permissions))
+		for _, request := range p.State.Permissions {
+			ids = append(ids, request.ID)
+		}
+		m.permissionFlights().Observe(p.Agent.Dir, p.Agent.Session, ids)
+	}
 	return !was && p.State.Waiting()
 }
 
@@ -143,26 +150,33 @@ func (m *Model) replyPermission(reply, message string) tea.Cmd {
 		return nil
 	}
 	// A confirmation always refers to the original request, never a replacement.
-	valid := false
+	session := ""
 	for i := range m.panes {
 		p := &m.panes[i]
 		if p.Agent.Dir == target.Dir {
 			for _, r := range p.State.Permissions {
 				if r.ID == target.ID {
-					valid = true
+					session = p.Agent.Session
 				}
 			}
 		}
 	}
-	if !valid {
+	if session == "" {
 		m.note = "Permission is no longer pending"
 		return nil
 	}
+	flights := m.permissionFlights()
+	if !flights.Begin(target.Dir, session, target.ID) {
+		m.note = "Permission reply already pending"
+		return nil
+	}
 	return func() tea.Msg {
+		err := m.client.ReplyPermission(m.context(), target.Dir, target.ID, reply, message)
+		flights.Finish(target.Dir, session, target.ID, err)
 		return permissionReplyMsg{
 			target.Dir,
 			target.ID,
-			m.client.ReplyPermission(m.context(), target.Dir, target.ID, reply, message),
+			err,
 		}
 	}
 }
@@ -170,6 +184,12 @@ func (m *Model) replyPermission(reply, message string) tea.Cmd {
 func (m *Model) replied(v permissionReplyMsg) tea.Cmd {
 	if v.Err != nil {
 		delete(m.safeReplies, v.ID)
+		for i := range m.panes {
+			p := &m.panes[i]
+			if p.Agent.Dir == v.Dir || v.Dir == "" {
+				m.permissionFlights().Finish(p.Agent.Dir, p.Agent.Session, v.ID, v.Err)
+			}
+		}
 		m.note = v.Err.Error()
 	} else {
 		m.note = "Permission reply accepted"
@@ -182,6 +202,11 @@ func (m *Model) replied(v permissionReplyMsg) tea.Cmd {
 			}
 			e.Properties = []byte(fmt.Sprintf(`{"sessionID":%q,"requestID":%q}`, p.Agent.Session, v.ID))
 			p.State.ApplyRequest(e, p.Agent.Session, time.Now())
+			ids := make([]string, 0, len(p.State.Permissions))
+			for _, request := range p.State.Permissions {
+				ids = append(ids, request.ID)
+			}
+			m.permissionFlights().Observe(p.Agent.Dir, p.Agent.Session, ids)
 			if _, busy := m.requestEvents[v.Dir]; busy {
 				m.requestEvents[v.Dir] = append(m.requestEvents[v.Dir], e)
 			}

@@ -14,6 +14,7 @@ type InboxScreen struct {
 	Selection InboxSelection
 	Filter    InboxFilter
 	Reports   map[InboxIdentity][]InboxReport
+	Flights   *InboxFlights
 	searching bool
 	pending   *InboxEntry
 	rejecting bool
@@ -21,9 +22,17 @@ type InboxScreen struct {
 }
 
 func (m *Model) inboxEntries(screen *InboxScreen) []InboxEntry {
+	if screen.Flights == nil {
+		screen.Flights = &InboxFlights{}
+	}
 	sources := make([]InboxSource, 0, len(m.panes))
 	for i := range m.panes {
 		p := &m.panes[i]
+		ids := make([]string, 0, len(p.State.Permissions))
+		for _, request := range p.State.Permissions {
+			ids = append(ids, request.ID)
+		}
+		screen.Flights.Observe(p.Agent.Dir, p.Agent.Session, ids)
 		identity := InboxIdentity{Agent: p.Agent.Name, Directory: p.Agent.Dir, Session: p.Agent.Session}
 		sources = append(sources, InboxSource{Identity: identity, State: &p.State, Reports: screen.Reports[identity]})
 	}
@@ -156,7 +165,7 @@ func (m *Model) inboxAction(screen *InboxScreen, entry *InboxEntry, key string) 
 	if entry.Kind == "permission" {
 		switch key {
 		case "y":
-			return m.inboxReply(entry, "once", "")
+			return m.inboxReply(screen, entry, "once", "")
 		case "Y", "x":
 			copyEntry := *entry
 			screen.pending, screen.rejecting, screen.reason = &copyEntry, key == "x", ""
@@ -184,15 +193,15 @@ func (m *Model) inboxConfirmKey(screen *InboxScreen, v tea.KeyMsg) tea.Cmd {
 	if screen.rejecting {
 		screen.rejecting = false
 		if key == "enter" {
-			return m.inboxReply(entry, "reject", strings.TrimSpace(screen.reason))
+			return m.inboxReply(screen, entry, "reject", strings.TrimSpace(screen.reason))
 		}
 	} else if key == "y" || key == "Y" {
-		return m.inboxReply(entry, "always", "")
+		return m.inboxReply(screen, entry, "always", "")
 	}
 	return nil
 }
 
-func (m *Model) inboxReply(entry *InboxEntry, reply, reason string) tea.Cmd {
+func (m *Model) inboxReply(screen *InboxScreen, entry *InboxEntry, reply, reason string) tea.Cmd {
 	if m.opts.ReadOnly {
 		m.note = "Read-only: inbox actions disabled"
 		return nil
@@ -200,14 +209,22 @@ func (m *Model) inboxReply(entry *InboxEntry, reply, reason string) tea.Cmd {
 	index := m.inboxPane(entry)
 	if index >= 0 {
 		for _, request := range m.panes[index].State.Permissions {
-			if request.ID == entry.RequestID && request.SessionID == entry.Identity.Session {
-				dir, id := entry.Identity.Directory, entry.RequestID
-				return func() tea.Msg {
-					return permissionReplyMsg{
-						Dir: dir, ID: id,
-						Err: m.client.ReplyPermission(m.context(), dir, id, reply, reason),
-					}
-				}
+			if request.ID != entry.RequestID || request.SessionID != entry.Identity.Session {
+				continue
+			}
+			dir, id := entry.Identity.Directory, entry.RequestID
+			if screen.Flights == nil {
+				screen.Flights = &InboxFlights{}
+			}
+			flights, session := screen.Flights, entry.Identity.Session
+			if !flights.Begin(dir, session, id) {
+				m.note = "Permission reply already pending"
+				return nil
+			}
+			return func() tea.Msg {
+				err := m.client.ReplyPermission(m.context(), dir, id, reply, reason)
+				flights.Finish(dir, session, id, err)
+				return permissionReplyMsg{Dir: dir, ID: id, Err: err}
 			}
 		}
 	}

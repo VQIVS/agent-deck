@@ -41,16 +41,26 @@ func (m *Model) safeCommandReplies() []tea.Cmd {
 			}
 			m.safeReplies[request.ID] = true
 			dir, id, session := p.Agent.Dir, request.ID, p.Agent.Session
-			return []tea.Cmd{func() tea.Msg {
-				err := logAutoApproval(dir, session, command)
-				if err == nil {
-					err = m.client.ReplyPermission(m.context(), dir, id, "once", "Exact command allowlist")
-				}
-				return permissionReplyMsg{dir, id, err}
-			}}
+			flights := m.permissionFlights()
+			return m.autoReplyCommand(flights, dir, session, id, command)
 		}
 	}
 	return nil
+}
+
+func (m *Model) autoReplyCommand(flights *InboxFlights, dir, session, id, command string) []tea.Cmd {
+	if !flights.Begin(dir, session, id) {
+		delete(m.safeReplies, id)
+		return nil
+	}
+	return []tea.Cmd{func() tea.Msg {
+		err := logAutoApproval(dir, session, command)
+		if err == nil {
+			err = m.client.ReplyPermission(m.context(), dir, id, "once", "Exact command allowlist")
+		}
+		flights.Finish(dir, session, id, err)
+		return permissionReplyMsg{dir, id, err}
+	}}
 }
 
 func logAutoApproval(dir, session, command string) error {

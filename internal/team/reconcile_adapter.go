@@ -18,12 +18,15 @@ type LifecycleTransport struct {
 	Store       BoardStore
 	LoadManager func(context.Context) (*Manager, error)
 	Gate        func(context.Context, *ReconcileAction) error
+	WorkerSetup func(context.Context, *Manager, int) error
 }
 
 type lifecycleEffect struct {
 	State   string            `json:"state"`
 	Result  ReconcileResult   `json:"result"`
 	Request *ReconcileRequest `json:"request,omitempty"`
+	Handoff string            `json:"handoff,omitempty"`
+	Binding *Member           `json:"binding,omitempty"`
 }
 
 func effectName(id string) string { return fmt.Sprintf("effect-%x.json", sha256.Sum256([]byte(id))) }
@@ -38,6 +41,13 @@ func (t *LifecycleTransport) Lookup(ctx context.Context, id string) (ReconcileRe
 		return ReconcileResult{}, false, err
 	}
 	if effect.State != "done" {
+		if effect.Request != nil && selfHealKind(effect.Request.Action.Kind) {
+			return t.resumeHealing(ctx, &effect)
+		}
+		if effect.State == "started" && effect.Request != nil && t.WorkerSetup != nil &&
+			effect.Request.Action.Kind == "create" {
+			return t.resumeIdentityCreate(ctx, &effect)
+		}
 		return ReconcileResult{}, false, fmt.Errorf("uncertain lifecycle effects; inspect bindings before resolution")
 	}
 	return effect.Result, true, nil
@@ -89,6 +99,11 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 	if err != nil {
 		return err
 	}
+	if selfHealKind(request.Action.Kind) {
+		if err := releaseHealingTasks(&state.Board, request); err != nil {
+			return err
+		}
+	}
 	taskID := request.Action.Task
 	if request.Action.Proposal != nil {
 		taskID = request.Action.Proposal.Task
@@ -139,6 +154,8 @@ func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,
 	request *ReconcileRequest,
 ) (ReconcileResult, error) {
 	switch request.Action.Kind {
+	case "compact", "replace", "recover":
+		return t.heal(ctx, manager, &lifecycleEffect{State: "started", Request: request})
 	case "create":
 		return t.create(ctx, manager, request)
 	case "assign":
@@ -151,6 +168,12 @@ func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,
 			return ReconcileResult{}, fmt.Errorf("assignment binding changed")
 		}
 		member.Leases = slices.Clone(request.Member.Leases)
+		if t.WorkerSetup != nil && member.ControlDir != "" {
+			if err := t.WorkerSetup(ctx, manager, index); err != nil {
+				return ReconcileResult{}, fmt.Errorf("prepare worker identity: %w", err)
+			}
+			member = &manager.Team.Members[index]
+		}
 		manager.Team.LeasePool = true
 		if err := manager.ApplyLeases(ctx, index); err != nil {
 			return ReconcileResult{}, err
@@ -188,9 +211,38 @@ func retireLifecycle(ctx context.Context, manager *Manager, request *ReconcileRe
 func (t *LifecycleTransport) create(ctx context.Context, manager *Manager,
 	request *ReconcileRequest,
 ) (ReconcileResult, error) {
-	if slices.ContainsFunc(manager.Team.Members, func(member Member) bool { return member.Name == request.Member.Name }) {
-		return ReconcileResult{}, fmt.Errorf("generated worker already exists")
+	if result, exists, err := t.resumeWorkerSetup(ctx, manager, request); exists || err != nil {
+		return result, err
 	}
+	return t.createFreshWorker(ctx, manager, request)
+}
+
+func (t *LifecycleTransport) resumeWorkerSetup(ctx context.Context, manager *Manager,
+	request *ReconcileRequest,
+) (ReconcileResult, bool, error) {
+	for i := range manager.Team.Members {
+		member := &manager.Team.Members[i]
+		if member.Name != request.Member.Name {
+			continue
+		}
+		if t.WorkerSetup == nil || !member.PoolCreated || member.Mode != "shared" {
+			return ReconcileResult{}, true, fmt.Errorf("generated worker already exists")
+		}
+		if err := t.WorkerSetup(ctx, manager, i); err != nil {
+			return ReconcileResult{}, true, fmt.Errorf("resume pool worker setup: %w", err)
+		}
+		bound := &manager.Team.Members[i]
+		if bound.Session == "" {
+			return ReconcileResult{}, true, fmt.Errorf("worker setup did not bind a session")
+		}
+		return ReconcileResult{Worker: bound.Name, Session: bound.Session}, true, nil
+	}
+	return ReconcileResult{}, false, nil
+}
+
+func (t *LifecycleTransport) createFreshWorker(ctx context.Context, manager *Manager,
+	request *ReconcileRequest,
+) (ReconcileResult, error) {
 	member := request.Member
 	if member.Mode != "shared" || member.Session != "" || member.Role != "worker" {
 		return ReconcileResult{}, fmt.Errorf("pool creation requires a fresh shared worker")
@@ -207,6 +259,9 @@ func (t *LifecycleTransport) create(ctx context.Context, manager *Manager,
 	}
 	if _, err := Options(ctx, &manager.Team, &member, member.Brief); err != nil {
 		return ReconcileResult{}, err
+	}
+	if t.WorkerSetup != nil {
+		return t.setupFreshWorker(ctx, manager, index)
 	}
 	rules, err := manager.creationRules(ctx, &member)
 	if err != nil {
@@ -231,4 +286,19 @@ func (t *LifecycleTransport) create(ctx context.Context, manager *Manager,
 		return result, err
 	}
 	return result, nil
+}
+
+func (t *LifecycleTransport) setupFreshWorker(ctx context.Context, manager *Manager, index int,
+) (ReconcileResult, error) {
+	if err := manager.Save(ctx); err != nil {
+		return ReconcileResult{}, err
+	}
+	if err := t.WorkerSetup(ctx, manager, index); err != nil {
+		return ReconcileResult{}, fmt.Errorf("set up pool worker: %w", err)
+	}
+	bound := &manager.Team.Members[index]
+	if bound.Session == "" {
+		return ReconcileResult{}, fmt.Errorf("worker setup did not bind a session")
+	}
+	return ReconcileResult{Worker: bound.Name, Session: bound.Session}, nil
 }

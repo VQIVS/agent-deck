@@ -50,6 +50,7 @@ func (r *Runtime) submitReport(ctx context.Context, identity Identity, raw json.
 	if err != nil {
 		return nil, fmt.Errorf("persist submitted report: %w", err)
 	}
+	r.report(recordReportEstimation(ctx, manager))
 	return r.notifyReport(ctx, identity, manager, result), nil
 }
 

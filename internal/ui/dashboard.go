@@ -42,6 +42,7 @@ type pane struct {
 	Selected      string
 	Content       string
 	ContextLimit  int64
+	Messages      []api.Message
 }
 type streamMsg struct {
 	Dir        string
@@ -70,6 +71,9 @@ type (
 
 // Model owns terminal state and dispatches asynchronous results through Bubble Tea.
 type Model struct {
+	workspace                    workspaceUI
+	changes                      changesUI
+	summary                      SummaryState
 	palette                      PaletteScreen
 	board                        boardUI
 	channel                      channelUI
@@ -236,6 +240,12 @@ func (m *Model) notify(i int) tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	msg = unwrapReload(msg)
+	if handled, cmd := m.workspaceResult(msg); handled {
+		return m, cmd
+	}
+	if m.paneResult(msg) {
+		return m, nil
+	}
 	if handled, cmd := m.handleTeams(msg); handled {
 		return m, cmd
 	}
@@ -257,12 +267,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.updateTick(v)...)
 	case streamMsg:
 		cmds = append(cmds, m.updateStream(&v)...)
-	case snapshotMsg:
-		m.applySnapshot(&v)
-	case gitMsg:
-		if v.Index < len(m.panes) {
-			m.panes[v.Index].Git = v.Info.String()
-		}
 	case actionMsg:
 		if v.Err != nil {
 			m.note = v.Err.Error()
@@ -273,6 +277,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateKey(v)
 	}
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) paneResult(msg tea.Msg) bool {
+	switch v := msg.(type) {
+	case snapshotMsg:
+		if v.Err == nil && v.Index >= 0 && v.Index < len(m.panes) {
+			m.panes[v.Index].Messages = v.Messages
+		}
+		m.applySnapshot(&v)
+	case gitMsg:
+		if v.Index >= 0 && v.Index < len(m.panes) {
+			m.panes[v.Index].Git = v.Info.String()
+		}
+	default:
+		return false
+	}
+	return true
 }
 
 func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
@@ -305,9 +326,7 @@ func (m *Model) applyInventory(v *inventoryMsg) []tea.Cmd {
 func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	m.frame++
 	cmds := []tea.Cmd{tick()}
-	if m.channel.Open {
-		cmds = append(cmds, m.readChannel())
-	}
+	cmds = append(cmds, m.workspaceRefresh()...)
 	if m.shouldReadBoard() {
 		cmds = append(cmds, m.readBoard())
 	}
@@ -431,13 +450,26 @@ func (m *Model) applySnapshot(v *snapshotMsg) {
 }
 
 func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if v.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
+	if handled, cmd := m.workspaceKey(v); handled {
+		return m, cmd
+	}
 	if m.palette.Open {
 		cmd := m.paletteKey(&m.palette, v)
 		return m, cmd
 	}
-	key := v.String()
-	if key == "ctrl+c" {
-		return m, tea.Quit
+	if handled, cmd := m.workspaceGlobalKey(v); handled {
+		return m, cmd
+	}
+	if m.workspace.View == "git" {
+		cmd := m.changesKey(v)
+		return m, cmd
+	}
+	if m.workspace.View == "summary" {
+		cmd := m.summaryKey(v)
+		return m, cmd
 	}
 	if m.board.Open {
 		cmd := m.boardKey(v)
@@ -782,6 +814,10 @@ func (m *Model) View() string {
 	if m.palette.Open {
 		return m.paletteView(&m.palette)
 	}
+	return m.workspaceView()
+}
+
+func (m *Model) mainView() string {
 	if m.board.Open {
 		return m.boardView()
 	}
@@ -877,6 +913,7 @@ func (m *Model) overlayView(header string) (string, bool) {
 
 func (m *Model) helpView(header string) string {
 	return header + "\n" + m.buttonRow([]button{{"Close", "esc", false}}, 0, 1, m.w, -1) + "\n" +
+		"1–6 / Alt+1–6 workspace tabs · 2 Git diff · 3 Summary · 4 Channel\n" +
 		"Ctrl+P command palette · Tab/arrows focus · Enter zoom · Esc back\n" +
 		PaletteHelp(PaletteCommands(), m.paletteContext(), m.w) + "\nEnter sends · Ctrl+J newline · PgUp/PgDn scroll"
 }

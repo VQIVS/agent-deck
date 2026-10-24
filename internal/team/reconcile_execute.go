@@ -68,7 +68,7 @@ func (r *Reconciler) prepare(ctx context.Context, actor ReconcileActor,
 	if err != nil {
 		return request, err
 	}
-	if action.Kind == "retire" {
+	if boundLifecycle(action.Kind) {
 		for i := range snapshot.Team.Members {
 			member := &snapshot.Team.Members[i]
 			if member.Name == action.Worker && member.Role == "worker" && member.Session != "" && member.PoolCreated {

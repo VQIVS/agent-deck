@@ -27,6 +27,8 @@ type PaletteCommand struct {
 
 func PaletteCommands() []PaletteCommand {
 	return []PaletteCommand{
+		{ID: "view:git", Title: "Open Git diff and Vim file browser", Key: "2", Group: "Workspace"},
+		{ID: "view:summary", Title: "Open team history summary", Key: "3", Group: "Workspace"},
 		{ID: "p", Title: "Choose sessions", Key: "p", Group: "Workspace"},
 		{ID: "i", Title: "Open inbox", Key: "i", Group: "Workspace"},
 		{ID: "b", Title: "Open work board", Key: "b", Group: "Workspace", Team: true},

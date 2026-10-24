@@ -122,8 +122,18 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.palette.Open {
 		return m.paletteClick(&m.palette, z, ok)
 	}
+	if handled, cmd := m.workspaceMouse(z, ok); handled {
+		return cmd
+	}
 	if m.board.Open {
 		return m.kanbanBoardClick(z, ok)
+	}
+	if m.channel.Open {
+		if ok {
+			_, cmd := m.channelClick(z.Action)
+			return cmd
+		}
+		return nil
 	}
 	if m.inbox.Open {
 		return m.inboxClick(&m.inbox, z, ok)
@@ -135,6 +145,41 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 func (m *Model) mouseWheel(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
+	if m.palette.Open || m.modalOpen() || m.channel.Editing || m.board.Form != nil {
+		return nil
+	}
+	if handled, cmd := m.workspaceWheel(msg); handled {
+		return cmd
+	}
+	return m.contentWheel(msg, z, ok)
+}
+
+func (m *Model) workspaceWheel(msg tea.MouseMsg) (bool, tea.Cmd) {
+	if m.workspace.View == "git" || m.workspace.View == "summary" {
+		delta := 3
+		if msg.Button == tea.MouseButtonWheelUp {
+			delta = -3
+		}
+		if m.workspace.View == "git" {
+			m.changes.DiffFocus = true
+			return true, m.moveChange(delta)
+		} else {
+			m.summary.Offset = max(0, m.summary.Offset+delta)
+		}
+		return true, nil
+	}
+	if m.channel.Open {
+		if msg.Button == tea.MouseButtonWheelUp {
+			m.channel.Offset += 3
+		} else {
+			m.channel.Offset = max(0, m.channel.Offset-3)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (m *Model) contentWheel(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
 	if m.board.Open && !m.board.Approvals {
 		key := tea.KeyDown
 		if msg.Button == tea.MouseButtonWheelUp {
@@ -224,6 +269,12 @@ func (m *Model) dashboardClick(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
 }
 
 func (m *Model) clickAction(action string) tea.Cmd {
+	if strings.HasPrefix(action, "view:") {
+		if m.workspaceBlocked() {
+			return nil
+		}
+		return m.openWorkspace(strings.TrimPrefix(action, "view:"))
+	}
 	if action == "page-prev" || action == "page-next" {
 		return m.movePage(action == "page-next")
 	}

@@ -9,23 +9,27 @@ import (
 
 // SchedulerWorker is an observed worker, including active ownership and idle age.
 type SchedulerWorker struct {
-	Name      string    `json:"name"`
-	Role      string    `json:"role"`
-	Skills    []string  `json:"skills,omitempty"`
-	Leases    Leases    `json:"leases,omitempty"`
-	State     string    `json:"state"`
-	IdleSince time.Time `json:"idle_since,omitempty"`
+	Name            string    `json:"name"`
+	Role            string    `json:"role"`
+	Skills          []string  `json:"skills,omitempty"`
+	Leases          Leases    `json:"leases,omitempty"`
+	State           string    `json:"state"`
+	IdleSince       time.Time `json:"idle_since,omitempty"`
+	ContextTokens   int64     `json:"context_tokens,omitempty"`
+	CompactedTokens int64     `json:"compacted_tokens,omitempty"`
 }
 
 // SchedulingPolicy bounds proposals; zero budgets mean no configured budget limit.
 type SchedulingPolicy struct {
-	MinWorkers  int               `json:"min_workers"`
-	MaxWorkers  int               `json:"max_workers"`
-	Approval    string            `json:"approval,omitempty"`
-	Cooldown    time.Duration     `json:"cooldown"`
-	TokenBudget int64             `json:"token_budget,omitempty"`
-	CostBudget  float64           `json:"cost_budget,omitempty"`
-	Models      map[string]string `json:"models,omitempty"`
+	MinWorkers   int               `json:"min_workers"`
+	MaxWorkers   int               `json:"max_workers"`
+	Approval     string            `json:"approval,omitempty"`
+	Cooldown     time.Duration     `json:"cooldown"`
+	TokenBudget  int64             `json:"token_budget,omitempty"`
+	CostBudget   float64           `json:"cost_budget,omitempty"`
+	Models       map[string]string `json:"models,omitempty"`
+	ContextLimit int64             `json:"context_limit,omitempty"`
+	StallAfter   time.Duration     `json:"stall_after,omitempty"`
 }
 
 // SchedulingInput is an immutable snapshot; Now and LastScale make time explicit.
@@ -65,11 +69,11 @@ type SchedulingPlan struct {
 	Reason      string            `json:"reason,omitempty"`
 }
 
-func (p SchedulingPolicy) Validate() error {
+func (p *SchedulingPolicy) Validate() error {
 	if p.MinWorkers < 0 || p.MaxWorkers < p.MinWorkers || p.Cooldown < 0 {
 		return fmt.Errorf("scheduling policy needs 0 <= min <= max and nonnegative cooldown")
 	}
-	if p.TokenBudget < 0 || invalidCost(p.CostBudget) {
+	if p.TokenBudget < 0 || invalidCost(p.CostBudget) || p.ContextLimit < 0 || p.StallAfter < 0 {
 		return fmt.Errorf("scheduling budgets must be finite and nonnegative")
 	}
 	if p.Approval != "" && p.Approval != "ask" && p.Approval != "auto" && p.Approval != "off" {

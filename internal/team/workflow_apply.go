@@ -15,6 +15,8 @@ type TaskNotice struct {
 	To   string
 	Task string
 	Text string
+	// Brief identifies the exact assignment/session; empty for ordinary notices.
+	Brief string `json:",omitempty"`
 }
 
 const taskChangeAttempts = 3
@@ -49,7 +51,9 @@ func ChangeTasksState(ctx context.Context, store BoardStore, t *Team, actor Task
 		}
 		err = store.Save(ctx, &state, state.Revision)
 		if err == nil {
-			return state, TaskNotices(&before, &state.Board, t, actor), nil
+			notices := TaskNotices(&before, &state.Board, t, actor)
+			notices = append(notices, EstimationHistoryNotices(ctx, store, &state.Board, t)...)
+			return state, notices, nil
 		}
 		if !errors.Is(err, ErrBoardChanged) {
 			return BoardState{}, nil, err
@@ -111,7 +115,13 @@ func TaskNotices(before, after *TaskBoard, t *Team, actor TaskActor) []TaskNotic
 	notices := make([]TaskNotice, 0, len(after.Tasks))
 	for i := range after.Tasks {
 		task := &after.Tasks[i]
-		notices = append(notices, taskNotices(previous[task.ID], task, master)...)
+		generated := taskNotices(previous[task.ID], task, master)
+		for j := range generated {
+			if generated[j].To == task.Assignee && generated[j].Text == TaskBrief(task) {
+				generated[j].Brief = BriefDeliveryKey(task, t)
+			}
+		}
+		notices = append(notices, generated...)
 	}
 	return slices.DeleteFunc(notices, func(n TaskNotice) bool {
 		return n.To == "" || n.To == actor.Member || !onRoster(t, n.To)

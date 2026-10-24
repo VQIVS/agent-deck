@@ -2,11 +2,9 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/vqivs/agent-deck/internal/channel"
 )
@@ -35,28 +33,65 @@ type incrementalChannel interface {
 }
 
 type channelUI struct {
-	Runtime                TeamChannel
-	Open, Editing, Loading bool
-	Records                []channel.Record
-	Draft                  string
-	Offset                 int
-	Team                   string
+	Runtime                       TeamChannel
+	Open, Editing, Loading        bool
+	Records                       []channel.Record
+	Draft                         string
+	Offset                        int
+	Team                          string
+	Sending, ShowRoster, PendingG bool
+	Status                        string
 }
 
 type channelResult struct {
 	Records     []channel.Record
 	Err         error
 	Incremental bool
+	Sent        bool
+	Submitted   string
 }
 
 func (m *Model) applyChannelResult(v channelResult) {
 	m.channel.Loading = false
+	m.applyChannelSendResult(v)
 	if v.Err != nil {
 		m.note = v.Err.Error()
+		if v.Submitted == "" {
+			m.channel.Status = "Refresh failed"
+		}
 		return
 	}
+	m.applyChannelRecords(v)
+}
+
+func (m *Model) applyChannelSendResult(v channelResult) {
+	if v.Submitted != "" {
+		m.channel.Sending = false
+		if v.Sent {
+			m.channel.Status = "Sent"
+			if m.channel.Draft == v.Submitted {
+				m.channel.Draft = ""
+				m.channel.Editing = false
+			}
+		} else {
+			m.channel.Status = "Send failed · draft preserved"
+			m.channel.Editing = true
+		}
+	}
+}
+
+func (m *Model) applyChannelRecords(v channelResult) {
 	if v.Incremental {
-		m.channel.Records = append(m.channel.Records, v.Records...)
+		seen := make(map[string]bool, len(m.channel.Records))
+		for i := range m.channel.Records {
+			seen[m.channel.Records[i].ID] = true
+		}
+		for i := range v.Records {
+			if v.Records[i].ID == "" || !seen[v.Records[i].ID] {
+				m.channel.Records = append(m.channel.Records, v.Records[i])
+				seen[v.Records[i].ID] = true
+			}
+		}
 	} else {
 		m.channel.Records = v.Records
 	}
@@ -96,25 +131,35 @@ func (m *Model) readChannel() tea.Cmd {
 }
 
 func (m *Model) channelKey(v tea.KeyMsg) tea.Cmd {
+	if v.String() != "g" {
+		m.channel.PendingG = false
+	}
 	if m.channel.Editing {
-		switch v.String() {
-		case "esc":
-			m.channel.Editing = false
-		case "enter":
-			return m.postChannel()
-		default:
-			editInboxText(&m.channel.Draft, v)
-		}
-		return nil
+		return m.channelComposeKey(v)
 	}
 	switch v.String() {
 	case "esc", "c":
-		m.channel.Open = false
+		return m.openWorkspace("dashboard")
 	case "up", "k":
 		m.channel.Offset++
 	case "down", "j":
 		m.channel.Offset = max(0, m.channel.Offset-1)
-	case "m":
+	case "pgup", "ctrl+u":
+		m.channel.Offset += max(1, m.h-8)
+	case "pgdown", "ctrl+d":
+		m.channel.Offset = max(0, m.channel.Offset-max(1, m.h-8))
+	case "g":
+		if m.channel.PendingG {
+			m.channel.Offset = 1 << 30
+			m.channel.PendingG = false
+		} else {
+			m.channel.PendingG = true
+		}
+	case "G":
+		m.channel.Offset = 0
+	case "o":
+		m.channel.ShowRoster = !m.channel.ShowRoster
+	case "m", "enter":
 		m.channel.Editing = !m.opts.ReadOnly
 	case "r":
 		return m.readChannel()
@@ -122,8 +167,30 @@ func (m *Model) channelKey(v tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+func (m *Model) channelComposeKey(v tea.KeyMsg) tea.Cmd {
+	if m.opts.ReadOnly {
+		m.channel.Editing = false
+		return nil
+	}
+	switch v.String() {
+	case "esc":
+		m.channel.Editing = false
+	case "enter":
+		return m.postChannel()
+	case "tab":
+		m.completeChannelMention()
+	case "ctrl+j":
+		if len(m.channel.Draft) < 4096 {
+			m.channel.Draft += "\n"
+		}
+	default:
+		editInboxText(&m.channel.Draft, v)
+	}
+	return nil
+}
+
 func (m *Model) postChannel() tea.Cmd {
-	if m.opts.ReadOnly || m.channel.Runtime == nil || strings.TrimSpace(m.channel.Draft) == "" {
+	if m.opts.ReadOnly || m.channel.Sending || m.channel.Runtime == nil || strings.TrimSpace(m.channel.Draft) == "" {
 		return nil
 	}
 	text := m.channel.Draft
@@ -140,45 +207,17 @@ func (m *Model) postChannel() tea.Cmd {
 		}
 	}
 	runtime := m.channel.Runtime
-	m.channel.Editing = false
-	m.channel.Draft = ""
+	m.channel.Sending = true
+	m.channel.Status = "Sending…"
 	return func() tea.Msg {
 		if err := runtime.PostUser(m.context(), text, mentions); err != nil {
-			return channelResult{Err: err}
+			return channelResult{Err: err, Submitted: text}
 		}
 		records, err := runtime.ReadUser(m.context())
-		return channelResult{Records: records, Err: err}
+		return channelResult{Records: records, Err: err, Sent: true, Submitted: text}
 	}
 }
 
 func (m *Model) channelView() string {
-	lines := []string{"Team channel · m post · @member wakes idle recipient · ↑↓ scroll · Esc back"}
-	if m.channel.Runtime == nil {
-		lines = append(lines, "Channel runtime unavailable")
-	}
-	var content []string
-	for i := range m.channel.Records {
-		r := &m.channel.Records[i]
-		if r.Kind != "message" && r.Kind != "roster" {
-			continue
-		}
-		label := r.Sender
-		if r.Private {
-			label += " → " + strings.Join(r.Recipients, ",") + " [DM]"
-		}
-		text := fmt.Sprintf("%s %s · %s", r.Time.Format("15:04"), label, r.Text)
-		content = append(content, strings.Split(ansi.Hardwrap(clean(text), max(1, m.w), true), "\n")...)
-	}
-	limit := max(1, m.h-4)
-	m.channel.Offset = min(m.channel.Offset, max(0, len(content)-limit))
-	end := max(0, len(content)-m.channel.Offset)
-	lines = append(lines, content[max(0, end-limit):end]...)
-	if m.channel.Editing {
-		lines = append(lines, "Post: "+m.channel.Draft+"▏ · Enter send / Esc cancel")
-	}
-	lines = append(lines, m.note)
-	for i := range lines {
-		lines[i] = fit(lines[i], m.w)
-	}
-	return strings.Join(lines, "\n")
+	return m.renderChannelChat()
 }

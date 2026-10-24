@@ -123,10 +123,12 @@ func (r *Runtime) createWorkflowBinding(
 		r.Tokens.Revoke(auth)
 		return errors.Join(fmt.Errorf("create workflow session: %w", err), removeRuntimeConfig(&credential))
 	}
+	previous := *member
 	member.PreviousSession, member.PreviousDir = identity.PreviousSession, identity.PreviousDir
 	member.ControlDir, member.Session = identity.ControlDir, session.ID
 	member.LeasePolicy = manager.Team.PolicyFingerprint(member)
 	if err := manager.Save(ctx); err != nil {
+		*member = previous
 		r.Tokens.Revoke(auth)
 		cleanup := context.WithoutCancel(ctx)
 		return errors.Join(err, client.Delete(cleanup, identity.ControlDir, session.ID), removeRuntimeConfig(&credential))

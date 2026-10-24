@@ -22,6 +22,7 @@ type runtimeCredential struct {
 	entry    string
 	token    string
 	lockPath string
+	live     bool
 }
 
 // InstallCredential explicitly installs a private directory credential for one isolated worktree.
@@ -33,6 +34,11 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
+	return r.installCredential(ctx, manager, name)
+}
+
+// installCredential requires credentialMu and uses the caller's checked current bindings.
+func (r *Runtime) installCredential(ctx context.Context, manager *team.Manager, name string) error {
 	if manager.ReadOnly {
 		return fmt.Errorf("read-only: credential installation disabled")
 	}

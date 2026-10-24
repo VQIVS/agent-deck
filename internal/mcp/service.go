@@ -23,16 +23,17 @@ type Member struct {
 
 // Options supplies live roster and policy; callbacks must be safe for concurrent calls.
 type Options struct {
-	Team         string
-	Journal      *channel.Journal
-	Members      func() []Member
-	ReadOnly     func() bool
-	Now          func() time.Time
-	MaxBytes     int
-	MaxHops      int
-	Rate         int
-	Transport    Transport
-	Instructions func(context.Context, string) (string, error)
+	Team          string
+	Journal       *channel.Journal
+	Members       func() []Member
+	ReadOnly      func() bool
+	Now           func() time.Time
+	MaxBytes      int
+	MaxHops       int
+	Rate          int
+	Transport     Transport
+	Instructions  func(context.Context, string) (string, error)
+	BriefProvider PoolProvider
 }
 
 // Service validates authenticated channel actions before any journal side effect.

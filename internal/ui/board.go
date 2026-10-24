@@ -47,6 +47,11 @@ func (m *Model) pool(ctx context.Context) (*team.PoolRuntime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open board: %w", err)
 	}
+	if setup, ok := m.channel.Runtime.(interface {
+		SetupPoolWorker(context.Context, *team.Manager, int) error
+	}); ok {
+		pool.SetWorkerSetup(setup.SetupPoolWorker)
+	}
 	return pool, nil
 }
 

@@ -130,10 +130,17 @@ func (m *Model) dispatchPalette(action *PaletteAction) tea.Cmd {
 		if command.Team && strings.HasPrefix(command.ID, "team-") {
 			return m.teamAction(command.ID)
 		}
-		return m.clickAction(command.ID)
+		return m.paletteWorkspaceAction(command.ID)
 	}
 	m.note = "Unknown palette command"
 	return nil
+}
+
+func (m *Model) paletteWorkspaceAction(id string) tea.Cmd {
+	if !strings.HasPrefix(id, "view:") {
+		m.openWorkspace("dashboard")
+	}
+	return m.clickAction(id)
 }
 
 func (m *Model) paletteClick(screen *PaletteScreen, target zone, ok bool) tea.Cmd {

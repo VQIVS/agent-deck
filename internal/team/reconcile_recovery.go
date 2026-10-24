@@ -13,6 +13,8 @@ type PoolRecovery struct {
 	State   string            `json:"state"`
 	Result  ReconcileResult   `json:"result"`
 	Request *ReconcileRequest `json:"request,omitempty"`
+	Handoff string            `json:"handoff,omitempty"`
+	Binding *Member           `json:"binding,omitempty"`
 }
 
 func (t *LifecycleTransport) Inspect(ctx context.Context, actor ReconcileActor, id string) (PoolRecovery, error) {

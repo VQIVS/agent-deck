@@ -89,9 +89,11 @@ func StartRuntime(ctx context.Context, options *RuntimeOptions) (*Runtime, error
 		Tokens: NewTokens(), URL: "http://" + listener.Addr().String() + "/mcp",
 		done: make(chan struct{}), credentials: make(map[string]runtimeCredential),
 	}
+	r.bindPoolIdentity()
 	r.Service, err = NewService(&Options{
 		Team: manager.Team.Name, Journal: journal, Members: r.members, ReadOnly: r.readOnly,
 		Transport: r, Instructions: r.instructions,
+		BriefProvider: RuntimePool(r.options.Provider),
 	})
 	if err == nil {
 		err = r.seedRoster(ctx)

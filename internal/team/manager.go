@@ -55,6 +55,9 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 			"Member credentials provide cooperative same-user identity, not a sandbox.",
 			member.ControlDir, member.Dir, member.PreviousSession, member.PreviousDir)
 	}
+	if history := estimationPrompt(ctx, t, member); history != "" {
+		system += "\n\n" + history
+	}
 	o := api.PromptOptions{
 		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t) + workflowInstructions(t, member)),
 		Agent:  member.Agent,

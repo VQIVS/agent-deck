@@ -30,8 +30,23 @@ agent-deck · WAITING 1 · streams 2/2 · http://127.0.0.1:4096
 
 ### Workspace screens
 
+- **Tabs (`1`–`6`, or `Alt+1`–`Alt+6`)**: Dashboard, Git, Summary, Channel, Board and Inbox.
+  Click the tab row to switch screens. In Board/Inbox use Alt-number to preserve their numeric controls;
+  shortcuts are suspended while typing in forms or composing messages.
+- **Git (`2`)**: changed-file sidebar beside a colored diff, with staged and unstaged sections.
+  `j/k` select files; `Tab` changes focus, `h/l` focus files/diff, `gg/G` jump first/last,
+  `Ctrl+d/u` page the diff, and `r` refreshes. Click a file or use the wheel to scroll its diff.
+  `v`/`e` opens the selected file in **Vim** (must be on `PATH`); exiting Vim refreshes the preview.
+  Read-only mode opens Vim nonmodifiable without swap/viminfo writes. `--no-git` disables Git reads.
+- **Summary (`3`)**: chronological task history, comments, worker reports and available channel records,
+  plus clearly labeled, unverified assistant excerpts. `Tab` filters members; `j/k`, `gg/G` and paging
+  navigate; `r` refreshes evidence. Persisted records cover available team history; session excerpts
+  use the latest 30 loaded messages, so earlier transcript content may be missing.
 - **Inbox (`i`)**: waiting requests, errors, stalls and report cards; select an entry to act on its exact session.
-- **Channel (`c`)**: team messages and the privileged user view; `m` posts, `@member` queues delivery.
+- **Channel (`4` or `c`)**: attributed message cards with roles, recipients, private labels and timestamps.
+  Click **Compose** or press `Enter`/`m`; `Enter` sends, `Ctrl+J` adds a newline, and `Tab` completes
+  `@member` mentions. `Esc` preserves a draft; failed sends keep it too. `j/k`, `gg/G` and the wheel
+  browse history; `o` expands/collapses roster updates. Explicit `@member` mentions queue delivery.
 - **Board (`b`)**: tasks and policy-gated pool proposals with detailed confirmation.
 - **Commands (`Ctrl+P`)**: searchable actions with availability/read-only explanations.
   Help (`?`) is generated from the same command registry.

@@ -108,6 +108,7 @@ func DesiredReconcileActions(snapshot *ReconcileSnapshot) ([]ReconcileAction, er
 	for _, worker := range plan.Retire {
 		actions = append(actions, ReconcileAction{Kind: "retire", Worker: worker})
 	}
+	actions = append(actions, selfHealActions(snapshot, &plan)...)
 	for i := range actions {
 		actions[i].Team, actions[i].Revision = snapshot.Team.Name, snapshot.Revision
 		data, _ := json.Marshal(actions[i])
@@ -190,10 +191,10 @@ func eligibleReconcile(snapshot *ReconcileSnapshot, action *ReconcileAction) err
 	if !slices.ContainsFunc(actions, func(current ReconcileAction) bool { return sameReconcileAction(&current, action) }) {
 		return fmt.Errorf("action is no longer desired by current scheduler")
 	}
-	if action.Kind == "create" && snapshot.Input.Policy.Approval == "off" {
+	if gatedLifecycle(action.Kind) && snapshot.Input.Policy.Approval == "off" {
 		return fmt.Errorf("reconcile policy is off")
 	}
-	if action.Kind == "create" && snapshot.Input.Policy.Approval != "auto" && !snapshot.Approved[action.ID] {
+	if gatedLifecycle(action.Kind) && snapshot.Input.Policy.Approval != "auto" && !snapshot.Approved[action.ID] {
 		return fmt.Errorf("action requires explicit user approval")
 	}
 	return nil

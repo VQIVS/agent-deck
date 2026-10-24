@@ -16,6 +16,7 @@ type poolSchedulerActions struct {
 	mu       sync.Mutex
 	pool     *team.PoolRuntime
 	key      string
+	setup    func(context.Context, *team.Manager, int) error
 }
 
 // PoolProposalResult returns approval-pending actions separately from executed auto actions.
@@ -53,6 +54,9 @@ func (a *poolSchedulerActions) open(ctx context.Context) (*team.PoolRuntime, err
 	pool, err := team.OpenPool(ctx, store, manager.Team.Name, board)
 	if err != nil {
 		return nil, fmt.Errorf("open scheduler pool: %w", err)
+	}
+	if a.setup != nil {
+		pool.SetWorkerSetup(a.setup)
 	}
 	a.pool, a.key = pool, key
 	return pool, nil

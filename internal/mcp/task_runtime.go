@@ -60,21 +60,30 @@ func (s *Service) Notify(ctx context.Context, notices []team.TaskNotice) error {
 	}
 	var failures []error
 	for _, notice := range notices {
-		if len(notice.Text) > s.options.MaxBytes {
-			notice.Text = notice.Text[:s.options.MaxBytes]
-		}
-		post := Post{Text: notice.Text, Mentions: []string{notice.To}}
-		r, err := s.message(ctx, Identity{Team: s.options.Team, Member: systemSender}, post, post.Mentions, true)
-		if err != nil {
+		if err := s.notifyOne(ctx, &notice); err != nil {
 			failures = append(failures, err)
-			continue
-		}
-		r.Time, r.Hops = s.options.Now().UTC(), 0
-		s.bindAudience(&r)
-		r.SenderID = systemSender
-		if err := s.options.Journal.Append(ctx, &r); err != nil {
-			failures = append(failures, fmt.Errorf("notify %s: %w", notice.To, err))
 		}
 	}
 	return errors.Join(failures...)
+}
+
+func (s *Service) notifyOne(ctx context.Context, notice *team.TaskNotice) error {
+	if notice.Brief != "" {
+		return s.notifyBrief(ctx, notice)
+	}
+	if len(notice.Text) > s.options.MaxBytes {
+		notice.Text = notice.Text[:s.options.MaxBytes]
+	}
+	post := Post{Text: notice.Text, Mentions: []string{notice.To}}
+	r, err := s.message(ctx, Identity{Team: s.options.Team, Member: systemSender}, post, post.Mentions, true)
+	if err != nil {
+		return err
+	}
+	r.Time, r.Hops = s.options.Now().UTC(), 0
+	s.bindAudience(&r)
+	r.SenderID = systemSender
+	if err := s.options.Journal.Append(ctx, &r); err != nil {
+		return fmt.Errorf("notify %s: %w", notice.To, err)
+	}
+	return nil
 }

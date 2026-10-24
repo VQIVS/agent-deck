@@ -6,17 +6,26 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 // PoolRuntime builds current scheduler snapshots and authenticated lifecycle controllers.
 type PoolRuntime struct {
-	store Store
-	name  string
-	board BoardStore
-	mu    sync.Mutex
-	idle  map[string]time.Time
+	store       Store
+	name        string
+	board       BoardStore
+	mu          sync.Mutex
+	idle        map[string]time.Time
+	workerSetup func(context.Context, *Manager, int) error
+}
+
+// SetWorkerSetup installs identity setup before a pool session can receive work.
+func (p *PoolRuntime) SetWorkerSetup(setup func(context.Context, *Manager, int) error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.workerSetup = setup
 }
 
 // OpenPool validates local configuration without creating board files or contacting the server.
@@ -93,7 +102,7 @@ func (p *PoolRuntime) Snapshot(ctx context.Context) (ReconcileSnapshot, error) {
 	now := time.Now().UTC()
 	var workers []SchedulerWorker
 	if state.Revision != 0 {
-		workers, err = p.workers(ctx, manager, now)
+		workers, err = p.workers(ctx, manager, now, &state.Policy)
 		if err != nil {
 			return ReconcileSnapshot{}, err
 		}
@@ -108,7 +117,9 @@ func (p *PoolRuntime) Snapshot(ctx context.Context) (ReconcileSnapshot, error) {
 	}, nil
 }
 
-func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Time) ([]SchedulerWorker, error) {
+func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Time,
+	policy *SchedulingPolicy,
+) ([]SchedulerWorker, error) {
 	workers := make([]SchedulerWorker, 0, len(manager.Team.Members))
 	for i := range manager.Team.Members {
 		member := &manager.Team.Members[i]
@@ -116,8 +127,15 @@ func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Ti
 			continue
 		}
 		status := manager.Observe(ctx, i)
-		if status.Error != "" {
+		if status.Error != "" && !strings.Contains(status.Error, "is missing") {
 			return nil, fmt.Errorf("observe pool worker %q: %s", member.Name, status.Error)
+		}
+		threshold := member.StallAfter
+		if threshold == nil {
+			threshold = &policy.StallAfter
+		}
+		if status.State == "busy" && stateStalled(threshold, &status, now) {
+			status.State = "stalled"
 		}
 		key := member.ID + ":" + member.Session
 		if status.State != "idle" {
@@ -125,17 +143,47 @@ func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Ti
 		} else if p.idle[key].IsZero() {
 			p.idle[key] = now
 		}
+		var compacted compactedWorker
+		err := p.board.read(ctx, compactedName(member.Session), &compacted)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
 		workers = append(workers, SchedulerWorker{
 			Name: member.Name, Role: "worker", State: status.State, Leases: member.Leases, IdleSince: p.idle[key],
+			ContextTokens:   status.ContextTokens,
+			CompactedTokens: compacted.Tokens,
 		})
+	}
+	return p.maskHealingWorkers(ctx, workers)
+}
+
+func (p *PoolRuntime) maskHealingWorkers(ctx context.Context, workers []SchedulerWorker) ([]SchedulerWorker, error) {
+	entries, err := p.board.Entries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pending := map[string]bool{}
+	for i := range entries {
+		entry := &entries[i]
+		if selfHealKind(entry.Action.Kind) {
+			pending[entry.Action.Worker] = entry.State == "intent"
+		}
+	}
+	for i := range workers {
+		if pending[workers[i].Name] {
+			workers[i].State = "waiting"
+		}
 	}
 	return workers, nil
 }
 
 // Controller binds the transport gate to an authenticated actor supplied by trusted integration.
 func (p *PoolRuntime) Controller(actor ReconcileActor) *BoardController {
+	p.mu.Lock()
+	setup := p.workerSetup
+	p.mu.Unlock()
 	transport := &LifecycleTransport{
-		Store: p.board, LoadManager: p.manager,
+		Store: p.board, LoadManager: p.manager, WorkerSetup: setup,
 		Gate: func(ctx context.Context, action *ReconcileAction) error {
 			rejected, err := p.rejections(ctx)
 			if err != nil {

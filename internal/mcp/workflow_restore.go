@@ -15,12 +15,14 @@ func (r *Runtime) restoreWorkflowCredentials(ctx context.Context, manager *team.
 	var failures []error
 	for i := range manager.Team.Members {
 		member := &manager.Team.Members[i]
-		if member.ControlDir == "" || member.Session == "" || r.hasCredential(member) {
+		if member.ControlDir == "" || member.Session == "" {
 			continue
 		}
-		if err := r.InstallCredential(ctx, member.Name); err != nil {
-			failures = append(failures, fmt.Errorf("restore %s credential: %w", member.Name, err))
-			continue
+		if !r.hasCredential(member) {
+			if err := r.InstallCredential(ctx, member.Name); err != nil {
+				failures = append(failures, fmt.Errorf("restore %s credential: %w", member.Name, err))
+				continue
+			}
 		}
 		if err := r.registerLive(ctx, manager, member); err != nil {
 			failures = append(failures, fmt.Errorf("register %s tools: %w", member.Name, err))
@@ -38,10 +40,17 @@ func (r *Runtime) hasCredential(member *team.Member) bool {
 
 func (r *Runtime) registerLive(ctx context.Context, manager *team.Manager, member *team.Member) error {
 	r.credentialMu.Lock()
+	defer r.credentialMu.Unlock()
 	_, credential, ok := r.findCredential(member.ID, member.Name)
-	r.credentialMu.Unlock()
 	if !ok {
 		return fmt.Errorf("credential missing after install")
+	}
+	return r.registerCredential(ctx, manager, &credential)
+}
+
+func (r *Runtime) registerCredential(ctx context.Context, manager *team.Manager, credential *runtimeCredential) error {
+	if credential.live {
+		return nil
 	}
 	config := map[string]any{
 		"type": "remote", "url": r.URL, "oauth": false,
@@ -51,5 +60,7 @@ func (r *Runtime) registerLive(ctx context.Context, manager *team.Manager, membe
 	if err := client.RegisterMCP(ctx, credential.dir, credential.entry, config); err != nil {
 		return fmt.Errorf("register live tools: %w", err)
 	}
+	credential.live = true
+	r.credentials[credential.identity.Member] = *credential
 	return nil
 }

@@ -16,15 +16,21 @@ func (p *PoolRuntime) AutoReconcile(ctx context.Context) ([]TaskNotice, error) {
 	if before.Revision == 0 {
 		return nil, nil
 	}
+	if p.board.ReadOnly {
+		return nil, nil
+	}
+	var failures []error
+	if err := p.ResumeHealing(ctx); err != nil {
+		failures = append(failures, fmt.Errorf("resume automatic healing: %w", err))
+	}
 	actor := ReconcileActor{Automation: true}
 	controller := p.Controller(actor)
 	actions, err := controller.Propose(ctx, actor)
 	if err != nil {
-		return nil, fmt.Errorf("plan automatic reconcile: %w", err)
+		return nil, errors.Join(append(failures, fmt.Errorf("plan automatic reconcile: %w", err))...)
 	}
-	var failures []error
 	for i := range actions {
-		if actions[i].Kind != "assign" && before.Policy.Approval != "auto" {
+		if actions[i].Kind != "assign" && before.Policy.Approval != "auto" && !before.Approved[actions[i].ID] {
 			continue
 		}
 		if _, err := controller.Apply(ctx, actor, actions[i].ID); err != nil {
@@ -40,7 +46,26 @@ func (p *PoolRuntime) AutoReconcile(ctx context.Context) ([]TaskNotice, error) {
 		return nil, errors.Join(append(failures, err)...)
 	}
 	notices := TaskNotices(&before.Board, &after.Board, &manager.Team, AutomationActor)
-	return ownNotices(notices, &after.Board), errors.Join(failures...)
+	notices = ownNotices(notices, &after.Board)
+	// Briefs are based on durable delivery evidence rather than this pass's state transition.
+	// This also recovers assignments started before delivery tracking was introduced.
+	kept := withoutBriefs(notices)
+	snapshot, err := p.Snapshot(ctx)
+	if err != nil {
+		return kept, errors.Join(append(failures, err)...)
+	}
+	kept = append(kept, MissingBriefs(&after.Board, &manager.Team, snapshot.Input.Workers)...)
+	return kept, errors.Join(failures...)
+}
+
+func withoutBriefs(notices []TaskNotice) []TaskNotice {
+	kept := notices[:0]
+	for _, notice := range notices {
+		if notice.Brief == "" {
+			kept = append(kept, notice)
+		}
+	}
+	return kept
 }
 
 // ownNotices keeps notices for tasks this pass changed, so concurrent tool changes are not announced twice.

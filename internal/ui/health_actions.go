@@ -35,12 +35,7 @@ func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 		m.inbox.Reports = v
 		return true, nil
 	case channelResult:
-		m.channel.Loading = false
-		if v.Err != nil {
-			m.note = v.Err.Error()
-		} else {
-			m.channel.Records = v.Records
-		}
+		m.applyChannelResult(v)
 		return true, nil
 	case healthResult:
 		if v.Err != nil {

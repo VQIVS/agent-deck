@@ -22,6 +22,10 @@ type channelCredentials interface {
 	RevokeCredential(context.Context, string) error
 }
 
+type incrementalChannel interface {
+	ReadUserSince(context.Context, string, int) ([]channel.Record, error)
+}
+
 type channelUI struct {
 	Runtime                TeamChannel
 	Open, Editing, Loading bool
@@ -32,8 +36,25 @@ type channelUI struct {
 }
 
 type channelResult struct {
-	Records []channel.Record
-	Err     error
+	Records     []channel.Record
+	Err         error
+	Incremental bool
+}
+
+func (m *Model) applyChannelResult(v channelResult) {
+	m.channel.Loading = false
+	if v.Err != nil {
+		m.note = v.Err.Error()
+		return
+	}
+	if v.Incremental {
+		m.channel.Records = append(m.channel.Records, v.Records...)
+	} else {
+		m.channel.Records = v.Records
+	}
+	if len(m.channel.Records) > 1000 {
+		m.channel.Records = m.channel.Records[len(m.channel.Records)-1000:]
+	}
 }
 
 func (m *Model) EnableChannel(runtime TeamChannel) {
@@ -52,7 +73,15 @@ func (m *Model) readChannel() tea.Cmd {
 	}
 	m.channel.Loading = true
 	runtime := m.channel.Runtime
+	cursor := ""
+	if n := len(m.channel.Records); n > 0 {
+		cursor = m.channel.Records[n-1].ID
+	}
 	return func() tea.Msg {
+		if incremental, ok := runtime.(incrementalChannel); ok {
+			records, err := incremental.ReadUserSince(m.context(), cursor, 100)
+			return channelResult{Records: records, Err: err, Incremental: true}
+		}
 		records, err := runtime.ReadUser(m.context())
 		return channelResult{Records: records, Err: err}
 	}

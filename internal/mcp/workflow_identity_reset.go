@@ -25,7 +25,7 @@ func (r *Runtime) ResetWorkflow(ctx context.Context, name string) error {
 	if manager.ReadOnly || member.ControlDir == "" {
 		return fmt.Errorf("reset requires a writable workflow identity")
 	}
-	if err := validateWorkflowControl(r.workflowRoot(manager.Team.Name), member.ID, member.ControlDir); err != nil {
+	if err := r.validateControl(member.ID, member.ControlDir); err != nil {
 		return err
 	}
 	busy, err := runtimeBusy(ctx, manager, name)

@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -23,12 +24,39 @@ type WorkflowIdentity struct {
 	PreviousDir     string
 }
 
+// workflowRoot hashes the team name itself; it must not depend on the process working directory,
+// or a dashboard and the supervisor would disagree about every member's control path.
 func (r *Runtime) workflowRoot(teamName string) string {
+	return filepath.Join(r.stateRoot(), fmt.Sprintf("%x.controls", sha256.Sum256([]byte(teamName))))
+}
+
+func (r *Runtime) stateRoot() string {
 	root := r.options.StateDir
 	if resolved, err := filepath.EvalSymlinks(root); err == nil {
 		root = resolved
 	}
-	return runtimeStatePath(root, teamName, "controls")
+	return root
+}
+
+// controlRoot returns the control root of an existing control directory if it is a
+// "<sha256>.controls" folder directly inside this runtime's private state directory. Older
+// versions derived that hash from the process working directory, so any such root is accepted.
+func (r *Runtime) controlRoot(control string) (string, error) {
+	root := filepath.Dir(filepath.Dir(control))
+	name := filepath.Base(root)
+	hash, found := strings.CutSuffix(name, ".controls")
+	if _, err := hex.DecodeString(hash); err != nil || !found || len(hash) != 64 || filepath.Dir(root) != r.stateRoot() {
+		return "", fmt.Errorf("workflow control path does not match membership")
+	}
+	return root, nil
+}
+
+func (r *Runtime) validateControl(id, control string) error {
+	root, err := r.controlRoot(control)
+	if err != nil {
+		return err
+	}
+	return validateWorkflowControl(root, id, control)
 }
 
 func (r *Runtime) credentialDirectory(ctx context.Context, manager *team.Manager, member *team.Member) error {
@@ -38,7 +66,7 @@ func (r *Runtime) credentialDirectory(ctx context.Context, manager *team.Manager
 	if member.ID == "" || member.Session == "" || member.Muted {
 		return fmt.Errorf("workflow control directory does not match current membership")
 	}
-	return validateWorkflowControl(r.workflowRoot(manager.Team.Name), member.ID, member.ControlDir)
+	return r.validateControl(member.ID, member.ControlDir)
 }
 
 func PrepareWorkflowIdentity(ctx context.Context, root, memberID, repo string) (WorkflowIdentity, error) {
@@ -137,8 +165,7 @@ func (r *Runtime) removeEmptyWorkflowControl(credential *runtimeCredential) {
 	if credential.memberID == "" {
 		return
 	}
-	root := r.workflowRoot(credential.identity.Team)
-	if err := validateWorkflowControl(root, credential.memberID, credential.dir); err != nil {
+	if err := r.validateControl(credential.memberID, credential.dir); err != nil {
 		return
 	}
 	// Remove an empty owned config file only; never discard unrelated user settings.

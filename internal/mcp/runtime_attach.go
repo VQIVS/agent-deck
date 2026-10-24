@@ -187,14 +187,14 @@ func (c *RuntimeConnection) InstallCredential(ctx context.Context, member string
 	if c.owner != nil {
 		return c.owner.InstallCredential(ctx, member)
 	}
-	return fmt.Errorf("credential installation requires the local runtime owner")
+	return c.call(ctx, &userRequest{Action: "install", Member: member}, nil)
 }
 
 func (c *RuntimeConnection) RevokeCredential(ctx context.Context, member string) error {
 	if c.owner != nil {
 		return c.owner.RevokeCredential(ctx, member)
 	}
-	return fmt.Errorf("credential revocation requires the local runtime owner")
+	return c.call(ctx, &userRequest{Action: "revoke", Member: member}, nil)
 }
 
 func (c *RuntimeConnection) call(ctx context.Context, request *userRequest, result any) error {
@@ -263,6 +263,10 @@ func (r *Runtime) userAction(ctx context.Context, input *userRequest) (any, erro
 		return r.ReadUser(ctx)
 	case "read_since":
 		return r.ReadUserSince(ctx, input.Since, input.Limit)
+	case "install":
+		return nil, r.InstallCredential(ctx, input.Member)
+	case "revoke":
+		return nil, r.RevokeCredential(ctx, input.Member)
 	case "post":
 		return nil, r.PostUser(ctx, input.Text, input.Mentions)
 	default:

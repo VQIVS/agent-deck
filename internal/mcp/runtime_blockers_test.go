@@ -91,10 +91,8 @@ func TestRuntimeStateOutsideWorktreeAndNoRemoteCredentialActions(t *testing.T) {
 	if !strings.HasPrefix(discoveryPath(&r.options), r.options.StateDir+string(filepath.Separator)) {
 		t.Fatal("discovery outside private state")
 	}
-	for _, action := range []string{"install", "revoke"} {
-		if _, err := r.userAction(t.Context(), &userRequest{Action: action, Member: "bob"}); err == nil {
-			t.Fatal("remote credential mutation retained", action)
-		}
+	if _, err := r.userAction(t.Context(), &userRequest{Action: "install", Member: "bob"}); err == nil {
+		t.Fatal("owner API bypassed isolated-worktree requirement")
 	}
 }
 

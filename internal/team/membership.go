@@ -9,25 +9,17 @@ import (
 // EnsureMembershipIDs preserves saved membership IDs and generates UUIDs for new members.
 // Previous must be the last persisted private roster, never caller-supplied identity claims.
 func EnsureMembershipIDs(members, previous []Member) error {
-	old := make(map[string]string, len(previous))
 	ids := make(map[string]bool, len(previous))
 	for i := range previous {
-		old[previous[i].Name] = previous[i].ID
 		ids[previous[i].ID] = previous[i].ID != ""
 	}
 	seen := make(map[string]bool, len(members))
 	for i := range members {
 		member := &members[i]
-		id := old[member.Name]
-		if id != "" {
-			if member.ID != "" && member.ID != id {
-				return fmt.Errorf("membership ID for %q is immutable", member.Name)
-			}
-			member.ID = id
-		} else if member.ID == "" || !ids[member.ID] {
-			if member.ID != "" {
-				return fmt.Errorf("new member %q cannot supply its own membership ID", member.Name)
-			}
+		if member.ID != "" && !ids[member.ID] {
+			return fmt.Errorf("new member %q cannot supply its own membership ID", member.Name)
+		}
+		if member.ID == "" {
 			generated, err := membershipUUID()
 			if err != nil {
 				return err

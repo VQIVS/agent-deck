@@ -36,7 +36,7 @@ func (m *Model) startChannel() tea.Cmd {
 			SubmitReport: mcp.PersistRuntimeReport,
 			JournalPath:  filepath.Join(store.Root, team.Slug(name)+".channel.jsonl"),
 			Provider: func(ctx context.Context) (*team.Manager, error) {
-				t, revision, err := store.Load(ctx, name)
+				t, revision, err := store.LoadRuntimeTeam(ctx, name)
 				if err != nil {
 					return nil, fmt.Errorf("load channel team: %w", err)
 				}

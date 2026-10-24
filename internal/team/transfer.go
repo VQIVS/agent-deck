@@ -77,6 +77,7 @@ func Import(b []byte, opts ImportOptions) (Team, error) {
 	}
 	for i := range t.Members {
 		m := &t.Members[i]
+		m.ID = ""
 		if m.Capability != "" && m.Capability != "inherited" && len(m.Permissions) == 0 {
 			m.Permissions = Preset(m.Capability)
 		}

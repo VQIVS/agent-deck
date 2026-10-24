@@ -74,6 +74,10 @@ func changeRuntimeConfig(credential *runtimeCredential, endpoint string, remove 
 	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return fmt.Errorf("lock credential config: %w", err)
 	}
+	return mergeRuntimeConfig(credential, endpoint, remove, lockPath+".owner.json")
+}
+
+func mergeRuntimeConfig(credential *runtimeCredential, endpoint string, remove bool, ownerPath string) error {
 	config, original, err := loadRuntimeConfig(credential.config)
 	if err != nil {
 		return err
@@ -88,8 +92,12 @@ func changeRuntimeConfig(credential *runtimeCredential, endpoint string, remove 
 		}
 		delete(servers, credential.entry)
 	} else {
-		if raw, exists := servers[credential.entry]; exists && !ownedRuntimeEntry(raw, credential.token) {
+		if raw, exists := servers[credential.entry]; exists && !ownedRuntimeEntry(raw, credential.token) &&
+			!recoverableRuntimeEntry(raw, credential, ownerPath) {
 			return fmt.Errorf("MCP server entry already exists; refusing to overwrite user config")
+		}
+		if err := recordRuntimeConfigOwner(credential, endpoint, ownerPath); err != nil {
+			return err
 		}
 		entry, err := json.Marshal(map[string]any{
 			"type": "remote", "url": endpoint, "oauth": false,

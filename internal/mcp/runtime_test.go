@@ -40,7 +40,7 @@ func newRuntimeFixture(t *testing.T) *runtimeFixture {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if r.URL.Query().Get("directory") != dir {
+		if r.URL.Query().Get("directory") != f.manager.Team.Members[0].Dir {
 			t.Error("missing directory scope", r.URL)
 			http.Error(w, "directory missing", 400)
 			return

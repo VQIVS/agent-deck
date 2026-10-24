@@ -33,3 +33,24 @@ func TestMembershipIdentityLifetime(t *testing.T) {
 		t.Fatal("membership ID replaced")
 	}
 }
+
+func TestMembershipSameSaveReplacementAndLegacyMigration(t *testing.T) {
+	previous := []Member{{Name: "worker"}}
+	if err := EnsureMembershipIDs(previous, nil); err != nil {
+		t.Fatal(err)
+	}
+	replacement := []Member{{Name: "worker"}}
+	if err := EnsureMembershipIDs(replacement, previous); err != nil || replacement[0].ID == previous[0].ID {
+		t.Fatal("same-save replacement inherited removed identity", err)
+	}
+	legacy := []Member{{Name: "legacy"}}
+	migrated := []Member{{Name: "legacy", Session: "ses_existing"}}
+	if err := EnsureMembershipIDs(migrated, legacy); err != nil || migrated[0].ID == "" {
+		t.Fatal("legacy membership did not receive new identity", err)
+	}
+	duplicate := []Member{previous[0], previous[0]}
+	duplicate[1].Name = "renamed-copy"
+	if err := EnsureMembershipIDs(duplicate, previous); err == nil {
+		t.Fatal("duplicate existing membership ID accepted")
+	}
+}

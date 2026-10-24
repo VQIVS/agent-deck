@@ -192,14 +192,18 @@ atomically, preserving unrelated configuration. Tokens rotate/revoke on binding/
 changes and owner shutdown. This is local credential separation, not a filesystem sandbox.
 Roster changes broadcast through the guarded queue. Delivery is at-least-once across crashes.
 Persistent membership UUIDs survive session changes and distinguish removed/re-added members;
-existing teams must be explicitly saved once to migrate before starting their runtime.
+lease-pool teams missing IDs migrate atomically with history only when their runtime starts.
+Unrelated/non-pool team files are never rewritten by runtime migration. Imports discard IDs;
+remove/re-add creates a new identity even in one save.
 `muted: true` in private member configuration blocks posting/delivery/credentials.
 Hop inheritance covers the current wake only and resets on an accepted post; escalation
 to the master remains possible. Credential cleanup failures are visible and do not block
 other members' delivery. Runtime config locks live in private state, never in worktrees.
 
 The owner token permits privileged user-channel reads/posts and is stored under private
-state. Credential installation/revocation is local-owner-only, not an HTTP user action.
+state. Credential installation/revocation requires the private owner credential and UI
+confirmation; member tokens cannot invoke it. Attachments work with supervisor owners.
+Recorded loopback config ownership permits reinstall after an unclean owner exit.
 Worker read/bash rules deny access to agent-deck configuration/state paths cooperatively.
 All processes still share the same OS user: agents with other filesystem access can defeat
 these guards, so this is not a security boundary against hostile same-user code.

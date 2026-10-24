@@ -14,6 +14,7 @@ import (
 func superviseTeams(ctx context.Context) {
 	store := team.Store{Root: team.DefaultRoot()}
 	connections := map[string]*mcp.Runtime{}
+	failures := map[string]string{}
 	defer func() {
 		for _, connection := range connections {
 			_ = connection.Close()
@@ -22,7 +23,7 @@ func superviseTeams(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
-		startTeamRuntimes(ctx, store, connections)
+		startTeamRuntimes(ctx, store, connections, failures)
 		select {
 		case <-ctx.Done():
 			return
@@ -31,7 +32,9 @@ func superviseTeams(ctx context.Context) {
 	}
 }
 
-func startTeamRuntimes(ctx context.Context, store team.Store, connections map[string]*mcp.Runtime) {
+func startTeamRuntimes(ctx context.Context, store team.Store,
+	connections map[string]*mcp.Runtime, failures map[string]string,
+) {
 	teams, err := store.List(ctx)
 	if err != nil {
 		return
@@ -53,7 +56,7 @@ func startTeamRuntimes(ctx context.Context, store team.Store, connections map[st
 			JournalPath:  filepath.Join(store.Root, team.Slug(name)+".channel.jsonl"),
 			SubmitReport: mcp.PersistRuntimeReport,
 			Provider: func(ctx context.Context) (*team.Manager, error) {
-				t, revision, err := store.Load(ctx, name)
+				t, revision, err := store.LoadRuntimeTeam(ctx, name)
 				if err != nil {
 					return nil, fmt.Errorf("load supervised team: %w", err)
 				}
@@ -61,8 +64,12 @@ func startTeamRuntimes(ctx context.Context, store team.Store, connections map[st
 			},
 		})
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "team runtime:", name, err)
+			if failures[name] != err.Error() {
+				fmt.Fprintln(os.Stderr, "team runtime:", name, err)
+				failures[name] = err.Error()
+			}
 		} else {
+			delete(failures, name)
 			connections[name] = connection
 		}
 	}

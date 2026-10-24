@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 )
 
@@ -32,6 +33,10 @@ func (s ReportStore) Submit(ctx context.Context, t *Team, authenticatedMember st
 	if reported == nil || reported.Member != member.Name || reported.Session != member.Session {
 		return ReportRecord{}, fmt.Errorf("reported identity does not match authenticated worker binding")
 	}
+	if !slices.Equal(definition, t.DefinitionOfDone) {
+		return ReportRecord{}, fmt.Errorf("report definition does not match current trusted team policy")
+	}
+	definition = slices.Clone(t.DefinitionOfDone)
 	if err := reported.Validate(definition); err != nil {
 		return ReportRecord{}, err
 	}
@@ -156,6 +161,9 @@ func (s ReportStore) Load(ctx context.Context, t *Team, memberName string) (Repo
 	}
 	if err := record.validateStored(t.Name, memberName); err != nil {
 		return ReportRecord{}, err
+	}
+	if !record.CurrentBinding(t) || !slices.Equal(record.Definition, t.DefinitionOfDone) {
+		return ReportRecord{}, fmt.Errorf("stored report belongs to a stale binding or definition of done")
 	}
 	return record, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,9 +14,9 @@ import (
 
 // DoneCriterion defines one stable checklist identity and its completion requirement.
 type DoneCriterion struct {
-	ID       string `json:"id"`
-	Text     string `json:"text"`
-	Required bool   `json:"required"`
+	ID       string `json:"id" yaml:"id"`
+	Text     string `json:"text" yaml:"text"`
+	Required bool   `json:"required" yaml:"required"`
 }
 
 // DefinitionOfDone is the trusted checklist against which worker reports are checked.
@@ -44,9 +45,10 @@ type ReportItem struct {
 
 // ReportTest records a worker-reported command and pass, fail, or not_run outcome.
 type ReportTest struct {
-	Command string `json:"command"`
-	Outcome string `json:"outcome"`
-	Details string `json:"details,omitempty"`
+	CriterionID string `json:"criterion_id"`
+	Command     string `json:"command"`
+	Outcome     string `json:"outcome"`
+	Details     string `json:"details,omitempty"`
 }
 
 // DoneReport is the untrusted worker payload; identity is checked against authenticated membership.
@@ -115,6 +117,11 @@ func (r *DoneReport) validateItems(definition DefinitionOfDone) error {
 		}
 		delete(ids, item.ID)
 	}
+	for _, test := range r.Tests {
+		if !slices.ContainsFunc(definition, func(item DoneCriterion) bool { return item.ID == test.CriterionID }) {
+			return fmt.Errorf("reported test needs a known criterion_id %q", test.CriterionID)
+		}
+	}
 	return nil
 }
 
@@ -123,7 +130,7 @@ func (r *DoneReport) complete(definition DefinitionOfDone) bool {
 		return false
 	}
 	for _, test := range r.Tests {
-		if test.Outcome == "fail" {
+		if test.Outcome != "pass" {
 			return false
 		}
 	}
@@ -133,6 +140,11 @@ func (r *DoneReport) complete(definition DefinitionOfDone) bool {
 	}
 	for _, item := range r.Checklist {
 		if required[item.ID] && !item.Complete {
+			return false
+		}
+		if required[item.ID] && !slices.ContainsFunc(r.Tests, func(test ReportTest) bool {
+			return test.CriterionID == item.ID && test.Outcome == "pass"
+		}) {
 			return false
 		}
 	}

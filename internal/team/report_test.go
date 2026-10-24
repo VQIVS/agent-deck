@@ -17,10 +17,11 @@ func reportFixture() (Team, DefinitionOfDone, DoneReport) {
 		{Name: "worker", Role: "worker", Session: "ses_worker"},
 	}}
 	definition := DefinitionOfDone{{ID: "tests", Text: "Run package tests", Required: true}}
+	tm.DefinitionOfDone = definition
 	report := DoneReport{
 		Member: "worker", Session: "ses_worker", Summary: "Implemented reports",
 		Checklist: []ReportItem{{ID: "tests", Complete: true, Evidence: "go test ./internal/team/..."}},
-		Tests:     []ReportTest{{Command: "go test ./internal/team/...", Outcome: "pass"}},
+		Tests:     []ReportTest{{CriterionID: "tests", Command: "go test ./internal/team/...", Outcome: "pass"}},
 	}
 	return tm, definition, report
 }
@@ -180,9 +181,47 @@ func TestReportReplacementAndRetainedIdentity(t *testing.T) {
 	if loaded.CurrentBinding(&tm) {
 		t.Fatal("retained report applies to replacement session")
 	}
+	if _, err := store.Load(t.Context(), &tm, "worker"); err == nil {
+		t.Fatal("stale report loaded for replacement session")
+	}
 	files, err := filepath.Glob(filepath.Join(store.Root, "example", ".report-*"))
 	if err != nil || len(files) != 0 {
 		t.Fatal("temporary files leaked", files, err)
+	}
+}
+
+func TestReportTrustedDefinition(t *testing.T) {
+	tm, definition, report := reportFixture()
+	store := ReportStore{Root: filepath.Join(t.TempDir(), "reports")}
+	forged := DefinitionOfDone{{ID: "tests", Text: "Run package tests", Required: false}}
+	if _, err := store.Submit(t.Context(), &tm, "worker", forged, &report, nil); err == nil {
+		t.Fatal("caller weakened trusted definition")
+	}
+	if _, err := store.Submit(t.Context(), &tm, "worker", definition, &report, nil); err != nil {
+		t.Fatal(err)
+	}
+	tm.DefinitionOfDone = DefinitionOfDone{{ID: "tests", Text: "Run race tests", Required: true}}
+	if _, err := store.Load(t.Context(), &tm, "worker"); err == nil {
+		t.Fatal("stored report supplied its own obsolete definition")
+	}
+}
+
+func TestRequiredReportCriterionNeedsPassingTest(t *testing.T) {
+	_, definition, original := reportFixture()
+	for _, outcome := range []string{"not_run", "fail"} {
+		report := original
+		report.Tests = []ReportTest{{CriterionID: "tests", Command: "go test", Outcome: outcome}}
+		if report.complete(definition) {
+			t.Fatalf("required criterion marked done with %s", outcome)
+		}
+	}
+	original.Tests = nil
+	if original.complete(definition) {
+		t.Fatal("required criterion marked done without passing evidence")
+	}
+	original.Tests = []ReportTest{{CriterionID: "another", Command: "go test", Outcome: "pass"}}
+	if original.complete(definition) {
+		t.Fatal("passing unrelated test satisfied required criterion")
 	}
 }
 

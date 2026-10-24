@@ -3,6 +3,16 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.7] - 2026-10-24
+
+### Fixed
+
+- The master is notified when the user creates, edits, assigns or moves a task.
+- Release workers can publish releases from temporary release worktrees.
+- Agent-deck control-command permission rules no longer block repository or temporary worktree paths.
+- Release workers can edit `CHANGELOG.md` inside temporary release worktrees.
+- Release changelog edit permissions stay root-independent in OpenCode control sessions.
+
 ## [0.2.6] - 2026-10-24
 
 ### Added

@@ -246,8 +246,14 @@ func TestPoolSessionsCannotInvokePrivilegedCLI(t *testing.T) {
 		}
 		for _, command := range []string{
 			"agent-deck team approve --id pool:x", "/usr/local/bin/agent-deck team board --file x", "true && agent-deck up",
+			"(agent-deck task move --id T-1 --state done)",
 		} {
 			assertLeaseAction(t, rules, "bash", command, "deny")
+		}
+		for _, command := range []string{
+			"cd /Users/x/Developer/agent-deck && make check", "go test /Users/x/agent-deck/internal/team/...",
+		} {
+			assertLeaseAction(t, rules, "bash", command, "allow")
 		}
 	}
 }
@@ -326,6 +332,7 @@ func TestReleaseWorkerGitRules(t *testing.T) {
 		"git tag -a v0.2.6 -m 'add-docs'", "git push origin main", "git push origin refs/tags/v0.2.6",
 		"git commit CHANGELOG.md -m 'chore: prepare changelog'", "git fetch . feat/workflow:main",
 		"git push origin feat/x-fix", "git worktree add /tmp/rel v0.2.6", "goreleaser release --clean",
+		"git worktree add --detach /tmp/agent-deck-release-abc v0.2.7",
 	} {
 		assertLeaseAction(t, rules, "bash", allowed, "allow")
 	}

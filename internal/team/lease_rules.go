@@ -29,9 +29,7 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		{Permission: "*", Pattern: "*", Action: "ask"},
 		{Permission: "agent_deck_*", Pattern: "*", Action: "allow"},
 	}, baseLeaseRules(member)...)
-	for _, pattern := range []string{"agent-deck*", "*/agent-deck*", "* agent-deck*"} {
-		rules = append(rules, api.Rule{Permission: "bash", Pattern: pattern, Action: "deny"})
-	}
+	rules = append(rules, selfInvocationRules()...)
 	if member.Role == "worker" {
 		rules = append(rules, api.Rule{Permission: "edit", Pattern: "*", Action: "deny"})
 		action := member.Permissions["edit"]
@@ -164,6 +162,21 @@ func releaseWorkspaceRules() []api.Rule {
 	rules := make([]api.Rule, 0, len(roots))
 	for _, root := range roots {
 		rules = append(rules, api.Rule{Permission: "external_directory", Pattern: root + "*", Action: "allow"})
+	}
+	return rules
+}
+
+// selfInvocationRules deny running agent-deck's control commands from a pool session. They match
+// the command word followed by a control subcommand, not any path that merely contains
+// "agent-deck" (the repository itself is usually named that).
+func selfInvocationRules() []api.Rule {
+	subcommands := []string{"team", "task", "up", "down", "supervise"}
+	prefixes := []string{"agent-deck ", "*/agent-deck ", "* agent-deck ", "*;agent-deck ", "*(agent-deck "}
+	rules := make([]api.Rule, 0, len(subcommands)*len(prefixes))
+	for _, sub := range subcommands {
+		for _, prefix := range prefixes {
+			rules = append(rules, api.Rule{Permission: "bash", Pattern: prefix + sub + "*", Action: "deny"})
+		}
 	}
 	return rules
 }

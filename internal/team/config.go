@@ -90,6 +90,9 @@ func Preset(name string) map[string]string {
 		p["external_directory"] = "deny"
 	case "coder":
 		p["edit"] = "allow"
+	case "release":
+		p["edit"] = "allow"
+		p["bash"] = "allow"
 	case "full":
 		for k := range p {
 			p[k] = "allow"
@@ -152,7 +155,7 @@ func (m *Member) validate() error {
 		return err
 	}
 	switch m.Capability {
-	case "", "inherited", "reviewer", "coder", "full":
+	case "", "inherited", "reviewer", "coder", "release", "full":
 	default:
 		return fmt.Errorf("unknown capability preset %q", m.Capability)
 	}

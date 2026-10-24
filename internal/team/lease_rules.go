@@ -29,9 +29,8 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 		{Permission: "*", Pattern: "*", Action: "ask"},
 		{Permission: "agent_deck_*", Pattern: "*", Action: "allow"},
 	}, baseLeaseRules(member)...)
-	for _, pattern := range []string{"agent-deck*", "*/agent-deck*", "* agent-deck*"} {
-		rules = append(rules, api.Rule{Permission: "bash", Pattern: pattern, Action: "deny"})
-	}
+	rules = append(rules, toolOutputRules()...)
+	rules = append(rules, selfInvocationRules()...)
 	if member.Role == "worker" {
 		rules = append(rules, api.Rule{Permission: "edit", Pattern: "*", Action: "deny"})
 		action := member.Permissions["edit"]
@@ -39,7 +38,12 @@ func LeaseRules(repo string, members []Member, member *Member) ([]api.Rule, erro
 			action = "ask"
 		}
 		rules = appendEditLeases(rules, member.Leases, action)
-		rules = append(rules, workerGitRules()...)
+		if member.Capability == "release" {
+			rules = append(rules, gitDenyRules(releaseDeniedGit)...)
+			rules = append(rules, releaseWorkspaceRules()...)
+		} else {
+			rules = append(rules, workerGitRules()...)
+		}
 	} else {
 		action := member.Permissions["edit"]
 		if action == "" {
@@ -125,10 +129,20 @@ func appendEditLeases(rules []api.Rule, leases []string, action string) []api.Ru
 	return rules
 }
 
+// releaseDeniedGit keeps a release worker away from history rewrites and from anything that
+// switches or discards the shared checkout others are editing; tagging, committing its own files,
+// fast-forward pushes and temporary worktrees stay allowed.
+var releaseDeniedGit = append(strings.Fields("reset checkout switch stash rebase restore clean rm mv am apply "+
+	"cherry-pick revert symbolic-ref init clone config gc"),
+	"push* --force", "push* -f", "push* +", "branch* -D", "branch* -d", "branch* --delete", "tag* -d", "tag* --delete")
+
 func workerGitRules() []api.Rule {
-	commands := strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
-		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc")
-	rules := make([]api.Rule, 0, len(commands)*5)
+	return gitDenyRules(strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
+		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc"))
+}
+
+func gitDenyRules(commands []string) []api.Rule {
+	rules := make([]api.Rule, 0, len(commands)*8)
 	for _, command := range commands {
 		for _, prefix := range []string{
 			"git ", "* git ", "*/git ", "git -C * ", "git -c * ",
@@ -138,4 +152,46 @@ func workerGitRules() []api.Rule {
 		}
 	}
 	return rules
+}
+
+// ReleaseWorkspace is the prefix for a release worker's temporary worktrees; /private/tmp is the
+// resolved form of /tmp on macOS.
+const ReleaseWorkspace = "/tmp/agent-deck-release-"
+
+func releaseWorkspaceRules() []api.Rule {
+	roots := []string{ReleaseWorkspace, "/private" + ReleaseWorkspace}
+	rules := make([]api.Rule, 0, len(roots)+1)
+	for _, root := range roots {
+		rules = append(rules, api.Rule{Permission: "external_directory", Pattern: root + "*", Action: "allow"})
+	}
+	// Edit patterns are relative to the session root, so match the changelog inside any release worktree.
+	return append(rules, api.Rule{Permission: "edit", Pattern: api.ReleaseChangelogEdit, Action: "allow"})
+}
+
+// selfInvocationRules deny running agent-deck's control commands from a pool session. They match
+// the command word followed by a control subcommand, not any path that merely contains
+// "agent-deck" (the repository itself is usually named that).
+func selfInvocationRules() []api.Rule {
+	subcommands := []string{"team", "task", "up", "down", "supervise"}
+	prefixes := []string{"agent-deck ", "*/agent-deck ", "* agent-deck ", "*;agent-deck ", "*(agent-deck "}
+	rules := make([]api.Rule, 0, len(subcommands)*len(prefixes))
+	for _, sub := range subcommands {
+		for _, prefix := range prefixes {
+			rules = append(rules, api.Rule{Permission: "bash", Pattern: prefix + sub + "*", Action: "deny"})
+		}
+	}
+	return rules
+}
+
+// toolOutputRules let members read back large tool results that OpenCode saves outside the repo.
+func toolOutputRules() []api.Rule {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	dir := filepath.Join(home, ".local", "share", "opencode", "tool-output")
+	return []api.Rule{
+		{Permission: "external_directory", Pattern: dir, Action: "allow"},
+		{Permission: "external_directory", Pattern: dir + "/*", Action: "allow"},
+	}
 }

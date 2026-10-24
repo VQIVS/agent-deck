@@ -8,7 +8,7 @@ import (
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
-func TestWorkflowRenameAndRemovedControlCleanup(t *testing.T) {
+func TestWorkflowRenameKeepsControlAndRemovalCleansIt(t *testing.T) {
 	r := &Runtime{
 		options: RuntimeOptions{StateDir: t.TempDir()}, Tokens: NewTokens(),
 		credentials: make(map[string]runtimeCredential),
@@ -42,8 +42,20 @@ func TestWorkflowRenameAndRemovedControlCleanup(t *testing.T) {
 	if _, valid := r.Tokens.Authenticate(token); valid {
 		t.Fatal("renamed old identity token retained")
 	}
+	if _, err := os.Stat(identity.ControlDir); err != nil {
+		t.Fatal("rename deleted the control directory the session still uses", err)
+	}
+	token, _ = r.Tokens.Issue(Identity{Team: "test", Member: "new-name"}, true)
+	c.identity, c.token = Identity{Team: "test", Member: "new-name"}, token
+	if err := installRuntimeConfig(&c, "http://127.0.0.1:1234/mcp"); err != nil {
+		t.Fatal(err)
+	}
+	r.credentials["new-name"] = c
+	if err := r.revokeChanged(&team.Manager{Team: team.Team{Name: "test"}}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := os.Stat(identity.ControlDir); !os.IsNotExist(err) {
-		t.Fatal("empty validated control not removed", err)
+		t.Fatal("removed member's empty control not removed", err)
 	}
 	if _, err := os.Stat(filepath.Dir(identity.ControlDir)); !os.IsNotExist(err) {
 		t.Fatal("empty random parent retained", err)

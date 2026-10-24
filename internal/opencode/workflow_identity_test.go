@@ -60,3 +60,16 @@ func TestControlSessionMasterRestrictedToCheckout(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestControlRulesKeepReleaseChangelogPattern(t *testing.T) {
+	rules, err := ControlSessionRules("/repo", []Rule{
+		{Permission: "edit", Pattern: ReleaseChangelogEdit, Action: "allow"},
+		{Permission: "edit", Pattern: "*.go", Action: "allow"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rules[0].Pattern != ReleaseChangelogEdit || rules[1].Pattern != "repo/*.go" {
+		t.Fatalf("rules=%+v", rules)
+	}
+}

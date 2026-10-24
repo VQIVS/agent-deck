@@ -47,7 +47,7 @@ func poolIdentityFixture(t *testing.T) (*Runtime, *team.Manager) {
 
 func TestPoolIdentityCreateRegistrationRetryAndRestart(t *testing.T) {
 	r, manager := poolIdentityFixture(t)
-	creates, registrations := 0, 0
+	creates, registrations, disconnects := 0, 0, 0
 	failRegistration := true
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		directory := req.URL.Query().Get("directory")
@@ -60,8 +60,14 @@ func TestPoolIdentityCreateRegistrationRetryAndRestart(t *testing.T) {
 		case req.Method == http.MethodPost && req.URL.Path == "/session":
 			creates++
 			fmt.Fprint(w, `{"id":"private-session"}`)
+		case req.Method == http.MethodPost && req.URL.Path == "/mcp/agent_deck_runtime-test/disconnect":
+			disconnects++
+			fmt.Fprint(w, `{}`)
 		case req.Method == http.MethodPost && req.URL.Path == "/mcp":
 			registrations++
+			if disconnects != registrations {
+				t.Error("registration must follow one disconnect per attempt", disconnects, registrations)
+			}
 			if failRegistration {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
@@ -90,7 +96,7 @@ func TestPoolIdentityCreateRegistrationRetryAndRestart(t *testing.T) {
 	}
 	member := manager.Team.Members[0]
 	_, credential, ok := r.findCredential(member.ID, member.Name)
-	if !ok || member.Session != "private-session" || creates != 1 || registrations != 2 {
+	if !ok || member.Session != "private-session" || creates != 1 || registrations != 2 || disconnects != 2 {
 		t.Fatal("setup/retry duplicated binding", creates, registrations)
 	}
 	if identity, ok := r.Tokens.Authenticate(credential.token); !ok || identity.Member != member.Name {
@@ -118,7 +124,7 @@ func TestPoolIdentityCreateRegistrationRetryAndRestart(t *testing.T) {
 	if creates != 1 || len(r.credentials) != 1 {
 		t.Fatal("restart created duplicate identity")
 	}
-	if err := r.SetupPoolWorker(t.Context(), manager, 0); err != nil || registrations != 3 {
+	if err := r.SetupPoolWorker(t.Context(), manager, 0); err != nil || registrations != 3 || disconnects != 3 {
 		t.Fatal("successful live registration was unnecessarily repeated", err, registrations)
 	}
 	_, old, _ := r.findCredential(member.ID, member.Name)
@@ -177,6 +183,7 @@ func TestPoolIdentityRecoversSessionBeforeBindingSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager.Team.Members[0].ControlDir = identity.ControlDir
+	disconnected := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodGet && req.URL.Path == "/session" {
 			json.NewEncoder(w).Encode([]map[string]string{{
@@ -185,7 +192,15 @@ func TestPoolIdentityRecoversSessionBeforeBindingSave(t *testing.T) {
 			}})
 			return
 		}
+		if req.Method == http.MethodPost && req.URL.Path == "/mcp/agent_deck_runtime-test/disconnect" {
+			disconnected = true
+			fmt.Fprint(w, `{}`)
+			return
+		}
 		if req.Method == http.MethodPost && req.URL.Path == "/mcp" {
+			if !disconnected {
+				t.Error("recovered registration did not disconnect stale MCP")
+			}
 			fmt.Fprint(w, `{}`)
 			return
 		}
@@ -209,14 +224,20 @@ func TestPoolIdentityLifecycleRegistersBeforeBrief(t *testing.T) {
 	r, manager := poolIdentityFixture(t)
 	worker := manager.Team.Members[0]
 	manager.Team.Members = manager.Team.Members[1:]
-	registered, prompted := false, false
+	disconnected, registered, prompted := false, false, false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		switch {
 		case req.Method == http.MethodGet && req.URL.Path == "/session":
 			fmt.Fprint(w, `[]`)
 		case req.Method == http.MethodPost && req.URL.Path == "/session":
 			fmt.Fprint(w, `{"id":"new-private"}`)
+		case req.Method == http.MethodPost && req.URL.Path == "/mcp/agent_deck_runtime-test/disconnect":
+			disconnected = true
+			fmt.Fprint(w, `{}`)
 		case req.Method == http.MethodPost && req.URL.Path == "/mcp":
+			if !disconnected {
+				t.Error("lifecycle registration did not disconnect stale MCP")
+			}
 			registered = true
 			fmt.Fprint(w, `{}`)
 		case req.Method == http.MethodPost && req.URL.Path == "/session/new-private/prompt_async":

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -246,8 +247,14 @@ func TestPoolSessionsCannotInvokePrivilegedCLI(t *testing.T) {
 		}
 		for _, command := range []string{
 			"agent-deck team approve --id pool:x", "/usr/local/bin/agent-deck team board --file x", "true && agent-deck up",
+			"(agent-deck task move --id T-1 --state done)",
 		} {
 			assertLeaseAction(t, rules, "bash", command, "deny")
+		}
+		for _, command := range []string{
+			"cd /Users/x/Developer/agent-deck && make check", "go test /Users/x/agent-deck/internal/team/...",
+		} {
+			assertLeaseAction(t, rules, "bash", command, "allow")
 		}
 	}
 }
@@ -311,4 +318,50 @@ func TestLeaseRulesSearchFollowsRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertLeaseAction(t, rules, "grep", "*", "ask")
+}
+
+func TestReleaseWorkerGitRules(t *testing.T) {
+	release := Member{
+		Name: "rm", Role: "worker", Capability: "release", Permissions: Preset("release"),
+		Leases: []string{"CHANGELOG.md"},
+	}
+	rules, err := LeaseRules("/repo", []Member{release}, &release)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, allowed := range []string{
+		"git tag -a v0.2.6 -m 'add-docs'", "git push origin main", "git push origin refs/tags/v0.2.6",
+		"git commit CHANGELOG.md -m 'chore: prepare changelog'", "git fetch . feat/workflow:main",
+		"git push origin feat/x-fix", "git worktree add /tmp/rel v0.2.6", "goreleaser release --clean",
+		"git worktree add --detach /tmp/agent-deck-release-abc v0.2.7",
+	} {
+		assertLeaseAction(t, rules, "bash", allowed, "allow")
+	}
+	for _, denied := range []string{
+		"git push --force origin main", "git push origin main -f", "git push origin +main", "git reset --hard",
+		"git checkout main", "git tag -d v0.2.5", "git branch -D feat/x", "git clean -fdx", "git stash",
+	} {
+		assertLeaseAction(t, rules, "bash", denied, "deny")
+	}
+	assertLeaseAction(t, rules, "edit", "CHANGELOG.md", "allow")
+	assertLeaseAction(t, rules, "edit", "internal/ui/x.go", "deny")
+	assertLeaseAction(t, rules, "external_directory", "/private/tmp/agent-deck-release-abc/*", "allow")
+	assertLeaseAction(t, rules, "external_directory", "/Users/x/other/*", "ask")
+	assertLeaseAction(t, rules, "edit", "../../private/tmp/agent-deck-release-abc/CHANGELOG.md", "allow")
+	assertLeaseAction(t, rules, "edit", "../../private/tmp/agent-deck-release-abc/internal/x.go", "deny")
+	if prompt := LeasePrompt([]Member{release}); !strings.Contains(prompt, "release worker rm") ||
+		!strings.Contains(prompt, "Release workers are the exception") {
+		t.Fatalf("release prompt: %s", prompt)
+	}
+}
+
+func TestLeaseRulesAllowToolOutput(t *testing.T) {
+	worker := Member{Name: "w", Role: "worker", Permissions: Preset("coder")}
+	rules, err := LeaseRules("/repo", []Member{worker}, &worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	output := filepath.Join(home, ".local", "share", "opencode", "tool-output")
+	assertLeaseAction(t, rules, "external_directory", output+"/*", "allow")
 }

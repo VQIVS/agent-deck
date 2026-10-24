@@ -62,7 +62,7 @@ func (m *Model) memberForm() {
 		{Label: "System prompt", Value: member.System},
 		{Label: "System prompt file", Value: member.SystemFile},
 		{Label: "Branch template", Value: member.BranchTemplate},
-		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "full"}},
+		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "release", "full"}},
 		{Label: "Leases (one repository-relative glob per line)", Value: strings.Join(member.Leases, "\n")},
 		{Label: "Role template", Choices: m.roleTemplateNames()},
 	}

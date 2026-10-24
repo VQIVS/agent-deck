@@ -3,6 +3,31 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.8] - 2026-10-24
+
+### Fixed
+
+- Team members can read back large tool output saved by OpenCode outside the repository.
+- Renaming or rebinding a member preserves its control directory, and refreshed credentials
+  reconnect stale tool connections with the new token.
+
+## [0.2.7] - 2026-10-24
+
+### Fixed
+
+- The master is notified when the user creates, edits, assigns or moves a task.
+- Release workers can publish releases from temporary release worktrees.
+- Agent-deck control-command permission rules no longer block repository or temporary worktree paths.
+- Release workers can edit `CHANGELOG.md` inside temporary release worktrees.
+- Release changelog edit permissions stay root-independent in OpenCode control sessions.
+
+## [0.2.6] - 2026-10-24
+
+### Added
+
+- `release` permission preset for a release worker: commits its leased files, tags, fast-forwards,
+  pushes and runs goreleaser, but cannot rewrite history or disturb the shared checkout.
+
 ## [0.2.4] - 2026-10-24
 
 ### Fixed

@@ -295,3 +295,30 @@ func TestPlannedTasksDefaultToParallel(t *testing.T) {
 		t.Fatalf("edit to serial failed: %v", err)
 	}
 }
+
+func TestUserBoardChangesNotifyMaster(t *testing.T) {
+	ctx := context.Background()
+	team := workflowTeam()
+	store := BoardStore{Root: t.TempDir(), Team: team.Name}
+	user := TaskActor{User: true}
+	_, notices, err := ChangeTasks(ctx, store, team, user, time.Now(), func(b *TaskBoard, m TaskMutation) error {
+		_, err := b.PlanTask(&TaskSpec{Title: "Channel polish", Criteria: []string{"a"}, Paths: []string{"ui/*"}}, m)
+		return err
+	})
+	if err != nil || !noticeFor(notices, "lead", "The user created task T-1") {
+		t.Fatalf("create notices=%+v err=%v", notices, err)
+	}
+	_, notices, err = ChangeTasks(ctx, store, team, user, time.Now(), func(b *TaskBoard, m TaskMutation) error {
+		return b.EditTask(&TaskSpec{ID: "T-1", Priority: "high"}, m)
+	})
+	if err != nil || !noticeFor(notices, "lead", "The user changed task T-1") {
+		t.Fatalf("edit notices=%+v err=%v", notices, err)
+	}
+	lead, _ := team.ResolveTaskActor("lead")
+	_, notices, err = ChangeTasks(ctx, store, team, lead, time.Now(), func(b *TaskBoard, m TaskMutation) error {
+		return b.EditTask(&TaskSpec{ID: "T-1", Priority: "low"}, m)
+	})
+	if err != nil || len(notices) != 0 {
+		t.Fatalf("master's own edit notified: %+v err=%v", notices, err)
+	}
+}

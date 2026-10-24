@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -151,8 +152,9 @@ func TestKanbanBoardCreateFormPersistsAndNotifiesOnStart(t *testing.T) {
 		}
 		m.board.State = state
 	}
-	if len(notifier.Notices) == 0 || notifier.Notices[0].To != "Worker" ||
-		!strings.Contains(notifier.Notices[0].Text, "Create from board") {
+	if !slices.ContainsFunc(notifier.Notices, func(n team.TaskNotice) bool {
+		return n.To == "Worker" && strings.Contains(n.Text, "Create from board")
+	}) {
 		t.Fatalf("runtime did not receive task brief: %+v", notifier.Notices)
 	}
 }

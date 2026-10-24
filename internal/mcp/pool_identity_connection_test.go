@@ -12,6 +12,7 @@ import (
 
 func TestPoolIdentityAttachmentRefreshesBindingsAndChecksRevision(t *testing.T) {
 	r, manager := poolIdentityFixture(t)
+	disconnected := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		switch req.URL.Path {
 		case "/session":
@@ -20,7 +21,16 @@ func TestPoolIdentityAttachmentRefreshesBindingsAndChecksRevision(t *testing.T) 
 			} else {
 				fmt.Fprint(w, `{"id":"attached-session"}`)
 			}
+		case "/mcp/agent_deck_runtime-test/disconnect":
+			if req.Method != http.MethodPost {
+				t.Error("disconnect must use POST", req.Method)
+			}
+			disconnected = true
+			fmt.Fprint(w, `{}`)
 		case "/mcp":
+			if !disconnected {
+				t.Error("attachment registration did not disconnect stale MCP")
+			}
 			fmt.Fprint(w, `{}`)
 		default:
 			t.Error("unexpected", req.URL)

@@ -3,6 +3,28 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-24
+
+### Added
+
+- Tabbed workspace for Dashboard, Git, Summary, Channel, Board and Inbox, with keyboard,
+  mouse and command-palette navigation.
+- Git changes view with changed-file lists, diffs and Vim access.
+- Team history summary and a clearer, easier-to-reach channel with improved message rendering.
+- Automatic private workflow identities for pool workers, with authenticated board access.
+- Self-healing pool reconciliation for worker replacement, compaction and offline task recovery.
+- Durable assignment-brief delivery with retries after interrupted or failed delivery.
+- Task estimate-accuracy history and planning context for the master.
+- Isolated real-runtime PTY pool verification covering autoscaling, brief retries, offline
+  recovery, accepted task completion and scale-down.
+
+### Fixed
+
+- Confirmed-missing worker sessions recover with a fresh control identity and session.
+- Workflow notices preserve both user-change notifications and durable assignment delivery.
+- Pool identity tests follow the refreshed MCP connection lifecycle.
+- UI smoke tests target the worker button below the workspace tabs while preserving real mouse coverage.
+
 ## [0.2.8] - 2026-10-24
 
 ### Fixed

@@ -11,7 +11,21 @@ import (
 )
 
 func renderKanbanDetail(task *team.Task, screen *KanbanScreen, opts *KanbanOptions) (string, []KanbanTarget) {
+	return renderKanbanDetailRequirements(task, screen, opts,
+		TaskDefinitionDetail(opts.Definitions[task.ID], max(1, min(110, opts.Width-4))))
+}
+
+func renderKanbanDetailRequirements(task *team.Task, screen *KanbanScreen,
+	opts *KanbanOptions, requirements string,
+) (string, []KanbanTarget) {
 	lines := kanbanDetailLines(task)
+	if requirements != "" {
+		lines = append(lines, "", requirements)
+	}
+	if opts.GitFacts != nil {
+		target := opts.GitTargets[task.ID]
+		lines = append(lines, CurrentTaskGitLines(opts.GitFacts[task.ID], &target)...)
+	}
 	width := max(1, min(110, opts.Width-4))
 	wrapped := strings.Split(ansi.Hardwrap(strings.Join(lines, "\n"), width, true), "\n")
 	height := max(0, opts.Height-6)

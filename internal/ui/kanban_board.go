@@ -17,9 +17,15 @@ func (m *Model) kanbanBoardView() string {
 	if form := m.board.Form; form != nil && form.Open {
 		return m.kanbanFormView(form)
 	}
-	view, targets := RenderKanban(m.board.State.Board.Tasks, &m.board.Kanban, &KanbanOptions{
+	current := &team.Team{}
+	if m.teams != nil && m.teams.Manager != nil {
+		current = &m.teams.Manager.Team
+	}
+	view, targets := RenderKanbanReview(m.board.State.Board.Tasks, &m.board.Kanban, &KanbanOptions{
 		Width: m.w, Height: max(1, m.h-1), Now: time.Now(), Theme: m.theme, ReadOnly: m.opts.ReadOnly,
-	})
+		GitFacts:   m.board.Git,
+		GitTargets: m.taskEvidenceTargets(current),
+	}, current)
 	m.board.Targets = targets
 	m.zones = nil
 	for i := range targets {
@@ -45,6 +51,9 @@ func (m *Model) kanbanBoardKey(v tea.KeyMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if m.board.Kanban.searching || m.board.Kanban.Move {
+		return m.kanbanIntent(KanbanKey(m.board.State.Board.Tasks, &m.board.Kanban, v, m.opts.ReadOnly))
+	}
 	if v.String() == "p" {
 		m.board.Approvals = true
 		return nil
@@ -57,6 +66,9 @@ func (m *Model) kanbanBoardKey(v tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 	intent := KanbanKey(m.board.State.Board.Tasks, &m.board.Kanban, v, m.opts.ReadOnly)
+	if v.String() == "enter" && m.board.Kanban.Detail {
+		return m.readTaskGit()
+	}
 	return m.kanbanIntent(intent)
 }
 
@@ -115,6 +127,8 @@ func (m *Model) saveKanbanEdit(edit *KanbanEdit) tea.Cmd {
 	}
 	m.board.Saving = true
 	t := m.teams.Manager.Team
+	t.Members = append([]team.Member(nil), t.Members...)
+	readOnly := m.opts.ReadOnly
 	root, err := server.StateRoot()
 	if err != nil {
 		m.note = err.Error()
@@ -125,7 +139,8 @@ func (m *Model) saveKanbanEdit(edit *KanbanEdit) tea.Cmd {
 	ctx := m.context()
 	return func() tea.Msg {
 		executor := KanbanExecutor{
-			Store: team.BoardStore{Root: filepath.Join(root, "boards"), Team: t.Name}, Team: &t,
+			Store: team.BoardStore{Root: filepath.Join(root, "boards"), Team: t.Name, ReadOnly: readOnly},
+			Team:  &t, ReadOnly: readOnly,
 			Notify: func(ctx context.Context, notices []team.TaskNotice) error {
 				if len(notices) == 0 {
 					return nil
@@ -163,7 +178,9 @@ func (m *Model) applyKanbanResult(result *kanbanResult) tea.Cmd {
 		return nil
 	}
 	m.board.Form = nil
-	m.board.State.Board = result.Saved.Board
+	if result.Saved.State.Revision >= m.board.State.Revision {
+		m.board.State = result.Saved.State
+	}
 	m.board.Kanban.Selected = result.Saved.TaskID
 	m.note = "Task saved"
 	if result.Saved.NotifyErr != nil {
@@ -183,5 +200,8 @@ func (m *Model) kanbanBoardClick(z zone, ok bool) tea.Cmd {
 	}
 	intent := KanbanClickAt(m.board.State.Board.Tasks, &m.board.Kanban,
 		&m.board.Targets[index], m.opts.ReadOnly, time.Now())
+	if m.board.Kanban.Detail && intent == nil {
+		return m.readTaskGit()
+	}
 	return m.kanbanIntent(intent)
 }

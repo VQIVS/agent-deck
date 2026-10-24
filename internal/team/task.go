@@ -193,13 +193,7 @@ func taskCompletionValid(task *Task) bool {
 	if acceptedTaskReview(task) {
 		return true
 	}
-	record := task.Completion
-	if !validTaskReportIdentity(task, record) {
-		return false
-	}
-	definition := taskDefinition(task)
-	return slices.Equal(record.Definition, definition) && record.Reported.Validate(definition) == nil &&
-		record.Reported.complete(definition)
+	return ValidateTaskCompletionDefinition(task, task.Completion) == nil
 }
 
 func acceptedTaskReview(task *Task) bool {

@@ -79,7 +79,11 @@ func (s ReportStore) LoadTask(ctx context.Context, t *Team, board *TaskBoard,
 		return ReportRecord{}, fmt.Errorf("task report assignee mismatch")
 	}
 	policy := *t
-	policy.DefinitionOfDone = taskDefinition(task)
+	definition, err := TaskReviewDefinition(t, task)
+	if err != nil {
+		return ReportRecord{}, err
+	}
+	policy.DefinitionOfDone = definition
 	record, err := s.Load(ctx, &policy, memberName)
 	if err != nil {
 		return record, err

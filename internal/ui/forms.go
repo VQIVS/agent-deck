@@ -20,6 +20,10 @@ func (m *Model) teamForm() {
 	u := m.teams
 	u.Draft = u.Draft.PrivateCopy()
 	t := &u.Draft
+	definition, err := FormatTeamDoD(t.DefinitionOfDone)
+	if err != nil {
+		m.note = err.Error()
+	}
 	u.Fields = []formField{
 		{Label: "Team name", Value: t.Name},
 		{Label: "Server URL", Value: t.Server},
@@ -29,6 +33,7 @@ func (m *Model) teamForm() {
 		{Label: "Maximum parallel workers", Value: strconv.Itoa(t.Capacity)},
 		{Label: "Team rules", Value: t.Rules},
 		{Label: "Roster template", Value: t.RosterTemplate},
+		{Label: "Definition of done (YAML criteria)", Value: definition},
 	}
 	u.Field = 0
 	u.Screen = "team-form"
@@ -87,6 +92,10 @@ func (m *Model) saveForm() tea.Cmd {
 		return nil
 	}
 	if u.Screen == "team-form" {
+		if err := ApplyTeamDoDForm(&u.Draft, values["Definition of done (YAML criteria)"], m.opts.ReadOnly); err != nil {
+			m.note = err.Error()
+			return nil
+		}
 		m.applyTeamValues(values)
 	} else if !m.applyMemberValues(values) {
 		return nil

@@ -146,7 +146,10 @@ func TaskReportDefinition(t *Team, board *TaskBoard, memberName string, report *
 		report.Member != memberName || report.Session != member.Session {
 		return nil, fmt.Errorf("report requires current active task assignee and session")
 	}
-	definition := taskDefinition(task)
+	definition, err := TaskReviewDefinition(t, task)
+	if err != nil {
+		return nil, err
+	}
 	if err := report.Validate(definition); err != nil {
 		return nil, err
 	}

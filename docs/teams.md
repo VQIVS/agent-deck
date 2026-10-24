@@ -24,6 +24,33 @@ The workflow model is the foundation; task MCP/CLI and Kanban integration follow
 
 ## Kanban task manager (v0.2)
 
+### Review evidence and team definition of done
+
+Team settings include **Definition of done (YAML criteria)**, a strict list of `id`, `text`
+and `required` entries. Detail views show the merged task/team requirements separately
+from claimed checklist progress. Conflicting criterion IDs/text are rejected. Task reports
+must match the merged definition and current task/member/session binding. A reviewer or
+privileged user may explicitly accept or request changes with a comment; acceptance is a
+manual review decision, not an independently observed passing test result. Changes return
+the task to in-progress and notify the assignee through the common workflow notice path.
+
+Opening detail collects read-only Git facts for the assignee's code checkout: branch,
+ahead count and up to 100 commits touching task paths. Observations have timestamps and
+are kept separate from worker-reported branch/commit/test claims. Results captured for
+old checkout/base/path identities are discarded; a changing HEAD invalidates collection.
+Git facts do not establish test success or acceptance completion.
+
+### Reproducible scratch workflow demo
+
+Run `make build`, then `python3 scripts/demo_workflow.py --output /absolute/capture/path`.
+The harness creates a real temporary Git repository, scratch team/private control
+identities, a fake loopback OpenCode endpoint and a real dashboard PTY. One fixed goal
+drives a scripted fake master through real MCP tools; automatic assignment applies leases,
+the worker requests review, and an independent reviewer accepts. Captures include backlog,
+ready, in-progress, review and done PTY frames plus persisted state/history/notice evidence.
+This verifies integration, not autonomous model planning or passing implementation tests.
+No existing team or live OpenCode session is used; scratch resources are removed afterward.
+
 **Board (`b`)** opens a visual Kanban with bordered cards and colored state headers.
 Selected cards use a thick accent border. Member badges use the same stable color as
 session headers and member rows; cards show priority, checklist progress, labels, age and

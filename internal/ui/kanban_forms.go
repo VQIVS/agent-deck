@@ -16,19 +16,22 @@ type KanbanField struct{ Label, Value string }
 
 // KanbanForm retains task identity and revision until explicit save.
 type KanbanForm struct {
-	Open     bool
-	Action   string
-	Revision uint64
-	Original team.Task
-	Fields   []KanbanField
-	Index    int
-	Error    string
+	Open           bool
+	Action         string
+	Revision       uint64
+	Original       team.Task
+	Fields         []KanbanField
+	Index          int
+	Error          string
+	OriginalDigest string
 }
 
 func NewKanbanForm(action string, task *team.Task, revision uint64) *KanbanForm {
 	f := &KanbanForm{Open: true, Action: action, Revision: revision}
 	if task != nil {
 		f.Original = *task
+		f.OriginalDigest, _ = kanbanEditBaseline(&team.TaskBoard{Tasks: []team.Task{*task}},
+			&KanbanEdit{Intent: KanbanIntent{TaskID: task.ID}})
 	}
 	t := &f.Original
 	if action == "review" {
@@ -76,10 +79,11 @@ func (f *KanbanForm) Build() (*KanbanEdit, error) {
 		values[field.Label] = strings.TrimSpace(field.Value)
 	}
 	edit := &KanbanEdit{Intent: KanbanIntent{Action: f.Action, TaskID: f.Original.ID}, Revision: f.Revision}
+	edit.Original = f.OriginalDigest
 	if f.Action == "review" {
 		edit.Intent.State = values["Decision (accept/changes)"]
 		edit.Comment = values["Review comment"]
-		return edit, nil
+		return edit, validateReviewForm(f.Original.State, edit)
 	}
 	if f.Action == "comment" {
 		edit.Comment = values["Comment"]
@@ -119,6 +123,19 @@ func (f *KanbanForm) Build() (*KanbanEdit, error) {
 	}
 	edit.Task = &task
 	return edit, nil
+}
+
+func validateReviewForm(state string, edit *KanbanEdit) error {
+	if state != "review" {
+		return fmt.Errorf("only tasks in review can receive a review decision")
+	}
+	if edit.Intent.State != "accept" && edit.Intent.State != "changes" {
+		return fmt.Errorf("review decision must be accept or changes")
+	}
+	if edit.Comment == "" || len(edit.Comment) > 16000 {
+		return fmt.Errorf("review requires a comment of 1 to 16000 bytes")
+	}
+	return nil
 }
 
 func kanbanCSV(value string) []string {

@@ -25,6 +25,7 @@ type (
 		Approvals bool
 		Saving    bool
 		Loading   bool
+		Git       map[string]*taskGitResult
 	}
 	boardResult struct {
 		State   team.BoardState
@@ -148,9 +149,6 @@ func (m *Model) boardKey(v tea.KeyMsg) tea.Cmd {
 			return m.confirmBoard(action)
 		}
 		return nil
-	}
-	if v.String() == "y" && len(m.board.Actions) > 0 && m.board.Form == nil && !m.board.Kanban.searching {
-		return m.approveBoard()
 	}
 	if !m.board.Approvals {
 		return m.kanbanBoardKey(v)

@@ -24,30 +24,38 @@ const taskChangeAttempts = 3
 func ChangeTasks(ctx context.Context, store BoardStore, t *Team, actor TaskActor, now time.Time,
 	change func(*TaskBoard, TaskMutation) error,
 ) (TaskBoard, []TaskNotice, error) {
+	state, notices, err := ChangeTasksState(ctx, store, t, actor, now, change)
+	return state.Board, notices, err
+}
+
+// ChangeTasksState returns the exact saved revision alongside its board and implied notices.
+func ChangeTasksState(ctx context.Context, store BoardStore, t *Team, actor TaskActor, now time.Time,
+	change func(*TaskBoard, TaskMutation) error,
+) (BoardState, []TaskNotice, error) {
 	mutation := TaskMutation{Actor: actor, Now: now.UTC(), ReadOnly: store.ReadOnly}
 	var err error
 	for range taskChangeAttempts {
 		var state BoardState
 		state, err = loadWorkflowBoard(ctx, store)
 		if err != nil {
-			return TaskBoard{}, nil, err
+			return BoardState{}, nil, err
 		}
 		before := cloneBoard(&state.Board)
 		if err := change(&state.Board, mutation); err != nil {
-			return TaskBoard{}, nil, err
+			return BoardState{}, nil, err
 		}
 		if err := rosterParticipants(&before, &state.Board, t); err != nil {
-			return TaskBoard{}, nil, err
+			return BoardState{}, nil, err
 		}
 		err = store.Save(ctx, &state, state.Revision)
 		if err == nil {
-			return state.Board, TaskNotices(&before, &state.Board, t, actor), nil
+			return state, TaskNotices(&before, &state.Board, t, actor), nil
 		}
 		if !errors.Is(err, ErrBoardChanged) {
-			return TaskBoard{}, nil, err
+			return BoardState{}, nil, err
 		}
 	}
-	return TaskBoard{}, nil, fmt.Errorf("save task change: %w", err)
+	return BoardState{}, nil, fmt.Errorf("save task change: %w", err)
 }
 
 func rosterParticipants(before, board *TaskBoard, t *Team) error {

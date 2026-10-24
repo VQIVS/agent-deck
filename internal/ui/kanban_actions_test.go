@@ -101,6 +101,7 @@ func TestKanbanExecutorStaleAndReadOnly(t *testing.T) {
 	edit := &KanbanEdit{
 		Intent: KanbanIntent{Action: "comment", TaskID: "A"}, Comment: "comment", Revision: state.Revision - 1,
 	}
+	edit.Original = "stale task digest"
 	if _, err := e.Apply(t.Context(), edit, now); err == nil {
 		t.Fatal("stale form saved")
 	}

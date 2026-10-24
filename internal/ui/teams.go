@@ -821,6 +821,10 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 }
 
 func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
+	if result, ok := msg.(taskGitResult); ok {
+		m.applyTaskGitResult(&result)
+		return true, nil
+	}
 	if result, ok := msg.(kanbanResult); ok {
 		return true, m.applyKanbanResult(&result)
 	}

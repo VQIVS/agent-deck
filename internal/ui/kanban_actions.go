@@ -17,10 +17,12 @@ type KanbanEdit struct {
 	Revision uint64
 	Task     *team.Task
 	Comment  string
+	Original string
 }
 
 // KanbanSaved distinguishes durable task state from optional notification errors.
 type KanbanSaved struct {
+	State     team.BoardState
 	Board     team.TaskBoard
 	TaskID    string
 	NotifyErr error
@@ -43,14 +45,14 @@ func (e *KanbanExecutor) Apply(ctx context.Context, edit *KanbanEdit, now time.T
 	if err != nil && (!errors.Is(err, os.ErrNotExist) || edit.Revision != 0) {
 		return KanbanSaved{}, fmt.Errorf("load Kanban board: %w", err)
 	}
-	if state.Revision != edit.Revision {
-		return KanbanSaved{}, fmt.Errorf("board changed; reload task before saving")
-	}
 	baseline, err := kanbanEditBaseline(&state.Board, edit)
 	if err != nil {
 		return KanbanSaved{}, err
 	}
-	board, notices, err := team.ChangeTasks(ctx, e.Store, e.Team, team.TaskActor{User: true}, now,
+	if edit.Original != "" {
+		baseline = edit.Original
+	}
+	saved, notices, err := team.ChangeTasksState(ctx, e.Store, e.Team, team.TaskActor{User: true}, now,
 		e.change(edit, baseline))
 	if err != nil {
 		return KanbanSaved{}, fmt.Errorf("change Kanban task: %w", err)
@@ -59,7 +61,7 @@ func (e *KanbanExecutor) Apply(ctx context.Context, edit *KanbanEdit, now time.T
 	if edit.Intent.Action == "create" && edit.Task != nil {
 		id = edit.Task.ID
 	}
-	result := KanbanSaved{Board: board, TaskID: id, Notices: notices}
+	result := KanbanSaved{State: saved, Board: saved.Board, TaskID: id, Notices: notices}
 	if e.Notify != nil {
 		result.NotifyErr = e.Notify(ctx, notices)
 	}
@@ -98,7 +100,8 @@ func (e *KanbanExecutor) mutate(board *team.TaskBoard, edit *KanbanEdit, m team.
 	id := edit.Intent.TaskID
 	switch edit.Intent.Action {
 	case "review":
-		return kanbanMutationError("review", board.ReviewTask(id, edit.Intent.State, edit.Comment, m))
+		return kanbanMutationError("review", team.ReviewTaskForTeam(board, e.Team, id, "", edit.Intent.State, edit.Comment,
+			true, m.Now, m.ReadOnly))
 	case "create":
 		if edit.Task == nil {
 			return fmt.Errorf("create requires task form")

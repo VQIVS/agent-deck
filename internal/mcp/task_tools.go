@@ -92,6 +92,12 @@ func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, ar
 	if err != nil {
 		return nil, fmt.Errorf("select task change: %w", err)
 	}
+	if name == "review_task" {
+		change = func(board *team.TaskBoard, m team.TaskMutation) error {
+			return team.ReviewTaskForTeam(board, &manager.Team, call.ID, identity.Member, call.Decision, call.Comment,
+				false, m.Now, m.ReadOnly)
+		}
+	}
 	board, notices, err := team.ChangeTasks(ctx, store, &manager.Team, actor, t.now(), change)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)

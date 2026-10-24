@@ -241,6 +241,13 @@ func (b *TaskBoard) CompleteTaskForTeam(id string, record *ReportRecord, current
 		}
 		m.Actor = actor
 	}
+	task, err := taskByID(b, id)
+	if err != nil {
+		return err
+	}
+	if err := ValidateTaskEvidence(current, task, &TaskEvidence{Report: record}); err != nil {
+		return err
+	}
 	return b.CompleteTask(id, record, m)
 }
 

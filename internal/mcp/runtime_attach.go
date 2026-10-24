@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vqivs/agent-deck/internal/channel"
 	"github.com/vqivs/agent-deck/internal/team"
@@ -209,18 +211,39 @@ func (r *Runtime) notifyUser(ctx context.Context, notices []team.TaskNotice) err
 	if len(notices) == 0 || len(notices) > maxTaskNotices {
 		return fmt.Errorf("task notices require 1 to %d entries", maxTaskNotices)
 	}
+	valid := make([]team.TaskNotice, 0, len(notices))
+	var failures []error
 	for _, notice := range notices {
-		if strings.TrimSpace(notice.Text) == "" || len(notice.Text) > r.Service.options.MaxBytes ||
-			strings.TrimSpace(notice.Task) == "" || len(notice.Task) > 200 {
-			return fmt.Errorf("invalid task notification content")
+		if err := validateOwnerNotice(manager, &notice); err != nil {
+			failures = append(failures, err)
+			continue
 		}
-		index, err := manager.MemberIndex(notice.To)
-		if err != nil || manager.Team.Members[index].ID == "" || manager.Team.Members[index].Muted {
-			return fmt.Errorf("task notification recipient is absent or muted")
+		if len(notice.Text) > r.Service.options.MaxBytes {
+			text := notice.Text[:r.Service.options.MaxBytes]
+			for !utf8.ValidString(text) {
+				text = text[:len(text)-1]
+			}
+			notice.Text = text
+			failures = append(failures, fmt.Errorf("notify %q: text truncated to message limit", notice.To))
+		}
+		valid = append(valid, notice)
+	}
+	if len(valid) > 0 {
+		if err := r.Service.Notify(ctx, valid); err != nil {
+			failures = append(failures, fmt.Errorf("queue task notifications: %w", err))
 		}
 	}
-	if err := r.Service.Notify(ctx, notices); err != nil {
-		return fmt.Errorf("queue task notifications: %w", err)
+	return errors.Join(failures...)
+}
+
+func validateOwnerNotice(manager *team.Manager, notice *team.TaskNotice) error {
+	index, err := manager.MemberIndex(notice.To)
+	if err != nil || manager.Team.Members[index].ID == "" || manager.Team.Members[index].Muted {
+		return fmt.Errorf("notify %q: recipient absent or muted", notice.To)
+	}
+	if strings.TrimSpace(notice.Text) == "" || !utf8.ValidString(notice.Text) ||
+		strings.TrimSpace(notice.Task) == "" || len(notice.Task) > 200 {
+		return fmt.Errorf("notify %q: invalid content", notice.To)
 	}
 	return nil
 }

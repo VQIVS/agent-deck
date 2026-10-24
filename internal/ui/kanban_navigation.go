@@ -116,9 +116,17 @@ func kanbanNavigate(tasks []team.Task, screen *KanbanScreen, key string) bool {
 	case "right", "l":
 		screen.horizontal(tasks, 1)
 	case "up", "k":
-		screen.vertical(tasks, -1)
+		if screen.Detail {
+			screen.DetailOffset = max(0, screen.DetailOffset-1)
+		} else {
+			screen.vertical(tasks, -1)
+		}
 	case "down", "j":
-		screen.vertical(tasks, 1)
+		if screen.Detail {
+			screen.DetailOffset++
+		} else {
+			screen.vertical(tasks, 1)
+		}
 	case "pgup":
 		screen.DetailOffset = max(0, screen.DetailOffset-8)
 	case "pgdown":

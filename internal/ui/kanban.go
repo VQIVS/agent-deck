@@ -31,11 +31,14 @@ type KanbanFilter struct{ Assignee, Label, State, Query string }
 
 // KanbanOptions supplies explicit rendering time and member badge colors.
 type KanbanOptions struct {
+	GitFacts      map[string]*taskGitResult
+	GitTargets    map[string]TaskEvidenceTarget
 	Width, Height int
 	Now           time.Time
 	Theme         Theme
 	ReadOnly      bool
 	MemberColors  map[string]lipgloss.Color
+	Definitions   map[string]team.DefinitionOfDone
 }
 
 // KanbanIntent requests guarded integration; it never executes task mutations.

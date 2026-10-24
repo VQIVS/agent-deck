@@ -10,6 +10,7 @@ import (
 func TestBoardApprovalShowsCapturedDetailsAndRequiresConfirmation(t *testing.T) {
 	m := requestModel("http://unused.invalid", false)
 	m.w, m.h = 100, 24
+	m.board.Approvals = true
 	m.board.Actions = []team.ReconcileAction{{
 		ID: "original", Kind: "create",
 		Proposal: &team.WorkerProposal{
@@ -38,6 +39,7 @@ func TestBoardApprovalShowsCapturedDetailsAndRequiresConfirmation(t *testing.T) 
 
 func TestBoardApprovalRejectsStaleReadOnlyAndCancellation(t *testing.T) {
 	m := requestModel("http://unused.invalid", false)
+	m.board.Approvals = true
 	m.board.Actions = []team.ReconcileAction{{ID: "original", Kind: "create"}}
 	m.boardKey(key("y"))
 	m.board.Actions = []team.ReconcileAction{{ID: "replacement", Kind: "create"}}
@@ -61,6 +63,7 @@ func TestBoardConfirmationIncludesAssignAndRetireWorker(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			m := requestModel("http://unused.invalid", false)
 			m.w, m.h = 100, 24
+			m.board.Approvals = true
 			m.board.Actions = []team.ReconcileAction{{
 				ID: "action", Kind: kind,
 				Worker: "target-worker", Task: "target-task",

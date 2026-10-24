@@ -24,12 +24,7 @@ func (m *Model) modalOpen() bool {
 func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 	switch v := msg.(type) {
 	case boardResult:
-		m.board.Loading = false
-		if v.Err != nil {
-			m.note = v.Err.Error()
-		} else {
-			m.board.State, m.board.Actions = v.State, v.Actions
-		}
+		m.applyBoardResult(&v)
 		return true, nil
 	case channelStarted:
 		if v.Err != nil {
@@ -68,6 +63,17 @@ func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (m *Model) applyBoardResult(result *boardResult) {
+	m.board.Loading = false
+	if result.Err != nil {
+		m.note = result.Err.Error()
+		return
+	}
+	if result.State.Revision >= m.board.State.Revision && !m.board.Saving {
+		m.board.State, m.board.Actions = result.State, result.Actions
+	}
 }
 
 func (m *Model) healthTick() []tea.Cmd {

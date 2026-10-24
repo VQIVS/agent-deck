@@ -1,6 +1,10 @@
 # agent-deck
 
+**Your agents. One deck. You at the helm.**
+
 A keyboard-and-mouse terminal dashboard for coordinating local OpenCode sessions and teams.
+
+*agent-deck is built by agent-deck: a master and a worker pool, steered from its own dashboard.*
 
 ```text
 agent-deck · WAITING 1 · streams 2/2 · http://127.0.0.1:4096

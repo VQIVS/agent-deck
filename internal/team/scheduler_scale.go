@@ -2,33 +2,19 @@ package team
 
 import "slices"
 
-func (input *SchedulingInput) scale(plan *SchedulingPlan, waiting []Task, reserved map[string]bool) {
+func (input *SchedulingInput) scale(plan *SchedulingPlan, reserved map[string]bool, tokens int64, cost float64) {
 	for i := range input.Workers {
 		worker := &input.Workers[i]
-		if worker.State == "stalled" || worker.State == "context-full" {
+		if worker.State == "stalled" || worker.State == "context-full" || worker.State == "offline" {
 			plan.Replace = append(plan.Replace, worker.Name)
 		}
 	}
-	if !input.LastScale.IsZero() && input.Now.Sub(input.LastScale) < input.Policy.Cooldown {
-		plan.Reason = "scaling cooldown"
+	if input.Policy.Approval == "off" {
 		return
 	}
-	tokens, cost := input.committedUsage()
-	for i := range waiting {
-		task := &waiting[i]
-		if plan.Desired >= input.Policy.MaxWorkers {
-			plan.Blocked[task.ID] = "maximum worker count"
-			continue
-		}
-		if !input.withinBudget(tokens, cost) {
-			plan.Blocked[task.ID] = "usage budget exhausted"
-			continue
-		}
-		plan.Proposals = append(plan.Proposals, WorkerProposal{
-			Task: task.ID, Role: task.Role, Skills: task.Skills, Paths: task.Paths,
-			Model: input.Policy.Models[task.Role], RequiresApproval: input.Policy.Approval != "auto",
-		})
-		plan.Desired++
+	if input.coolingDown() {
+		plan.Reason = "scaling cooldown"
+		return
 	}
 	for plan.Desired < input.Policy.MinWorkers && input.withinBudget(tokens, cost) {
 		plan.Proposals = append(plan.Proposals, WorkerProposal{
@@ -36,10 +22,46 @@ func (input *SchedulingInput) scale(plan *SchedulingPlan, waiting []Task, reserv
 		})
 		plan.Desired++
 	}
-	if len(waiting) != 0 || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 {
+	if len(plan.Blocked) != 0 || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 {
 		return
 	}
 	input.retire(plan, reserved)
+}
+
+func (input *SchedulingInput) coolingDown() bool {
+	return !input.LastScale.IsZero() && input.Now.Sub(input.LastScale) < input.Policy.Cooldown
+}
+
+func (input *SchedulingInput) propose(plan *SchedulingPlan, task *Task, tokens *int64, cost *float64) bool {
+	reason := ""
+	switch {
+	case input.Policy.Approval == "off":
+		reason = "scaling is disabled"
+	case input.coolingDown():
+		reason = "scaling cooldown"
+	case plan.Desired >= input.Policy.MaxWorkers:
+		reason = "maximum worker count"
+	case !input.fitsBudget(*tokens, *cost, task):
+		reason = "usage budget exhausted"
+	}
+	if reason != "" {
+		plan.Blocked[task.ID] = reason
+		return false
+	}
+	plan.Proposals = append(plan.Proposals, WorkerProposal{
+		Task: task.ID, Role: task.Role, Skills: task.Skills, Paths: task.Paths,
+		Model: input.Policy.Models[task.Role], RequiresApproval: input.Policy.Approval != "auto",
+	})
+	plan.Desired++
+	*tokens = saturatingTokens(*tokens, task.Estimate.Tokens)
+	*cost += task.Estimate.Cost
+	return true
+}
+
+func (input *SchedulingInput) fitsBudget(tokens int64, cost float64, task *Task) bool {
+	return input.withinBudget(tokens, cost) && (input.Policy.TokenBudget == 0 ||
+		(tokens <= input.Policy.TokenBudget && task.Estimate.Tokens <= input.Policy.TokenBudget-tokens)) &&
+		(input.Policy.CostBudget == 0 || cost+task.Estimate.Cost <= input.Policy.CostBudget)
 }
 
 func (input *SchedulingInput) retire(plan *SchedulingPlan, reserved map[string]bool) {
@@ -63,7 +85,7 @@ func (input *SchedulingInput) committedUsage() (tokens int64, cost float64) {
 		if task.Measured != nil {
 			tokens = saturatingTokens(tokens, task.Measured.Tokens)
 			cost += task.Measured.Cost
-		} else {
+		} else if task.State == "assigned" || task.State == "done" || task.State == "failed" {
 			// Unmeasured work reserves its estimate; reports never count as measurements.
 			tokens = saturatingTokens(tokens, task.Estimate.Tokens)
 			cost += task.Estimate.Cost

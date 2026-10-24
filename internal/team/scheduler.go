@@ -125,15 +125,20 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 	if err := input.validate(); err != nil {
 		return SchedulingPlan{}, err
 	}
-	plan := SchedulingPlan{Desired: len(input.Workers), Blocked: make(map[string]string)}
-	if input.ReadOnly || input.Policy.Approval == "off" {
+	plan := SchedulingPlan{Blocked: make(map[string]string)}
+	for i := range input.Workers {
+		if input.Workers[i].State != "offline" {
+			plan.Desired++
+		}
+	}
+	if input.ReadOnly {
 		plan.Reason = "scheduling is disabled"
 		return plan, nil
 	}
 	ready := input.ready(&plan)
 	reserved := make(map[string]bool)
 	var selected []Task
-	var waiting []Task
+	tokens, cost := input.committedUsage()
 	for i := range ready {
 		task := &ready[i]
 		if tasksContend(task, selected) {
@@ -142,14 +147,22 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 		}
 		worker := input.fitWorker(task, reserved)
 		if worker == "" {
-			waiting = append(waiting, *task)
+			if input.leaseContention(task, "") {
+				plan.Blocked[task.ID] = "active lease contention"
+				continue
+			}
+			if !input.propose(&plan, task, &tokens, &cost) {
+				continue
+			}
 		} else {
 			plan.Assignments = append(plan.Assignments, TaskAssignment{Task: task.ID, Worker: worker})
 			reserved[worker] = true
+			tokens = saturatingTokens(tokens, task.Estimate.Tokens)
+			cost += task.Estimate.Cost
 		}
 		selected = append(selected, *task)
 	}
-	input.scale(&plan, waiting, reserved)
+	input.scale(&plan, reserved, tokens, cost)
 	return plan, nil
 }
 
@@ -185,13 +198,17 @@ func (input *SchedulingInput) blocked(task *Task) string {
 			return "active task contention"
 		}
 	}
+	return ""
+}
+
+func (input *SchedulingInput) leaseContention(task *Task, candidate string) bool {
 	for i := range input.Workers {
 		worker := &input.Workers[i]
-		if pathsContend(task.Paths, worker.Leases) {
-			return "active lease contention"
+		if worker.Name != candidate && pathsContend(task.Paths, worker.Leases) {
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 func pathsContend(left, right Leases) bool {
@@ -220,6 +237,9 @@ func (input *SchedulingInput) fitWorker(task *Task, reserved map[string]bool) st
 	for i := range input.Workers {
 		worker := &input.Workers[i]
 		if worker.State != "idle" || reserved[worker.Name] || input.assigned(worker.Name) {
+			continue
+		}
+		if input.leaseContention(task, worker.Name) {
 			continue
 		}
 		if task.Role != "" && task.Role != worker.Role {

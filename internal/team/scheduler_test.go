@@ -33,8 +33,8 @@ func TestSchedulerDependencyAndLeaseContention(t *testing.T) {
 	}
 	input.Workers[0].Leases = Leases{"internal/a/*"}
 	plan, err = PlanSchedule(input)
-	if err != nil || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 || plan.Blocked["a"] == "" {
-		t.Fatalf("lease contention should serialize, not scale: %+v, %v", plan, err)
+	if err != nil || len(plan.Assignments) != 1 || len(plan.Proposals) != 0 || len(plan.Retire) != 0 {
+		t.Fatalf("candidate's own lease must permit assignment: %+v, %v", plan, err)
 	}
 	input.Board.Tasks[0].State, input.Board.Tasks[0].Worker = "done", "old"
 	input.Board.Tasks[0].Report = &TaskReport{Text: "done"}
@@ -146,12 +146,12 @@ func TestSchedulerBudgetUsesMeasurementsNotReports(t *testing.T) {
 	input := schedulerInput(a)
 	input.Policy.TokenBudget = 100
 	plan, _ := PlanSchedule(input)
-	if len(plan.Proposals) != 0 {
+	if len(plan.Proposals) != 1 {
 		t.Fatal("token budget ignored")
 	}
 	input.Policy.TokenBudget, input.Policy.CostBudget = 0, 2
 	plan, _ = PlanSchedule(input)
-	if len(plan.Proposals) != 0 {
+	if len(plan.Proposals) != 1 {
 		t.Fatal("cost budget ignored")
 	}
 	input.Board.Tasks[0].State, input.Board.Tasks[0].Worker = "done", "old"
@@ -185,10 +185,10 @@ func TestTaskBoardValidationAndTransitions(t *testing.T) {
 	if err := b.Assign("a", "coder", input); err != nil {
 		t.Fatal(err)
 	}
-	if err := b.Finish("a", TaskReport{Text: "done", Tests: "claimed pass"}, false, true); err == nil {
+	if err := b.Finish("a", "coder", TaskReport{Text: "done", Tests: "claimed pass"}, false, true); err == nil {
 		t.Fatal("read-only finish allowed")
 	}
-	if err := b.Finish("a", TaskReport{Text: "done"}, false, false); err != nil {
+	if err := b.Finish("a", "coder", TaskReport{Text: "done"}, false, false); err != nil {
 		t.Fatal(err)
 	}
 	if b.Tasks[0].Measured != nil {
@@ -251,7 +251,7 @@ func TestSchedulerBoardAddAndProposalRevalidation(t *testing.T) {
 	if err := input.Board.Assign("a", "coder", input); err != nil {
 		t.Fatal(err)
 	}
-	if err := input.Board.Finish("a", TaskReport{Text: "failed"}, true, false); err != nil {
+	if err := input.Board.Finish("a", "coder", TaskReport{Text: "failed"}, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if input.Board.Tasks[0].State != "failed" {

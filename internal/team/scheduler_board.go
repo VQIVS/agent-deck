@@ -152,7 +152,7 @@ func (b *TaskBoard) visit(id string, index, marks map[string]int) error {
 	return nil
 }
 
-func (b *TaskBoard) Finish(id string, report TaskReport, failed, readOnly bool) error {
+func (b *TaskBoard) Finish(id, authenticatedWorker string, report TaskReport, failed, readOnly bool) error {
 	if readOnly {
 		return fmt.Errorf("read-only: task changes disabled")
 	}
@@ -163,6 +163,9 @@ func (b *TaskBoard) Finish(id string, report TaskReport, failed, readOnly bool) 
 		task := &b.Tasks[i]
 		if task.ID != id {
 			continue
+		}
+		if authenticatedWorker == "" || task.Worker != authenticatedWorker {
+			return fmt.Errorf("finishing requires the authenticated assigned worker")
 		}
 		if task.State != "assigned" || report.Text == "" {
 			return fmt.Errorf("finishing requires an assigned task and a report")

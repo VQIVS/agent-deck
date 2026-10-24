@@ -7,6 +7,10 @@ import (
 )
 
 func (m *Model) dialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
+	if v.String() == "ctrl+p" && !m.modalOpen() {
+		m.palette.Open = true
+		return true, nil
+	}
 	if v.String() == "b" && !m.modalOpen() {
 		m.board.Open = true
 		return true, m.readBoard()

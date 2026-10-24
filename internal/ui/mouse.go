@@ -63,6 +63,7 @@ func (m *Model) headerButtons() []button {
 		{"Inbox", "i", false},
 		{"Channel", "c", false},
 		{"Board", "b", false},
+		{"Commands", "ctrl+p", false},
 		{"Refresh", "r", false},
 		{notify, "N", false},
 		{"Help", "?", false},
@@ -117,6 +118,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	}
 	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return nil
+	}
+	if m.palette.Open {
+		return m.paletteClick(&m.palette, z, ok)
 	}
 	if m.inbox.Open {
 		return m.inboxClick(&m.inbox, z, ok)
@@ -222,6 +226,8 @@ func (m *Model) clickAction(action string) tea.Cmd {
 		key.Type = tea.KeyEsc
 	case "send":
 		key.Type = tea.KeyCtrlS
+	case "ctrl+p":
+		key.Type = tea.KeyCtrlP
 	default:
 		key = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(action)}
 	}

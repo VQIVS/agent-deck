@@ -346,61 +346,15 @@ func (m *Model) membersView() string {
 }
 
 func (m *Model) formView() string {
-	u := m.teams
-	var b strings.Builder
-	b.WriteString(m.theme.title("Edit "+strings.TrimSuffix(u.Screen, "-form")) + "\n")
-	b.WriteString(
-		m.buttonRow(
-			[]button{
-				{m.formSaveLabel(), "form-save", m.opts.ReadOnly},
-				{"Cancel", "form-cancel", false},
-				{"Select model", "form-model", false},
-				{"New session", "form-session-new", m.opts.ReadOnly},
-				{"Advanced", "form-advanced", false},
-			},
-			0,
-			1,
-			m.w,
-			-1,
-		) + "\n",
-	)
-	field := u.Fields[u.Field]
-	b.WriteString(m.theme.title(fit(field.Label, m.w)) + "\n")
-	m.input.Placeholder = ""
-	if field.Label == "Existing session ID (adopt)" {
-		m.input.Placeholder = "Leave empty — agent-deck creates and saves a new session"
-	}
-	if field.Label == "Model" {
-		m.input.Placeholder = "Use team default, or click Select model"
-	}
 	m.input.SetWidth(max(10, m.w-2))
-	m.input.SetHeight(min(6, max(1, m.h-8)))
-	height := min(6, max(1, m.h-8))
-	m.zones = append(m.zones, zone{Rect: Rect{0, 3, m.w, height}, Action: "input", Pane: -1})
-	b.WriteString(m.input.View() + "\n")
-	y := 3 + height
-	b.WriteString(
-		m.buttonRow(
-			[]button{
-				{"Previous", "form-prev", false},
-				{"Next", "form-next", false},
-				{"Choose / preset", "form-choice", false},
-			},
-			0,
-			y,
-			m.w,
-			-1,
-		) + "\n",
-	)
-	hint := m.note
-	if u.Screen == "member-form" {
-		hint = "Permissions apply only to newly created sessions; live rules are unchanged. · " + hint
-	}
-	b.WriteString(m.theme.dim(fit(fmt.Sprintf("Field %d/%d · %s", u.Field+1, u.fieldCount(), hint), m.w)))
-	if u.Screen == "member-form" {
-		b.WriteString("\n" + m.theme.dim("Session: leave empty to create and save a new session automatically."))
-	}
-	return b.String()
+	m.input.SetHeight(min(4, max(1, m.h-14)))
+	body := m.renderFormSteps()
+	y := strings.Count(body, "\n") + 1
+	return body + "\n" + m.buttonRow([]button{
+		{"Select model", "form-model", false},
+		{"New session", "form-session-new", m.opts.ReadOnly},
+		{"Advanced", "form-advanced", false},
+	}, 0, y, m.w, -1)
 }
 
 func (m *Model) choicesView() string {
@@ -838,6 +792,9 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 }
 
 func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
+	if action, ok := msg.(PaletteAction); ok {
+		return true, m.dispatchPalette(&action)
+	}
 	if handled, cmd := m.updateHealth(msg); handled {
 		return true, cmd
 	}

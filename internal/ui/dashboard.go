@@ -70,6 +70,7 @@ type (
 
 // Model owns terminal state and dispatches asynchronous results through Bubble Tea.
 type Model struct {
+	palette                      PaletteScreen
 	board                        boardUI
 	channel                      channelUI
 	deck                         config.Deck
@@ -424,6 +425,10 @@ func (m *Model) applySnapshot(v *snapshotMsg) {
 }
 
 func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.palette.Open {
+		cmd := m.paletteKey(&m.palette, v)
+		return m, cmd
+	}
 	key := v.String()
 	if key == "ctrl+c" {
 		return m, tea.Quit
@@ -677,10 +682,8 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	p := &m.panes[i]
 	inner := max(1, w-2)
 	controls := paneButtons(p.State.Waiting() && len(p.State.Permissions) > 0, m.opts.ReadOnly, m.zoom)
-	buttonRows := 2
-	if len(controls) > 5 {
-		buttonRows = 3
-	}
+	plan := panePlan(Rect{x, y, w, h}, controls)
+	buttonRows := len(plan.Controls)
 	body := max(1, h-5-buttonRows)
 	name := m.leasedName(i)
 	if p.Agent.Role != "" {
@@ -691,10 +694,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	}
 	m.zones = append(m.zones, zone{Rect: Rect{x, y, w, h}, Action: "focus", Pane: i})
 	header := m.theme.StateBadge(p.State.DisplayStatus()) + " " + fit(name, max(1, inner-12))
-	buttons := m.buttonRow(controls[:3], x+1, y+2, inner, i) + "\n" + m.buttonRow(controls[3:5], x+1, y+3, inner, i)
-	if buttonRows == 3 {
-		buttons += "\n" + m.buttonRow(controls[5:], x+1, y+4, inner, i)
-	}
+	buttons := m.paneControlRows(controls, &plan, x, inner, i)
 	atBottom := p.View.AtBottom()
 	p.View.Width = inner
 	p.View.Height = body
@@ -737,7 +737,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 			inner,
 		)
 	}
-	bodyY := y + 4 + buttonRows
+	bodyY := y + 3 + buttonRows
 	if p.State.Waiting() {
 		bodyY += min(body, len(strings.Split(ansi.Hardwrap(clean(p.State.WaitingText()), inner, true), "\n")))
 	}
@@ -772,6 +772,9 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 
 func (m *Model) View() string {
 	m.zones = nil
+	if m.palette.Open {
+		return m.paletteView(&m.palette)
+	}
 	if m.board.Open {
 		return m.boardView()
 	}
@@ -808,6 +811,7 @@ func (m *Model) View() string {
 
 func (m *Model) dashboardHeader() (header string, live, waiting int) {
 	mode := ""
+	counts := m.requestCounts()
 	if m.opts.ReadOnly {
 		mode = " · READ ONLY"
 	}
@@ -824,9 +828,10 @@ func (m *Model) dashboardHeader() (header string, live, waiting int) {
 	}
 	header = fit(
 		fmt.Sprintf(
-			"agent-deck%s · WAITING %d · streams %d/%d · %s",
+			"agent-deck%s · WAITING %d · requests %dP/%dQ · streams %d/%d · %s",
 			mode,
 			waiting,
+			counts.Permissions, counts.Questions,
 			live,
 			len(m.connections),
 			m.deck.Server,
@@ -864,20 +869,9 @@ func (m *Model) overlayView(header string) (string, bool) {
 }
 
 func (m *Model) helpView(header string) string {
-	return header + "\n" + m.buttonRow([]button{{"Close", "esc", false}}, 0, 1, m.w, -1) + `
-Click panes to focus; [⤢] zooms, [×] returns; wheel scrolls.
-Tab / arrows focus (crosses pages) · Enter zoom · Esc back
-m message (Enter send, Ctrl+J newline) · n nudge · s abort (y/N)
-y approve once · Y always (confirm) · x reject (optional message)
-Questions: view in pane; answer through a attach
-a attach · r refresh · N notifications · q quit
-p fuzzy session picker (Space add/remove, Esc close)
-PgUp/PgDn scroll · End follow tail · ? help
-
-Read-only blocks all controls that can change a session.
-Offline streams reconnect automatically (1–15s backoff).
-
-Press any key or click to return.`
+	return header + "\n" + m.buttonRow([]button{{"Close", "esc", false}}, 0, 1, m.w, -1) + "\n" +
+		"Ctrl+P command palette · Tab/arrows focus · Enter zoom · Esc back\n" +
+		PaletteHelp(PaletteCommands(), m.paletteContext(), m.w) + "\nEnter sends · Ctrl+J newline · PgUp/PgDn scroll"
 }
 
 func (m *Model) dashboardView(header, bar string, live int) string {

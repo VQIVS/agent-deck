@@ -149,6 +149,10 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 			continue
 		}
 		worker := input.fitWorker(task, reserved)
+		if worker == "" && task.Assignee != "" {
+			plan.Blocked[task.ID] = "waiting for " + task.Assignee
+			continue
+		}
 		if worker == "" {
 			if input.leaseContention(task, "") {
 				plan.Blocked[task.ID] = "active lease contention"
@@ -207,7 +211,7 @@ func (input *SchedulingInput) blocked(task *Task) string {
 func (input *SchedulingInput) leaseContention(task *Task, candidate string) bool {
 	for i := range input.Workers {
 		worker := &input.Workers[i]
-		if worker.Name != candidate && pathsContend(task.Paths, worker.Leases) {
+		if worker.Name != candidate && input.assigned(worker.Name) && pathsContend(task.Paths, worker.Leases) {
 			return true
 		}
 	}

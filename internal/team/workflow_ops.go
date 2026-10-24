@@ -179,7 +179,8 @@ func (b *TaskBoard) moveByTool(id, state string, m TaskMutation) error {
 	if err != nil {
 		return err
 	}
-	if state == "in_progress" && task.State == "ready" && !m.Actor.User && !m.Actor.Automation {
+	resumes := task.State == "blocked" && !task.StartedAt.IsZero()
+	if state == "in_progress" && !resumes && !m.Actor.User && !m.Actor.Automation {
 		return fmt.Errorf("agent-deck starts assigned ready tasks when the worker is free; use set_assignee")
 	}
 	return b.MoveTask(id, state, m)

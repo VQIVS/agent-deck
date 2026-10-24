@@ -222,6 +222,12 @@ func TestOneActiveTaskPerWorkerAndToolStartGuard(t *testing.T) {
 	if err := board.moveByTool("T-1", "in_progress", m); err == nil {
 		t.Fatal("master started a ready task directly")
 	}
+	if err := board.moveByTool("T-2", "blocked", m); err != nil {
+		t.Fatal(err)
+	}
+	if err := board.moveByTool("T-2", "in_progress", m); err == nil {
+		t.Fatal("blocked detour started an unstarted task")
+	}
 	auto := m
 	auto.Actor = AutomationActor
 	if err := board.MoveTask("T-1", "in_progress", auto); err != nil {
@@ -239,5 +245,40 @@ func TestReservedMemberNames(t *testing.T) {
 		if err := tm.Validate(); err == nil {
 			t.Fatalf("reserved name %q accepted", name)
 		}
+	}
+}
+
+func TestPlannedTaskWaitsForBusyAssigneeAndReassignNotifies(t *testing.T) {
+	board := &TaskBoard{Version: 2}
+	m := TaskMutation{Actor: TaskActor{Member: "lead", Role: "master"}, Now: time.Unix(10000, 0)}
+	if _, err := board.PlanTask(&TaskSpec{
+		Title: "x", Criteria: []string{"a"}, Paths: []string{"x/*"},
+		Ready: true, Assignee: "alice", Reviewer: "bob",
+	}, m); err != nil {
+		t.Fatal(err)
+	}
+	input := &SchedulingInput{
+		Board: board, Policy: SchedulingPolicy{MaxWorkers: 4, Cooldown: time.Minute}, Now: time.Unix(10000, 0),
+		Workers: []SchedulerWorker{{Name: "alice", Role: "worker", State: "busy"}},
+	}
+	plan, err := PlanSchedule(input)
+	if err != nil || len(plan.Proposals) != 0 || plan.Blocked["T-1"] != "waiting for alice" {
+		t.Fatalf("plan=%+v err=%v", plan, err)
+	}
+	auto := m
+	auto.Actor = AutomationActor
+	if err := board.MoveTask("T-1", "in_progress", auto); err != nil {
+		t.Fatal(err)
+	}
+	started := cloneBoard(board)
+	if err := board.SetAssignee("T-1", "carol", m); err != nil {
+		t.Fatal(err)
+	}
+	team := &Team{Members: []Member{
+		{Name: "lead", Role: "master"}, {Name: "alice", Role: "worker"}, {Name: "carol", Role: "worker"},
+	}}
+	notices := TaskNotices(&started, board, team, m.Actor)
+	if !noticeFor(notices, "alice", "You were unassigned") {
+		t.Fatalf("old assignee not told: %+v", notices)
 	}
 }

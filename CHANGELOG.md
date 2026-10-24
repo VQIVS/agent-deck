@@ -3,6 +3,13 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-10-24
+
+### Fixed
+
+- Planned tasks default to parallel, so tasks with non-overlapping paths run at the same time;
+  `parallel: false` marks a serial task.
+
 ## [0.2.3] - 2026-10-24
 
 ### Fixed

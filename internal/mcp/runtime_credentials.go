@@ -13,6 +13,7 @@ import (
 )
 
 type runtimeCredential struct {
+	memberID string
 	identity Identity
 	dir      string
 	session  string
@@ -43,12 +44,13 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 	if err := r.credentialDirectory(ctx, manager, m); err != nil {
 		return err
 	}
-	if old, exists := r.credentials[name]; exists {
+	oldName, old, exists := r.findCredential(m.ID, name)
+	if exists {
 		r.Tokens.Revoke(old.identity)
+		delete(r.credentials, oldName)
 		if err := removeRuntimeConfig(&old); err != nil {
 			return err
 		}
-		delete(r.credentials, name)
 	}
 	identity := Identity{Team: manager.Team.Name, Member: name}
 	token, err := r.Tokens.Issue(identity, true)
@@ -56,6 +58,7 @@ func (r *Runtime) InstallCredential(ctx context.Context, name string) error {
 		return err
 	}
 	credential := runtimeCredential{
+		memberID: m.ID,
 		identity: identity, dir: m.SessionDir(), session: m.Session, role: m.Role,
 		config: filepath.Join(m.SessionDir(), "opencode.json"),
 		entry:  "agent_deck_" + team.Slug(manager.Team.Name), token: token,
@@ -151,12 +154,17 @@ func (r *Runtime) RevokeCredential(ctx context.Context, name string) error {
 	if manager.ReadOnly {
 		return fmt.Errorf("read-only: credential revocation disabled")
 	}
-	credential, exists := r.credentials[name]
+	index, indexErr := manager.MemberIndex(name)
+	id := ""
+	if indexErr == nil {
+		id = manager.Team.Members[index].ID
+	}
+	key, credential, exists := r.findCredential(id, name)
 	if !exists {
 		return nil
 	}
 	r.Tokens.Revoke(credential.identity)
-	delete(r.credentials, name)
+	delete(r.credentials, key)
 	return removeRuntimeConfig(&credential)
 }
 
@@ -166,11 +174,11 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 	var failures []error
 	for name := range r.credentials {
 		credential := r.credentials[name]
-		index, err := manager.MemberIndex(name)
-		if err == nil {
-			member := &manager.Team.Members[index]
+		member := credentialMember(manager, &credential, name)
+		if member != nil {
 			if (member.Mode == "worktree" || member.ControlDir != "") && member.SessionDir() == credential.dir &&
-				member.Session == credential.session && member.Role == credential.role && !manager.ReadOnly {
+				member.Session == credential.session && member.Role == credential.role &&
+				member.Name == credential.identity.Member && !manager.ReadOnly {
 				continue
 			}
 		}
@@ -178,7 +186,30 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 		delete(r.credentials, name)
 		if err := removeRuntimeConfig(&credential); err != nil {
 			failures = append(failures, err)
+		} else {
+			r.removeEmptyWorkflowControl(&credential)
 		}
 	}
 	return errors.Join(failures...)
+}
+
+func (r *Runtime) findCredential(id, name string) (string, runtimeCredential, bool) {
+	for key := range r.credentials {
+		credential := r.credentials[key]
+		if (id != "" && credential.memberID == id) || (credential.memberID == "" && key == name) {
+			return key, credential, true
+		}
+	}
+	return "", runtimeCredential{}, false
+}
+
+func credentialMember(manager *team.Manager, credential *runtimeCredential, name string) *team.Member {
+	for i := range manager.Team.Members {
+		member := &manager.Team.Members[i]
+		if (credential.memberID != "" && member.ID == credential.memberID) ||
+			(credential.memberID == "" && member.Name == name) {
+			return member
+		}
+	}
+	return nil
 }

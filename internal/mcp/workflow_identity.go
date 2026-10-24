@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,11 +35,10 @@ func (r *Runtime) credentialDirectory(ctx context.Context, manager *team.Manager
 	if member.ControlDir == "" {
 		return isolatedMember(ctx, manager, member)
 	}
-	expected := filepath.Join(r.workflowRoot(manager.Team.Name), member.ID)
-	if member.ID == "" || member.ControlDir != expected || member.Session == "" || member.Muted {
+	if member.ID == "" || member.Session == "" || member.Muted {
 		return fmt.Errorf("workflow control directory does not match current membership")
 	}
-	return privateControlDirectory(expected)
+	return validateWorkflowControl(r.workflowRoot(manager.Team.Name), member.ID, member.ControlDir)
 }
 
 func PrepareWorkflowIdentity(ctx context.Context, root, memberID, repo string) (WorkflowIdentity, error) {
@@ -84,15 +85,23 @@ func prepareWorkflowPaths(root, memberID, repo string) (WorkflowIdentity, error)
 	if err != nil {
 		return WorkflowIdentity{}, fmt.Errorf("resolve workflow identity root: %w", err)
 	}
-	control := filepath.Join(root, memberID)
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return WorkflowIdentity{}, fmt.Errorf("generate workflow control parent: %w", err)
+	}
+	parent := filepath.Join(root, hex.EncodeToString(bytes))
+	control := filepath.Join(parent, memberID)
 	if code == control || strings.HasPrefix(control, code+string(filepath.Separator)) {
 		return WorkflowIdentity{}, fmt.Errorf("control directory must be outside the shared checkout")
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return WorkflowIdentity{}, fmt.Errorf("create workflow identity root: %w", err)
 	}
-	if err := privateControlDirectory(root); err != nil {
-		return WorkflowIdentity{}, err
+	if err := os.Chmod(root, 0o711); err != nil {
+		return WorkflowIdentity{}, fmt.Errorf("protect workflow parent: %w", err)
+	}
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		return WorkflowIdentity{}, fmt.Errorf("create random workflow parent: %w", err)
 	}
 	if err := os.MkdirAll(control, 0o700); err != nil {
 		return WorkflowIdentity{}, fmt.Errorf("create workflow control directory: %w", err)
@@ -101,6 +110,54 @@ func prepareWorkflowPaths(root, memberID, repo string) (WorkflowIdentity, error)
 		return WorkflowIdentity{}, err
 	}
 	return WorkflowIdentity{MemberID: memberID, ControlDir: control, Repo: code}, nil
+}
+
+func validateWorkflowControl(root, id, control string) error {
+	if err := controlAncestry(control); err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(root, control)
+	if err != nil {
+		return fmt.Errorf("resolve workflow control binding: %w", err)
+	}
+	parts := strings.Split(relative, string(filepath.Separator))
+	if len(parts) != 2 || parts[1] != id || len(parts[0]) != 32 {
+		return fmt.Errorf("workflow control path does not match membership")
+	}
+	if _, err := hex.DecodeString(parts[0]); err != nil {
+		return fmt.Errorf("invalid workflow control parent: %w", err)
+	}
+	if err := privateControlDirectory(filepath.Dir(control)); err != nil {
+		return err
+	}
+	return privateControlDirectory(control)
+}
+
+func (r *Runtime) removeEmptyWorkflowControl(credential *runtimeCredential) {
+	if credential.memberID == "" {
+		return
+	}
+	root := r.workflowRoot(credential.identity.Team)
+	if err := validateWorkflowControl(root, credential.memberID, credential.dir); err != nil {
+		return
+	}
+	// Remove an empty owned config file only; never discard unrelated user settings.
+	config, _, err := loadRuntimeConfig(credential.config)
+	if err == nil {
+		servers, serverErr := configServers(config)
+		ownedOnly := true
+		for key := range config {
+			if key != "$schema" && key != "mcp" {
+				ownedOnly = false
+			}
+		}
+		if serverErr == nil && len(servers) == 0 && ownedOnly {
+			_ = os.Remove(credential.config)
+		}
+	}
+	if err := os.Remove(credential.dir); err == nil {
+		_ = os.Remove(filepath.Dir(credential.dir))
+	}
 }
 
 func privateControlDirectory(path string) error {

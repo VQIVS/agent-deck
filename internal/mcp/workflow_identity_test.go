@@ -21,6 +21,17 @@ func TestWorkflowControlDirectoriesKeepSharedCheckoutSeparate(t *testing.T) {
 	if master.ControlDir == worker.ControlDir || master.Repo != worker.Repo {
 		t.Fatal("identity directory alias")
 	}
+	if filepath.Dir(master.ControlDir) == filepath.Dir(worker.ControlDir) {
+		t.Fatal("members share discoverable parent")
+	}
+	parentInfo, _ := os.Stat(filepath.Dir(master.ControlDir))
+	if parentInfo.Mode().Perm() != 0o700 {
+		t.Fatal("random parent is not private")
+	}
+	rootInfo, _ := os.Stat(filepath.Dir(filepath.Dir(master.ControlDir)))
+	if rootInfo.Mode().Perm() != 0o711 {
+		t.Fatal("common parent is listable")
+	}
 	master.PreviousSession, master.PreviousDir = "prior-session", repo
 	if !strings.Contains(master.Instructions(), "prior-session") || !strings.Contains(master.Instructions(), master.Repo) {
 		t.Fatal("missing source/transcript instructions")
@@ -64,8 +75,9 @@ func TestWorkflowIdentityRefusesUnsafeRoots(t *testing.T) {
 		t.Fatal("control config inside checkout")
 	}
 	root := t.TempDir()
-	os.Symlink(t.TempDir(), filepath.Join(root, "member"))
-	if _, err := PrepareWorkflowIdentity(t.Context(), root, "member", repo); err == nil {
+	alias := filepath.Join(root, "alias")
+	os.Symlink(t.TempDir(), alias)
+	if _, err := PrepareWorkflowIdentity(t.Context(), alias, "member", repo); err == nil {
 		t.Fatal("symlink identity accepted")
 	}
 }

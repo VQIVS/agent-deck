@@ -15,7 +15,7 @@ func ControlSessionRules(repo string, rules []Rule) ([]Rule, error) {
 	result := make([]Rule, 0, len(rules)+3)
 	var externalDenies []Rule
 	for _, rule := range rules {
-		if rule.Permission == "external_directory" && rule.Action == "deny" {
+		if controlPrivateDeny(&rule) {
 			externalDenies = append(externalDenies, rule)
 			continue
 		}
@@ -36,4 +36,8 @@ func ControlSessionRules(repo string, rules []Rule) ([]Rule, error) {
 		Rule{Permission: "external_directory", Pattern: repo + "/*", Action: "allow"})
 	result = append(result, externalDenies...)
 	return result, nil
+}
+
+func controlPrivateDeny(rule *Rule) bool {
+	return rule.Permission == "external_directory" && rule.Action == "deny" && filepath.IsAbs(rule.Pattern)
 }

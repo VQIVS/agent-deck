@@ -49,16 +49,37 @@ func (r *Runtime) SetupWorkflow(ctx context.Context, name string) error {
 		return err
 	}
 	identity.PreviousSession, identity.PreviousDir = member.Session, member.SessionDir()
-	rules, err := team.LeaseRules(member.Dir, manager.Team.Members, member)
+	candidate := *member
+	candidate.ControlDir = identity.ControlDir
+	rules, err := manager.CreationRules(ctx, &candidate)
 	if err != nil {
-		return fmt.Errorf("build workflow leases: %w", err)
+		return fmt.Errorf("build checked workflow creation rules: %w", err)
 	}
-	rules, err = api.ControlSessionRules(identity.Repo, rules)
+	handoff, err := team.WorkflowHandoff(ctx, manager, index)
 	if err != nil {
-		return fmt.Errorf("rebase workflow leases: %w", err)
+		return fmt.Errorf("gather workflow handoff: %w", err)
 	}
-	return r.createWorkflowBinding(ctx, manager, index, &identity, rules)
+	if err := r.createWorkflowBinding(ctx, manager, index, &identity, rules); err != nil {
+		return err
+	}
+	if err := manager.Send(ctx, index, handoff+"\n\n"+identity.Instructions()); err != nil {
+		return &WorkflowHandoffError{Session: manager.Team.Members[index].Session, Err: err}
+	}
+	return nil
 }
+
+// WorkflowHandoffError means the new binding is saved; retry prompting, never repeat setup.
+type WorkflowHandoffError struct {
+	Session string
+	Err     error
+}
+
+func (err *WorkflowHandoffError) Error() string {
+	return fmt.Sprintf("workflow binding saved (session %s), initial handoff failed; "+
+		"send a message to retry: %v", err.Session, err.Err)
+}
+
+func (err *WorkflowHandoffError) Unwrap() error { return err.Err }
 
 func workflowSetupAllowed(manager *team.Manager, member *team.Member) error {
 	if manager.ReadOnly || member.Muted {
@@ -86,6 +107,7 @@ func (r *Runtime) createWorkflowBinding(
 		return err
 	}
 	credential := runtimeCredential{
+		memberID: member.ID,
 		identity: auth, dir: identity.ControlDir, role: member.Role,
 		config: filepath.Join(identity.ControlDir, "opencode.json"),
 		entry:  "agent_deck_" + team.Slug(manager.Team.Name), token: token,

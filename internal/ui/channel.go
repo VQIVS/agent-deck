@@ -26,6 +26,10 @@ type workflowSetup interface {
 	SetupWorkflow(context.Context, string) error
 }
 
+type workflowReset interface {
+	ResetWorkflow(context.Context, string) error
+}
+
 type incrementalChannel interface {
 	ReadUserSince(context.Context, string, int) ([]channel.Record, error)
 }

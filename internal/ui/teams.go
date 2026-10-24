@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/team"
@@ -234,6 +235,8 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 			} else {
 				e = fmt.Errorf("workflow runtime unavailable")
 			}
+		case "workflow-reset":
+			e = m.resetWorkflowBinding(runtime, &manager, index)
 		}
 		return teamOperationMsg{&manager, e}
 	}
@@ -285,15 +288,17 @@ func (m *Model) teamConfirmation() string {
 		text = "Install private team MCP config for this isolated worktree? Shared/adopt members are refused."
 	}
 	if text == "workflow-identity" {
-		text = "Create a private control session for this member? Old session/transcript stays; code checkout is shared."
+		text = "Start fresh control session? Conversation context is lost; old transcript retained; handoff summary provided."
 	}
-	out := fit(
-		text,
-		m.w,
-	) + "\n" + m.buttonRow(
+	if text == "workflow-reset" {
+		text = "Reset identity? Restore prior binding, revoke credentials. Transcripts retained; no context transfer."
+	}
+	text = ansi.Hardwrap(clean(text), m.w, true)
+	buttonY := strings.Count(text, "\n") + 1
+	out := text + "\n" + m.buttonRow(
 		[]button{{"Yes", "team-yes", m.opts.ReadOnly}, {"No", "team-no", false}},
 		0,
-		1,
+		buttonY,
 		m.w,
 		-1,
 	)
@@ -301,7 +306,7 @@ func (m *Model) teamConfirmation() string {
 		out += "\n" + m.buttonRow(
 			[]button{{fmt.Sprintf("delete worktree anyway: %t", u.Force), "team-force", m.opts.ReadOnly}},
 			0,
-			2,
+			buttonY+1,
 			m.w,
 			-1,
 		)
@@ -357,6 +362,7 @@ func (m *Model) membersView() string {
 	b.WriteString("\n" + m.buttonRow([]button{
 		{"Team tools", "member-channel", m.opts.ReadOnly},
 		{"Workflow identity", "member-workflow", m.opts.ReadOnly},
+		{"Reset identity", "member-workflow-reset", m.opts.ReadOnly},
 	}, 0, y+2, m.w, -1))
 	return b.String()
 }
@@ -455,6 +461,9 @@ func (m *Model) teamSelection(action string) bool {
 
 func (m *Model) teamNavigation(action string) (bool, tea.Cmd) {
 	u := m.teams
+	if m.workflowResetAction(action) {
+		return true, nil
+	}
 	if action == "member-workflow" && !m.opts.ReadOnly {
 		u.Confirm = "workflow-identity"
 		return true, nil
@@ -669,7 +678,7 @@ func (m *Model) confirmTeam() tea.Cmd {
 	switch confirm {
 	case "remove":
 		return m.teamOperation("remove", u.MemberIndex, u.Force)
-	case "start", "master", "leases", "channel-credentials", "workflow-identity":
+	case "start", "master", "leases", "channel-credentials", "workflow-identity", "workflow-reset":
 		return m.teamOperation(confirm, u.MemberIndex, false)
 	default:
 		return nil

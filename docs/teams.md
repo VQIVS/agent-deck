@@ -28,6 +28,11 @@ the member must be idle (or unstarted) and have an explicit permission preset. I
 a new OpenCode session, retaining the previous session and directory as transcript references;
 it does not transfer the old model context or modify the code checkout. Existing worktree
 members continue to use **Team tools**.
+The warning explicitly states that model conversation context is lost. Setup sends a
+generated first-prompt handoff containing the last report/assistant text and open tasks.
+**Reset identity** explicitly restores the retained prior binding and revokes control
+credentials, retaining both transcript references. Removing a member deletes its control
+session; owned config and empty validated control directories are cleaned on revocation.
 
 `dir` remains the code/Git checkout; `control_dir` is the session/config/API directory.
 All status, messages, permissions and prompts use the session directory. Native edit leases
@@ -42,6 +47,10 @@ a throwaway control session also edited an allowed shared-repo file with rebased
 This provides attributable cooperative identity. Same-user unrestricted bash can still read
 other credentials or bypass guards; it is not sandbox isolation. Setup is never implicit
 for adopted sessions, and read-only blocks setup.
+Each control directory has a random per-member parent rather than an enumerable sibling
+member layout. Native absolute peer reads were denied in a temporary non-Git-session probe;
+the relative-shell attempt timed out and is not claimed verified. Directory permissions
+and random names are accidental-access hardening, not isolation from the same OS user.
 
 ## Quick worker setup
 

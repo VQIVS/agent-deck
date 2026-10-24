@@ -275,6 +275,8 @@ func (r *Runtime) userAction(ctx context.Context, input *userRequest) (any, erro
 		return nil, r.InstallCredential(ctx, input.Member)
 	case "setup_workflow":
 		return nil, r.SetupWorkflow(ctx, input.Member)
+	case "reset_workflow":
+		return nil, r.ResetWorkflow(ctx, input.Member)
 	case "revoke":
 		return nil, r.RevokeCredential(ctx, input.Member)
 	case "post":

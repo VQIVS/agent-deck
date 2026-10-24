@@ -31,6 +31,7 @@ func TestControlSessionRulesRebaseWithoutBroadeningWorker(t *testing.T) {
 func TestControlSessionExternalDenyPrecedence(t *testing.T) {
 	rules := []Rule{
 		{Permission: "external_directory", Pattern: "*", Action: "ask"},
+		{Permission: "external_directory", Pattern: "*", Action: "deny"},
 		{Permission: "edit", Pattern: "*", Action: "deny"},
 		{Permission: "edit", Pattern: "owned/*", Action: "allow"},
 		{Permission: "external_directory", Pattern: "/repo/private/*", Action: "deny"},
@@ -39,7 +40,7 @@ func TestControlSessionExternalDenyPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got[0] != rules[0] || got[len(got)-1] != rules[3] {
+	if got[0] != rules[0] || got[1] != rules[1] || got[len(got)-1] != rules[4] {
 		t.Fatal("base policy or private deny order lost", got)
 	}
 	if got[len(got)-2].Action != "allow" || got[len(got)-2].Pattern != "/repo/*" {

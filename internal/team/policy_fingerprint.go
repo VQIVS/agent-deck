@@ -14,7 +14,7 @@ func (t *Team) PolicyFingerprint(member *Member) string {
 		return ""
 	}
 	rules := baseLeaseRules(member)
-	if member.ControlDir != "" || t.LeasePool || HasLeases(t.Members) {
+	if t.LeasePool || HasLeases(t.Members) {
 		var err error
 		rules, err = LeaseRules(t.Repo, t.Members, member)
 		if err != nil {

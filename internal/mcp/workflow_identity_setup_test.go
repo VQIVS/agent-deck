@@ -26,6 +26,12 @@ func TestWorkflowSetupPreservesOldBindingAndScopedLease(t *testing.T) {
 		credentials: make(map[string]runtimeCredential), URL: "http://127.0.0.1:1234/mcp",
 	}
 	manager, _ := f.provider(t.Context())
+	bin := t.TempDir()
+	git := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' %q\n", manager.Team.Members[0].Dir)
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(git), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	r.manager = manager
 	manager.Store = team.Store{Root: t.TempDir()}
 	manager.Team.Version, manager.Team.Capacity = 1, 2
@@ -35,7 +41,13 @@ func TestWorkflowSetupPreservesOldBindingAndScopedLease(t *testing.T) {
 	manager.Team.Members[0].Capability = "coder"
 	manager.Team.Members[0].Permissions = team.Preset("coder")
 	created := false
+	prompted := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == "POST" && req.URL.Path == "/session/new-session/prompt_async" {
+			prompted = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if req.Method != "POST" || req.URL.Path != "/session" {
 			t.Error("unexpected", req.Method, req.URL)
 			w.WriteHeader(500)
@@ -101,7 +113,8 @@ func TestWorkflowSetupPreservesOldBindingAndScopedLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	loaded, _, err := manager.Store.Load(t.Context(), manager.Team.Name)
-	if err != nil || !created || loaded.Members[0].Session != "new-session" || loaded.Members[0].ControlDir == "" {
+	if err != nil || !created || !prompted || loaded.Members[0].Session != "new-session" ||
+		loaded.Members[0].ControlDir == "" {
 		t.Fatal("workflow binding not persisted", loaded, err)
 	}
 	if loaded.Members[0].Dir != manager.Team.Members[0].Dir {

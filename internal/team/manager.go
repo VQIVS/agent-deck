@@ -175,6 +175,11 @@ func (m *Manager) Remove(ctx context.Context, index int, force bool) error {
 		if e := api.New(m.Team.Server, false).Abort(ctx, member.SessionDir(), member.Session); e != nil {
 			return fmt.Errorf("abort member %q: %w", member.Name, e)
 		}
+		if member.ControlDir != "" {
+			if err := api.New(m.Team.Server, false).Delete(ctx, member.SessionDir(), member.Session); err != nil {
+				return fmt.Errorf("delete removed control session: %w", err)
+			}
+		}
 	}
 	if e := RemoveWorktree(ctx, &m.Team, &member, force); e != nil {
 		return e

@@ -91,9 +91,12 @@ func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule
 	if root != want {
 		return nil, fmt.Errorf("lease repository must be Git worktree root %q, got %q", root, want)
 	}
-	rules, err := LeaseRules(root, m.Team.Members, member)
-	if err != nil {
-		return nil, err
+	rules := baseLeaseRules(member)
+	if m.Team.LeasePool || HasLeases(m.Team.Members) {
+		rules, err = LeaseRules(root, m.Team.Members, member)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if member.ControlDir != "" {
 		rules, err = api.ControlSessionRules(root, rules)
@@ -102,6 +105,11 @@ func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule
 		}
 	}
 	return rules, nil
+}
+
+// CreationRules validates the code worktree and returns the actual session-scoped policy.
+func (m *Manager) CreationRules(ctx context.Context, member *Member) ([]api.Rule, error) {
+	return m.creationRules(ctx, member)
 }
 
 func (t *Team) LeaseFingerprint(member *Member) string {

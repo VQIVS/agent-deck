@@ -19,7 +19,12 @@ type sendReceipt struct {
 }
 
 func receiptPath(manager *team.Manager, index int) string {
-	return filepath.Join(manager.Store.Root, ".sent", team.Slug(manager.Team.Name),
+	root := os.Getenv("XDG_STATE_HOME")
+	if root == "" {
+		home, _ := os.UserHomeDir()
+		root = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(root, "agent-deck", "sent", team.Slug(manager.Team.Name),
 		team.Slug(manager.Team.Members[index].Name)+".json")
 }
 

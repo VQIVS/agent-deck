@@ -140,7 +140,7 @@ func (m *Manager) observe(ctx context.Context, member *Member, out *MemberStatus
 	if err != nil {
 		return fmt.Errorf("read member messages: %w", err)
 	}
-	if latest := LatestAssistant(messages); latest != nil {
+	if latest := ContextAssistant(messages); latest != nil {
 		out.ContextTokens = latest.Info.Tokens.Input + latest.Info.Tokens.Cache.Read
 	}
 	return nil
@@ -185,4 +185,20 @@ func AssistantText(messages []api.Message) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func ContextAssistant(messages []api.Message) *api.Message {
+	latest := LatestAssistant(messages)
+	if latest == nil || latest.Info.Time.Completed > 0 || latest.Info.Tokens.Input+latest.Info.Tokens.Cache.Read > 0 {
+		return latest
+	}
+	var completed *api.Message
+	for i := range messages {
+		message := &messages[i]
+		if message.Info.Role == "assistant" && message.Info.Time.Completed > 0 &&
+			(completed == nil || message.Info.Time.Created >= completed.Info.Time.Created) {
+			completed = message
+		}
+	}
+	return completed
 }

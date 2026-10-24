@@ -90,6 +90,7 @@ func setupTeamCLI(t *testing.T, fake *teamFake) func(...string) (string, error) 
 	s := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(s.Close)
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("AGENT_DECK_SERVER", "")
 	tm := team.Team{
 		Version: 1, Name: "test", Server: s.URL, Repo: "/tmp/master", Base: "main", Capacity: 2,
@@ -233,6 +234,20 @@ func TestWaitExitCodes(t *testing.T) {
 	assertExitCode(t, err, 3)
 	if time.Since(started) < 25*time.Millisecond {
 		t.Fatal("send+wait returned before observing a response")
+	}
+}
+
+func TestReceiptUsesStateDirectory(t *testing.T) {
+	run := setupTeamCLI(t, &teamFake{})
+	if _, err := run("send", "--team", "test", "--member", "Worker", "--text", "hello"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(os.Getenv("XDG_STATE_HOME"), "agent-deck", "sent", "test", "worker.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal("missing state receipt", err)
+	}
+	if _, err := os.Stat(filepath.Join(team.DefaultRoot(), ".sent")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("receipt written into configuration")
 	}
 }
 

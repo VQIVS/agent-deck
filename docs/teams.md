@@ -41,7 +41,8 @@ Server precedence is the explicit flag, `AGENT_DECK_SERVER`, then the saved team
   member read appears offline with an error field while the other members are still reported.
 - `send --member NAME (--text TEXT | --file PATH)`: uses the same `team.Options` prompt
   settings as the dashboard; refuses an unstarted member. Records a private pre-send assistant
-  baseline under `teams/.sent/` for a subsequent wait. Delivery errors retain that baseline
+  baseline under `$XDG_STATE_HOME/agent-deck/sent/` (default `~/.local/state/agent-deck/sent/`)
+  for a subsequent wait. Delivery errors retain that baseline
   because an HTTP failure can leave submission uncertain. The team YAML is not changed.
 - `wait --member NAME [--timeout 30m] [--poll 5s]`: polls until idle (exit 0), permission or
   question waiting (exit 2), or timeout (exit 3). Errors exit 1 with details on stderr.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -271,5 +272,20 @@ func TestSelfHealReleaseTasksPreservesChecklist(t *testing.T) {
 	threshold := time.Minute
 	if !stateStalled(&threshold, &MemberStatus{LastActivity: time.Now().Add(-2 * time.Minute).UnixMilli()}, time.Now()) {
 		t.Fatal("stalled activity ignored")
+	}
+}
+
+func TestAssignSkipsPoolSetupForConfiguredWorkers(t *testing.T) {
+	transport, manager, request, _ := healingFixture(t, "assign")
+	manager.Team.Members[1].PoolCreated = false
+	manager.Team.Members[1].ControlDir = t.TempDir()
+	transport.LoadManager = func(context.Context) (*Manager, error) { return manager, nil }
+	request.Member = manager.Team.Members[1]
+	transport.WorkerSetup = func(context.Context, *Manager, int) error {
+		return fmt.Errorf("automatic workflow setup requires a pool-created shared worker")
+	}
+	_, err := transport.Execute(t.Context(), request)
+	if err != nil && strings.Contains(err.Error(), "prepare worker identity") {
+		t.Fatalf("assign ran pool identity setup for a configured worker: %v", err)
 	}
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func TestReconciledGrantRecordsOriginBeforeRestartAndRelease(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(appendPolicyFake(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("unexpected effect %s %s", r.Method, r.URL.Path)
 		}
@@ -49,7 +49,7 @@ func TestReconciledGrantRecordsOriginBeforeRestartAndRelease(t *testing.T) {
 
 func TestLifecycleAssignmentImmediatelyPreservesManualPolicy(t *testing.T) {
 	var rules []api.Rule
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(appendPolicyFake(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			var body struct{ Permission []api.Rule }
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

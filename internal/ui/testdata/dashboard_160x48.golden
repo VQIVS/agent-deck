@@ -5,14 +5,14 @@ agent-deck · WAITING 2 · requests 1P/1Q · streams 2/2 · http://127.0.0.1:409
 │ IDLE  ★ Sol · leases PENDING apply                                                                                                                           │
 │[⤢] [Send message] [Nudge] [Stop] [Attach] [Compact]                                                                                                          │
 │context [■·········] 24000/128000 (19%) · nudges 0/0 · tool: —                                                                                                │
+│ASSISTANT                                                                                                                                                     │
+│                                                                                                                                                              │
 │  ## Review plan                                                                                                                                              │
 │                                                                                                                                                              │
 │  Verify health signals, then integrate the worker changes.                                                                                                   │
 │                                                                                                                                                              │
 │  • Run package tests                                                                                                                                         │
 │  • Review pending permissions                                                                                                                                │
-│                                                                                                                                                              │
-│                                                                                                                                                              │
 │                                                                                                                                                              │
 │                                                                                                                                                              │
 │                                                                                                                                                              │
@@ -28,9 +28,9 @@ agent-deck · WAITING 2 · requests 1P/1Q · streams 2/2 · http://127.0.0.1:409
 │[Reject]                                                                      ││! permission/question needs attention                                         │
 │! permission/question needs attention                                         ││QUESTION: Scope Review all changes or only health? · Health: Review reducer an│
 │PERMISSION: bash · go test -race ./internal/state/...                         ││d nudge logic                                                                 │
+│ASSISTANT                                                                     ││                                                                              │
+│                                                                              ││                                                                              │
 │  The reducer tests pass. Waiting for permission to run the race checks.      ││                                                                              │
-│                                                                              ││                                                                              │
-│                                                                              ││                                                                              │
 │                                                                              ││                                                                              │
 │                                                                              ││                                                                              │
 │                                                                              ││                                                                              │

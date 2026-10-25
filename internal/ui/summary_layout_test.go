@@ -349,6 +349,9 @@ func TestSummaryProductionShellCaptures(t *testing.T) {
 				if !strings.Contains(view, "Summary") || !strings.Contains(view, "Coverage") {
 					t.Fatal("production shell lost Summary sections")
 				}
+				if name == "monochrome" {
+					assertScreenGolden(t, fmt.Sprintf("summary_%dx%d", size[0], size[1]), view)
+				}
 				t.Log("\n" + view)
 			})
 		}

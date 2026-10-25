@@ -1,0 +1,48 @@
+[1 Dashboard] [2 Git] [>3 Summary] [4 Channel] [5 Board] [6 Inbox]
+Summary / agent-deck | Board loaded 13:40 UTC / Channel loaded 13:40 UTC                                                               [r Refresh board/channel]
+Member: [All members v]  Tab next / m choose | Board: assignee / Events: author
++- Current board / 3 tasks ------------------------------------------------------------------------------------------------------------------------------------+
+| STATE          TASK   ASSIGNEE       TITLE                                                                                                   [b Open Board]  |
+| review         T-31   core-dev      Git TUI research                                                                                                         |
+| in_progress    T-34   ui-design     Summary discovery                                                                                                        |
+| blocked        T-32   ui-dev        Waiting for scope                                                                                                        |
+| 1 blocked / 1 in_progress / 1 review                                                                                                                         |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
++- Evidence / oldest -> newest / 4 loaded / 4/4 selected ------------------------------------------------------------------------------------------------------+
+|    TIME UTC  AUTHOR        TASK   SOURCE / AUTHORITY           PREVIEW                                                                                       |
+| 2026-10-25 UTC                                                                                                                                               |
+|    13:31     lead          T-34   BOARD / recorded             state: ready → in_progress                                                                    |
+|    13:34     qa            T-31   COMMENT / recorded           Please preserve no-tool fallback                                                              |
+|    13:35     ui-dev        --     CHANNEL / recorded           Need a scope decision before proceeding                                                       |
+| >  13:40     core-dev      T-31   REPORT / worker claim        Done; tests reported: FAIL; 1 open issue(s)                                                   |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                                              |
+|                                                                                                                                             [Enter Details]  |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
++- Selected evidence / T-31 / core-dev / REPORT / worker claim [Enter Full details] ---------------------------------------------------------------------------+
+| Reported at 2026-10-25 13:40:00 UTC | Source: structured worker report | Current board: review                                                               |
+| SUMMARY     Done                                                                                                                                             |
+| CRITERIA    c1 complete=true (reported): Compared upstream documentation                                                                                     |
+| TEST CLAIM  c1 | go test ./internal/ui | FAIL (reported) | timeout                                                                                           |
+| OPEN ISSUE  no-tool fallback needs review                                                                                                                    |
+| Reported completion does not imply review acceptance or independently passing tests.                                                                         |
+| Source ID: report:T-31:1792935600000000000                                                                                                                   |
+|                                                                                                                                                              |
+| Available content 1-7/7 | Enter opens scrollable full details                                                                                                |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
++- Coverage / LIMITED [c Details] -----------------------------------------------------------------------------------------------------------------------------+
+| Board and channel: supplied persisted records; not a reconstructed archive.                                                                                  |
+| Session windows: latest 30 fetched messages/member; assistant text only; each excerpt <=4000 runes.                                                          |
+| Refresh scope: board + channel only. Transcript windows retain their own load time.                                                                          |
+| Reported claims are not independently verified completion. Earlier messages may be missing.                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+Showing loaded evidence only | All members | 0 new | event 4/4
+j/k Enter detail gg/G m member c coverage b Board r refresh ? help Esc back

@@ -1,0 +1,24 @@
+[1 Dashboard] [2 Git] [>3 Summary] [4 Channel] [5 Board] [6 Inbox]
+Summary / agent-deck | Board loaded 13:40 UTC / Channel loaded 13:40 UTC
+Member: [All members v]  Tab next / m choose | Board: assignee / Events: author
++- Current board / 3 tasks ----------------------------------------------------+
+| 1 blocked / 1 in_progress / 1 review                         [b Open Board]  |
+| T-31   review         core-dev    Git TUI research                           |
+| T-34   in_progress    ui-design   Summary discovery                          |
+| T-32   blocked        ui-dev      Waiting for scope                          |
++------------------------------------------------------------------------------+
++- Evidence / oldest -> newest / 4 loaded / 4/4 selected ----------------------+
+| 2026-10-25 UTC                                                               |
+|   13:31 lead        T-34  BOARD / recorded                                   |
+|   state: ready → in_progress                                                 |
+|   13:34 qa          T-31  COMMENT / recorded                                 |
+|   Please preserve no-tool fallback                                           |
+|   13:35 ui-dev      --    CHANNEL / recorded                                 |
+|   Need a scope decision before proceeding                                    |
+| > 13:40 core-dev    T-31  REPORT / worker claim                              |
+|   Done; tests reported: FAIL; 1 open issue(s)                                |
+|                                                                              |
+|                                                             [Enter Details]  |
++------------------------------------------------------------------------------+
+Coverage: LIMITED | latest 30 msgs/session; excerpts <=4000 runes | c details
+j/k Enter detail gg/G m member c coverage b Board r refresh ? help Esc back

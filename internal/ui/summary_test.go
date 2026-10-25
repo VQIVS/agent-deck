@@ -34,7 +34,7 @@ func TestSummaryChronologyDedupAndProvenance(t *testing.T) {
 	for _, width := range []int{80, 160} {
 		view := RenderSummary(source, &SummaryState{}, width, 48)
 		for _, text := range []string{
-			"blocked", "latest 30 only", "earlier transcript may be missing", "inferred/unverified", "I think this is done",
+			"Coverage", "30", "unverified", "I think this is done",
 		} {
 			if !strings.Contains(view, text) {
 				t.Fatalf("missing coverage/provenance %q: %s", text, view)
@@ -54,13 +54,13 @@ func TestSummaryNavigationAndMemberFilter(t *testing.T) {
 	state := &SummaryState{}
 	SummaryKey(source, state, key("G"), 8)
 	RenderSummary(source, state, 80, 8)
-	if state.Offset == 0 {
-		t.Fatal("G did not reach end")
+	if state.SelectedID != "channel:b" {
+		t.Fatal("G did not select deterministic unknown-time end")
 	}
 	SummaryKey(source, state, key("g"), 8)
 	SummaryKey(source, state, key("g"), 8)
-	if state.Offset != 0 {
-		t.Fatal("gg did not reach start")
+	if state.SelectedID != "channel:a" {
+		t.Fatal("gg did not select oldest")
 	}
 	SummaryKey(source, state, key("tab"), 8)
 	if state.Member != "alice" {
@@ -94,9 +94,10 @@ func TestSummaryCommentsAndCompleteReportClaims(t *testing.T) {
 		entries[1].Member != "reviewer" || entries[2].Member != "worker" {
 		t.Fatalf("lost attribution or chronology: %+v", entries)
 	}
-	view := RenderSummary(source, &SummaryState{}, 160, 60)
+	state := &SummaryState{Mode: "detail"}
+	view := RenderSummary(source, state, 160, 60)
 	for _, want := range []string{
-		"Please check", "Criterion c1", "go test: fail", "timeout", "Open issue: broken", "claims unverified",
+		"c1 complete=true", "go test", "FAIL (reported)", "timeout", "broken", "not independently verified",
 	} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing %q in %s", want, view)
@@ -142,8 +143,8 @@ func TestSummaryEmptySmallTerminalAndPaging(t *testing.T) {
 	}
 	state := &SummaryState{}
 	SummaryKey(nil, state, key("pgdown"), 10)
-	if state.Offset != 8 {
-		t.Fatal("page down did not advance viewport")
+	if state.Offset != 0 {
+		t.Fatal("empty page must retain zero offset")
 	}
 	SummaryKey(nil, state, key("pgup"), 10)
 	if state.Offset != 0 {

@@ -1,13 +1,13 @@
 Tasks · in_progress · / filter · s swimlanes
- backlog 1              ready 1                in_progress 1          review 1               done 1                 blocked 1              cancelled 1
-╭────────────────────╮ ╭────────────────────╮ ┏━━━━━━━━━━━━━━━━━━━━┓ ╭────────────────────╮ ╭────────────────────╮ ╭────────────────────╮ ╭───────────────────╮
-│W1 Plan upgrade     │ │W2 Add task schema  │ ┃W3 Build Kanban     ┃ │W4 Review scheduler │ │W5 Verify tests     │ │W6 Resolve API      │ │W7 Old experiment  │
-│[unassigned] · ▽ low│ │[waiting for lease]…│ ┃[health] · ▲ urgent ┃ │[Sol] · • normal    │ │[mcp] · ▲ high      │ │[health] · • normal │ │[unassigned] · ▽ l…│
-│□□□ 0/2 · 1h        │ │□□□ 0/2 · 2h        │ ┃□□□ 0/2 · 3h        ┃ │■□□ 1/2 · 4h        │ │■□□ 1/2 · 5h        │ │■□□ 1/2 · 6h        │ │■□□ 1/2 · 7h       │
-│workflow · v0.2     │ │workflow · v0.2     │ ┃workflow · v0.2     ┃ │workflow · v0.2     │ │workflow · v0.2     │ │workflow · v0.2     │ │workflow · v0.2    │
-│                    │ │                    │ ┃deps 1              ┃ │                    │ │                    │ │BLOCKED             │ │                   │
-│[<] [>]             │ │[<] [>]             │ ┃[<] [>]             ┃ │[<] [>]             │ │[<] [>]             │ │[<] [>]             │ │[<] [>]            │
-╰────────────────────╯ ╰────────────────────╯ ┗━━━━━━━━━━━━━━━━━━━━┛ ╰────────────────────╯ ╰────────────────────╯ ╰────────────────────╯ ╰───────────────────╯
+ backlog 1             ready 1              in_progress 1        review 1             done 1               released …  blocked 1            cancelled 1
+╭───────────────────╮ ╭──────────────────╮ ┏━━━━━━━━━━━━━━━━━━┓ ╭──────────────────╮ ╭──────────────────╮             ╭──────────────────╮ ╭──────────────────╮
+│W1 Plan upgrade    │ │W2 Add task schema│ ┃W3 Build Kanban   ┃ │W4 Review schedul…│ │W5 Verify tests   │             │W6 Resolve API    │ │W7 Old experiment │
+│[unassigned] · ▽ l…│ │[waiting for leas…│ ┃[health] · ▲ urge…┃ │[Sol] · • normal  │ │[mcp] · ▲ high    │             │[health] · • norm…│ │[unassigned] · ▽ …│
+│□□□ 0/2 · 1h       │ │□□□ 0/2 · 2h      │ ┃□□□ 0/2 · 3h      ┃ │■□□ 1/2 · 4h      │ │■□□ 1/2 · 5h      │             │■□□ 1/2 · 6h      │ │■□□ 1/2 · 7h      │
+│workflow · v0.2    │ │workflow · v0.2   │ ┃workflow · v0.2   ┃ │workflow · v0.2   │ │workflow · v0.2   │             │workflow · v0.2   │ │workflow · v0.2   │
+│                   │ │                  │ ┃deps 1            ┃ │                  │ │                  │             │BLOCKED           │ │                  │
+│[<] [>]            │ │[<] [>]           │ ┃[<] [>]           ┃ │[<] [>]           │ │[<] [>]           │             │[<] [>]           │ │[<] [>]           │
+╰───────────────────╯ ╰──────────────────╯ ┗━━━━━━━━━━━━━━━━━━┛ ╰──────────────────╯ ╰──────────────────╯             ╰──────────────────╯ ╰──────────────────╯
 
 
 

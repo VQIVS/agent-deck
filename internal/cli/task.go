@@ -16,7 +16,8 @@ import (
 
 func taskCommand(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: agent-deck task ls|show|add|edit|move|assign|comment|review --team T [flags]")
+		return fmt.Errorf("usage: agent-deck task ls|show|workflow|pending-release|add|edit|move|assign|comment|review " +
+			"--team T [flags]")
 	}
 	command := args[0]
 	options, err := parseTaskFlags(command, args[1:])
@@ -36,14 +37,29 @@ func taskCommand(ctx context.Context, args []string, out io.Writer) error {
 	}
 	boardStore := team.BoardStore{
 		Root: filepath.Join(root, "boards"), Team: current.Name,
-		ReadOnly: options.ReadOnly || command == "ls" || command == "show",
+		ReadOnly: options.ReadOnly || taskObservation(command),
 	}
-	if command == "ls" || command == "show" {
-		return readTasks(ctx, boardStore, &options, command, out)
+	if taskObservation(command) {
+		if command == "ls" || command == "show" {
+			return readTasks(ctx, boardStore, &options, command, out)
+		}
+		return readTaskWorkflow(ctx, boardStore, &current, &options, command, out)
 	}
 	if options.ReadOnly {
 		return fmt.Errorf("read-only: task mutations disabled")
 	}
+	return applyTaskCommand(ctx, manager, boardStore, &options, command, out)
+}
+
+func taskObservation(command string) bool {
+	return command == "ls" || command == "show" || command == "workflow" || command == "pending-release"
+}
+
+func applyTaskCommand(ctx context.Context, manager *team.Manager, boardStore team.BoardStore,
+	options *taskFlags, command string, out io.Writer,
+) error {
+	current := manager.Team
+	options.Call.Version, options.Call.ReleaseURL = options.Version, options.ReleaseURL
 	change, err := taskChange(command, &options.Call, &current)
 	if err != nil {
 		return err
@@ -78,7 +94,7 @@ func taskChange(command string, call *team.WorkflowCall,
 	}
 	if command == "add" && call.ID != "" {
 		return func(board *team.TaskBoard, m team.TaskMutation) error {
-			return planNamedTask(board, &call.TaskSpec, m)
+			return planNamedTask(board, &call.TaskSpec, &m)
 		}, nil
 	}
 	names := map[string]string{
@@ -96,13 +112,13 @@ func taskChange(command string, call *team.WorkflowCall,
 	return change, nil
 }
 
-func planNamedTask(board *team.TaskBoard, spec *team.TaskSpec, m team.TaskMutation) error {
+func planNamedTask(board *team.TaskBoard, spec *team.TaskSpec, m *team.TaskMutation) error {
 	for i := range board.Tasks {
 		if board.Tasks[i].ID == spec.ID {
 			return fmt.Errorf("task ID already exists")
 		}
 	}
-	id, err := board.PlanTask(spec, m)
+	id, err := board.PlanTask(spec, *m)
 	if err != nil {
 		return fmt.Errorf("plan named task: %w", err)
 	}
@@ -174,7 +190,8 @@ func showTaskText(out io.Writer, task *team.Task) error {
 		fmt.Fprintf(&text, "%s %s: %s\n", mark, criterion.ID, criterion.Text)
 	}
 	text.WriteString("History:\n")
-	for _, event := range task.History {
+	for i := range task.History {
+		event := &task.History[i]
 		fmt.Fprintf(&text, "%s %s %s: %s -> %s\n",
 			event.At.Format(time.RFC3339), event.Actor, event.Field, event.From, event.To)
 	}

@@ -54,10 +54,7 @@ func kanbanNormalKey(tasks []team.Task, screen *KanbanScreen, task *team.Task,
 	case "s":
 		screen.Swimlanes = !screen.Swimlanes
 	case "m":
-		if task != nil && !readOnly {
-			screen.Move = true
-			screen.moveTaskID = task.ID
-		}
+		kanbanBeginMove(screen, task, readOnly)
 	case "n":
 		if !readOnly {
 			return &KanbanIntent{Action: "create"}
@@ -70,6 +67,15 @@ func kanbanNormalKey(tasks []team.Task, screen *KanbanScreen, task *team.Task,
 	return nil
 }
 
+func kanbanBeginMove(screen *KanbanScreen, task *team.Task, readOnly bool) {
+	if task == nil || readOnly || screen.MoveStages != nil && len(screen.MoveStages) == 0 {
+		return
+	}
+	screen.Move = true
+	screen.moveTaskID = task.ID
+	screen.MoveIndex = max(0, slices.Index(screen.moveStates(), task.State))
+}
+
 func kanbanFilterKey(tasks []team.Task, screen *KanbanScreen, key string) bool {
 	switch key {
 	case "f":
@@ -77,7 +83,7 @@ func kanbanFilterKey(tasks []team.Task, screen *KanbanScreen, key string) bool {
 	case "t":
 		screen.Filter.Label = kanbanCycleFilter(tasks, "label", screen.Filter.Label)
 	case "z":
-		screen.Filter.State = kanbanNextValue(KanbanStates(), screen.Filter.State)
+		screen.Filter.State = kanbanNextValue(screen.states(), screen.Filter.State)
 	case "0":
 		screen.Filter = KanbanFilter{}
 	default:
@@ -146,18 +152,35 @@ func kanbanTaskIntent(task *team.Task, key string, readOnly bool) *KanbanIntent 
 }
 
 func kanbanMoveKey(screen *KanbanScreen, key tea.KeyMsg, readOnly bool) *KanbanIntent {
-	screen.Move = false
 	if readOnly {
+		screen.Move = false
 		return nil
 	}
-	if len(key.Runes) == 1 && key.Runes[0] >= '1' && key.Runes[0] <= '7' {
-		return &KanbanIntent{Action: "move", TaskID: screen.moveTaskID, State: KanbanStates()[int(key.Runes[0]-'1')]}
+	states := screen.moveStates()
+	switch key.String() {
+	case "esc":
+		screen.Move = false
+	case "j", "down":
+		screen.MoveIndex = min(len(states)-1, screen.MoveIndex+1)
+	case "k", "up":
+		screen.MoveIndex = max(0, screen.MoveIndex-1)
+	case "enter":
+		screen.Move = false
+		return &KanbanIntent{Action: "move", TaskID: screen.moveTaskID, State: states[screen.MoveIndex]}
+	default:
+		if len(key.Runes) == 1 && key.Runes[0] >= '1' && key.Runes[0] <= '9' {
+			index := int(key.Runes[0] - '1')
+			if index < len(states) {
+				screen.Move = false
+				return &KanbanIntent{Action: "move", TaskID: screen.moveTaskID, State: states[index]}
+			}
+		}
 	}
 	return nil
 }
 
 func (s *KanbanScreen) horizontal(tasks []team.Task, delta int) {
-	states := KanbanStates()
+	states := s.states()
 	index := max(0, slices.Index(states, s.Column))
 	s.Column = states[max(0, min(len(states)-1, index+delta))]
 	s.Selected = ""
@@ -202,7 +225,7 @@ func KanbanClick(tasks []team.Task, screen *KanbanScreen, target *KanbanTarget, 
 		if target.Action == "previous" {
 			step = -1
 		}
-		states := KanbanStates()
+		states := screen.states()
 		index := slices.Index(states, task.State) + step
 		if index >= 0 && index < len(states) {
 			return &KanbanIntent{Action: "move", TaskID: task.ID, State: states[index]}

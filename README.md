@@ -30,6 +30,11 @@ agent-deck · WAITING 1 · streams 2/2 · http://127.0.0.1:4096
 
 ### Workspace screens
 
+Teams can customize their board stages, colors and transitions in **Team → Workflow** (`W`).
+Automation follows stage categories, so renamed stages retain scheduling and review semantics.
+The default includes **Released** after accepted Done work; recording shipment requires a version
+and an authorized release-manager or user. See [workflow configuration](docs/workflow.md).
+
 - **Tabs (`1`–`6`, or `Alt+1`–`Alt+6`)**: Dashboard, Git, Summary, Channel, Board and Inbox.
   Click the tab row to switch screens. In Board/Inbox use Alt-number to preserve their numeric controls;
   shortcuts are suspended while typing in forms or composing messages.

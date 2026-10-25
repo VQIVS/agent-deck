@@ -19,6 +19,11 @@ func renderKanbanDetailRequirements(task *team.Task, screen *KanbanScreen,
 	opts *KanbanOptions, requirements string,
 ) (string, []KanbanTarget) {
 	lines := kanbanDetailLines(task)
+	lines = append(lines, "Stage category: "+opts.Workflow.Category(task.State))
+	if task.ReleaseVersion != "" {
+		lines = append(lines, "Recorded release version: "+task.ReleaseVersion, "Release URL: "+task.ReleaseURL,
+			"Shipped at: "+task.ShippedAt.UTC().Format("2006-01-02 15:04"))
+	}
 	if requirements != "" {
 		lines = append(lines, "", requirements)
 	}
@@ -73,7 +78,8 @@ func kanbanDetailLines(task *team.Task) []string {
 			task.Review.Reviewer, task.Review.Accepted, task.Review.Comment))
 	}
 	lines = append(lines, "", "History")
-	for _, change := range task.History {
+	for i := range task.History {
+		change := &task.History[i]
 		lines = append(lines, change.At.UTC().Format("2006-01-02 15:04")+" "+change.Actor+
 			" · "+change.Field+": "+change.From+" → "+change.To)
 	}

@@ -33,6 +33,11 @@ type TaskReport struct {
 
 // Task is one independently owned unit of work on a versioned board.
 type Task struct {
+	category         string
+	categoryState    string
+	ReleaseVersion   string          `json:"release_version,omitempty"`
+	ReleaseURL       string          `json:"release_url,omitempty"`
+	ShippedAt        time.Time       `json:"shipped_at,omitempty"`
 	LegacyCompletion bool            `json:"legacy_completion,omitempty"`
 	StartedAt        time.Time       `json:"started_at,omitempty"`
 	CompletedAt      time.Time       `json:"completed_at,omitempty"`
@@ -65,18 +70,28 @@ type Task struct {
 
 // TaskBoard stores task state separately from team session bindings.
 type TaskBoard struct {
-	Version int          `json:"version"`
-	History []TaskChange `json:"history,omitempty"`
-	Tasks   []Task       `json:"tasks"`
+	Workflow WorkflowDefinition `json:"workflow,omitempty"`
+	Version  int                `json:"version"`
+	History  []TaskChange       `json:"history,omitempty"`
+	Tasks    []Task             `json:"tasks"`
 }
 
 func (b *TaskBoard) Validate() error {
 	if b == nil || (b.Version != 1 && b.Version != 2) {
 		return fmt.Errorf("task board requires version 1 or 2")
 	}
+	if err := b.Workflow.Validate(); err != nil {
+		return err
+	}
 	index := make(map[string]int, len(b.Tasks))
 	for i := range b.Tasks {
 		task := &b.Tasks[i]
+		if b.Version == 2 {
+			bindTaskCategory(b, task)
+			if task.category == "" {
+				return fmt.Errorf("task %q uses undefined workflow stage %q", task.ID, task.State)
+			}
+		}
 		if _, exists := index[task.ID]; task.ID == "" || exists {
 			return fmt.Errorf("task ids must be nonempty and unique")
 		}

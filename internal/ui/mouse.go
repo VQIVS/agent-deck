@@ -144,6 +144,10 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	return m.dashboardClick(msg, z, ok)
 }
 
+func (m *Model) workflowMouseTarget(z zone, ok bool) bool {
+	return m.teams != nil && m.teams.Screen == "workflow" && ok && strings.HasPrefix(z.Action, "workflow-")
+}
+
 func (m *Model) mouseWheel(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
 	if m.palette.Open || m.modalOpen() || m.channel.Editing || m.board.Form != nil {
 		return nil

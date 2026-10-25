@@ -99,6 +99,13 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 	if err != nil {
 		return err
 	}
+	manager, err := t.LoadManager(ctx)
+	if err != nil {
+		return err
+	}
+	if err := state.Board.bindWorkflow(manager.Team.Workflow); err != nil {
+		return err
+	}
 	if selfHealKind(request.Action.Kind) {
 		if err := releaseHealingTasks(&state.Board, request); err != nil {
 			return err
@@ -147,7 +154,7 @@ func recordTaskAssignmentAs(board *TaskBoard, id, worker string, actor TaskActor
 	if err := board.SetAssignee(id, worker, mutation); err != nil {
 		return err
 	}
-	return board.MoveTask(id, "in_progress", mutation)
+	return board.MoveTask(id, board.Destination("active"), mutation)
 }
 
 func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,

@@ -110,6 +110,9 @@ func (m *Model) workspaceTabs(width int) string {
 }
 
 func (m *Model) workspaceMouse(z zone, ok bool) (bool, tea.Cmd) {
+	if m.workflowMouseTarget(z, ok) {
+		return true, m.workflowEditorClick(z.Action)
+	}
 	if m.workspaceBlocked() {
 		return false, nil
 	}

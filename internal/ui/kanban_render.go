@@ -16,11 +16,17 @@ func RenderKanban(tasks []team.Task, screen *KanbanScreen, opts *KanbanOptions) 
 	if opts.Width <= 0 || opts.Height <= 0 {
 		return "", nil
 	}
+	if len(opts.Workflow.Stages) > 0 {
+		screen.Workflow = opts.Workflow
+	}
 	task := screen.reconcile(tasks)
+	if screen.Move {
+		return renderKanbanMove(screen, opts), nil
+	}
 	if screen.Detail && task != nil {
 		return renderKanbanDetail(task, screen, opts)
 	}
-	states := KanbanStates()
+	states := screen.states()
 	first, widths := kanbanColumnWidths(tasks, screen, opts.Width)
 	views := make([]string, 0, len(widths))
 	var targets []KanbanTarget
@@ -47,7 +53,7 @@ func RenderKanban(tasks []team.Task, screen *KanbanScreen, opts *KanbanOptions) 
 	}
 	footer := "←→ columns · ↑↓ cards · Enter detail · m move · n new · e edit · w worker"
 	if screen.Move {
-		footer = "Move: 1 backlog · 2 ready · 3 in_progress · 4 review · 5 done · 6 blocked · 7 cancel"
+		footer = "Move: j/k select · Enter apply · Esc cancel · " + screen.states()[screen.MoveIndex]
 	}
 	filterHelp := "f assignee · t label · z state · 0 clear"
 	if opts.ReadOnly {
@@ -60,19 +66,28 @@ func RenderKanban(tasks []team.Task, screen *KanbanScreen, opts *KanbanOptions) 
 	return kanbanBound(strings.Join(lines, "\n"), opts.Width, opts.Height), targets
 }
 
+func renderKanbanMove(screen *KanbanScreen, opts *KanbanOptions) string {
+	states := screen.moveStates()
+	screen.MoveIndex = max(0, min(len(states)-1, screen.MoveIndex))
+	lines := []string{"Move task " + screen.moveTaskID + " · j/k select · Enter apply · Esc cancel"}
+	capacity := max(1, opts.Height-2)
+	first := max(0, screen.MoveIndex-capacity+1)
+	for i := first; i < len(states) && i < first+capacity; i++ {
+		prefix := "  "
+		if i == screen.MoveIndex {
+			prefix = "> "
+		}
+		lines = append(lines, fmt.Sprintf("%s%d %s [%s]", prefix, i+1, states[i], screen.Workflow.Category(states[i])))
+	}
+	return kanbanBound(strings.Join(lines, "\n"), opts.Width, opts.Height)
+}
+
 func renderKanbanColumn(tasks []team.Task, screen *KanbanScreen, opts *KanbanOptions,
 	state string, bounds Rect,
 ) (string, []KanbanTarget) {
 	items := kanbanTasks(tasks, screen.Filter, state, screen.Swimlanes)
 	width := max(1, bounds.W-1)
-	color := kanbanStateColor(state)
-	label := state
-	if len(items) == 0 && bounds.W <= 12 {
-		label = map[string]string{
-			"backlog": "backlog", "ready": "ready", "in_progress": "progress",
-			"review": "review", "done": "done", "blocked": "blocked", team.TaskCancelled: "cancel",
-		}[state]
-	}
+	label, color := kanbanStagePresentation(screen, state, len(items) == 0 && bounds.W <= 12)
 	pill := lipgloss.NewStyle().Foreground(lipgloss.Color("#141619")).Background(color).Bold(true).
 		Render(" " + fmt.Sprintf("%s %d", label, len(items)) + " ")
 	lines := []string{kanbanFit(pill, width)}
@@ -119,6 +134,24 @@ func renderKanbanColumn(tasks []team.Task, screen *KanbanScreen, opts *KanbanOpt
 	return strings.Join(lines[:min(len(lines), bounds.H)], "\n"), targets
 }
 
+func kanbanStagePresentation(screen *KanbanScreen, state string, short bool) (string, lipgloss.Color) {
+	color := kanbanStateColor(state)
+	for _, stage := range screen.Workflow.Resolved().Stages {
+		if stage.Name == state {
+			color = lipgloss.Color(stage.Color)
+		}
+	}
+	if short {
+		if state == "in_progress" {
+			return "progress", color
+		}
+		if state == team.TaskCancelled {
+			return "cancel", color
+		}
+	}
+	return state, color
+}
+
 func kanbanCard(task *team.Task, selected bool, opts *KanbanOptions, width int) []string {
 	checked := 0
 	for _, criterion := range task.Criteria {
@@ -130,7 +163,7 @@ func kanbanCard(task *team.Task, selected bool, opts *KanbanOptions, width int) 
 	if len(task.Dependencies) > 0 {
 		deps = fmt.Sprintf("deps %d", len(task.Dependencies))
 	}
-	if task.State == "blocked" {
+	if optsWorkflowCategory(opts, task.State) == "blocked" {
 		deps += " BLOCKED"
 	}
 	priority := task.Priority
@@ -139,7 +172,7 @@ func kanbanCard(task *team.Task, selected bool, opts *KanbanOptions, width int) 
 	}
 	owner := kanbanAssignee(task)
 	ownerLabel := kanbanOwner(owner)
-	if task.State == "ready" && owner != "" {
+	if optsWorkflowCategory(opts, task.State) == "ready" && owner != "" {
 		ownerLabel = "waiting for " + owner
 	}
 	badge := lipgloss.NewStyle().Foreground(kanbanMemberColor(owner, opts)).

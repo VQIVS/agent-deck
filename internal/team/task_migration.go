@@ -6,6 +6,7 @@ import (
 
 // MigrateTaskBoard converts legacy state without treating unstructured reports as verified completion.
 func MigrateTaskBoard(board *TaskBoard) error {
+	board.Workflow = board.Workflow.Resolved()
 	if board.Version == 2 {
 		return board.Validate()
 	}
@@ -75,6 +76,9 @@ func TaskProgress(task *Task) (checked, total int) {
 // UpdateTaskProgress lets an assigned worker record checklist claims without changing acceptance text.
 func (b *TaskBoard) UpdateTaskProgress(id string, checked map[string]bool, m TaskMutation) error {
 	return b.mutate(id, m, func(board *TaskBoard, task *Task) error {
+		if TaskShipped(task) {
+			return fmt.Errorf("shipped task progress is immutable")
+		}
 		if !m.manages() && task.Assignee != m.Actor.Member {
 			return fmt.Errorf("progress requires assigned worker")
 		}
@@ -108,7 +112,8 @@ func validateTaskTimes(task *Task) error {
 }
 
 func validateTaskDiscussion(task *Task, total int) error {
-	for _, change := range task.History {
+	for i := range task.History {
+		change := &task.History[i]
 		total += len(change.From) + len(change.To) + len(change.Actor) + len(change.Field)
 		if len(change.From) > 4000 || len(change.To) > 4000 {
 			return fmt.Errorf("task history entry too large")

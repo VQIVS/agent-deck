@@ -7,11 +7,11 @@ import (
 )
 
 func kanbanColumnWidths(tasks []team.Task, screen *KanbanScreen, width int) (firstColumn int, columnWidths []int) {
-	states := KanbanStates()
+	states := screen.states()
 	selected := max(0, slices.Index(states, screen.Column))
 	minimum := 30
 	if width >= 154 {
-		minimum = 22
+		minimum = min(22, max(16, (width-12)/max(1, len(states)-1)))
 	}
 	widths := make([]int, len(states))
 	total := 0

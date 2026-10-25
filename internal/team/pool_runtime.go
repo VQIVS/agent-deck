@@ -100,6 +100,10 @@ func (p *PoolRuntime) Snapshot(ctx context.Context) (ReconcileSnapshot, error) {
 		return ReconcileSnapshot{}, err
 	}
 	now := time.Now().UTC()
+	if err := state.Board.SetWorkflow(manager.Team.Workflow,
+		TaskMutation{Actor: AutomationActor, Now: now}); err != nil {
+		return ReconcileSnapshot{}, err
+	}
 	var workers []SchedulerWorker
 	if state.Revision != 0 {
 		workers, err = p.workers(ctx, manager, now, &state.Policy)

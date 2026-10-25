@@ -22,7 +22,7 @@ func kanbanFixture() ([]team.Task, time.Time) {
 		"Plan upgrade", "Add task schema", "Build Kanban", "Review scheduler",
 		"Verify tests", "Resolve API", "Old experiment",
 	}
-	for i, state := range KanbanStates() {
+	for i, state := range []string{"backlog", "ready", "in_progress", "review", "done", "blocked", team.TaskCancelled} {
 		id := fmt.Sprintf("W%d", i+1)
 		tasks = append(tasks, team.Task{
 			ID: id, Title: titles[i],
@@ -232,7 +232,7 @@ func TestKanbanAdaptiveColumns(t *testing.T) {
 	tasks, _ := kanbanFixture()
 	s := KanbanScreen{Column: "in_progress"}
 	first, widths := kanbanColumnWidths(tasks, &s, 160)
-	if first != 0 || len(widths) != 7 {
+	if first != 0 || len(widths) != len(KanbanStates()) {
 		t.Fatalf("wide board hides states: %d %v", first, widths)
 	}
 	_, widths = kanbanColumnWidths(tasks, &s, 80)
@@ -241,7 +241,7 @@ func TestKanbanAdaptiveColumns(t *testing.T) {
 	}
 	tasks = tasks[:1]
 	_, widths = kanbanColumnWidths(tasks, &s, 110)
-	if len(widths) != 7 || widths[1] > 12 {
+	if len(widths) != len(KanbanStates()) || widths[1] > 12 {
 		t.Fatalf("empty states not collapsed: %v", widths)
 	}
 }

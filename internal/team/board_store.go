@@ -84,7 +84,7 @@ func (s BoardStore) Load(ctx context.Context) (BoardState, error) {
 	if err := s.read(ctx, "board.json", &raw); err != nil {
 		return raw, err
 	}
-	if s.ReadOnly || (raw.Version == 2 && raw.Board.Version == 2) {
+	if s.ReadOnly || (raw.Version == 2 && raw.Board.Version == 2 && len(raw.Board.Workflow.Stages) > 0) {
 		return s.loadBoard(ctx)
 	}
 	var result BoardState
@@ -103,7 +103,7 @@ func (s BoardStore) LoadMigratedUnlocked(ctx context.Context) (BoardState, error
 	if err := s.read(ctx, "board.json", &current); err != nil {
 		return current, err
 	}
-	legacy := current.Version != 2 || current.Board.Version != 2
+	legacy := current.Version != 2 || current.Board.Version != 2 || len(current.Board.Workflow.Stages) == 0
 	if err := migrateBoardState(&current); err != nil {
 		return current, err
 	}
@@ -158,7 +158,8 @@ func (s BoardStore) Save(ctx context.Context, state *BoardState, expected uint64
 		}
 		next := *state
 		next.Board = TaskBoard{
-			Version: state.Board.Version, History: slices.Clone(state.Board.History),
+			Workflow: state.Board.Workflow.Clone(),
+			Version:  state.Board.Version, History: slices.Clone(state.Board.History),
 			Tasks: make([]Task, len(state.Board.Tasks)),
 		}
 		for i := range state.Board.Tasks {

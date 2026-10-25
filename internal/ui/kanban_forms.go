@@ -24,6 +24,8 @@ type KanbanForm struct {
 	Index          int
 	Error          string
 	OriginalDigest string
+	TargetStage    string
+	Workflow       team.WorkflowDefinition
 }
 
 func NewKanbanForm(action string, task *team.Task, revision uint64) *KanbanForm {
@@ -34,6 +36,10 @@ func NewKanbanForm(action string, task *team.Task, revision uint64) *KanbanForm 
 			&KanbanEdit{Intent: KanbanIntent{TaskID: task.ID}})
 	}
 	t := &f.Original
+	if action == "release" {
+		f.Fields = []KanbanField{{Label: "Release version"}, {Label: "Release URL (optional)"}}
+		return f
+	}
 	if action == "review" {
 		f.Fields = []KanbanField{{Label: "Decision (accept/changes)"}, {Label: "Review comment"}}
 		return f
@@ -80,10 +86,13 @@ func (f *KanbanForm) Build() (*KanbanEdit, error) {
 	}
 	edit := &KanbanEdit{Intent: KanbanIntent{Action: f.Action, TaskID: f.Original.ID}, Revision: f.Revision}
 	edit.Original = f.OriginalDigest
+	if f.Action == "release" {
+		return f.buildRelease(edit, values)
+	}
 	if f.Action == "review" {
 		edit.Intent.State = values["Decision (accept/changes)"]
 		edit.Comment = values["Review comment"]
-		return edit, validateReviewForm(f.Original.State, edit)
+		return edit, validateReviewForm(f.Workflow.Category(f.Original.State), edit)
 	}
 	if f.Action == "comment" {
 		edit.Comment = values["Comment"]
@@ -118,10 +127,19 @@ func (f *KanbanForm) Build() (*KanbanEdit, error) {
 		}
 	}
 	if f.Action == "create" {
-		task.State = "backlog"
+		task.State = f.Workflow.Destination("todo")
 		task.Estimate.Parallel = true
 	}
 	edit.Task = &task
+	return edit, nil
+}
+
+func (f *KanbanForm) buildRelease(edit *KanbanEdit, values map[string]string) (*KanbanEdit, error) {
+	edit.Intent.Action, edit.Intent.State = "move", f.TargetStage
+	edit.Release = &team.TaskRelease{Version: values["Release version"], URL: values["Release URL (optional)"]}
+	if edit.Release.Version == "" {
+		return nil, fmt.Errorf("release version is required")
+	}
 	return edit, nil
 }
 

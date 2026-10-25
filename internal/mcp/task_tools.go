@@ -23,6 +23,7 @@ type TaskTools struct {
 var taskToolNames = []string{
 	"list_tasks", "create_task", "update_task", "split_task", "set_assignee", "move_task",
 	"comment_task", "review_task", "my_tasks", "update_my_task", "answer_request",
+	"task_workflow", "pending_release",
 }
 
 // IsTaskTool reports whether a tool name belongs to the workflow board.
@@ -43,17 +44,21 @@ func (t *TaskTools) Definitions() []map[string]any {
 	}
 	parts := map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": task}}
 	return []map[string]any{
+		tool("task_workflow", "Read configured stages and currently permitted moves for an optional task",
+			map[string]any{"id": text}, nil),
+		tool("pending_release", "List accepted done-category tasks waiting for shipment", nil, nil),
 		tool("list_tasks", "List board tasks, optionally filtered by state or assignee",
 			map[string]any{"state": text, "assignee": text}, nil),
-		tool("create_task", "Master: create a task (backlog, or ready when ready=true); criteria are "+
+		tool("create_task", "Master: create a task in the configured todo or ready stage; criteria are "+
 			"checkable acceptance items, paths are repo-relative owned globs", task, []string{"title", "criteria", "paths"}),
 		tool("update_task", "Master: edit a task's details (not state or assignee)", withID, []string{"id"}),
 		tool("split_task", "Master: replace a task with smaller tasks; the original becomes "+team.TaskCancelled,
 			map[string]any{"id": text, "parts": parts}, []string{"id", "parts"}),
 		tool("set_assignee", "Master: assign a worker and a reviewer; the assignee receives a generated brief",
 			map[string]any{"id": text, "assignee": text, "reviewer": text}, []string{"id", "assignee"}),
-		tool("move_task", "Move a task to backlog, ready, in_progress, review, blocked, done or "+team.TaskCancelled,
-			map[string]any{"id": text, "state": text}, []string{"id", "state"}),
+		tool("move_task", "Move to a configured workflow stage; category, evidence and actor guards apply; "+
+			"shipping requires a version", map[string]any{"id": text, "state": text, "version": text, "release_url": text},
+			[]string{"id", "state"}),
 		tool("comment_task", "Comment on a task you manage, work on or review",
 			map[string]any{"id": text, "text": text}, []string{"id", "text"}),
 		tool("review_task", "Reviewer: accept a task or request changes, with a comment",
@@ -62,31 +67,52 @@ func (t *TaskTools) Definitions() []map[string]any {
 		tool("answer_request", "Master: answer a worker's permission request (reply once, always or reject)",
 			map[string]any{"id": text, "reply": text, "message": text}, []string{"id", "reply"}),
 		tool("update_my_task", "Worker: tick criteria (checked = criterion IDs), comment, or move your task "+
-			"to review, blocked or in_progress", map[string]any{"id": text, "checked": list, "comment": text, "state": text},
+			"to an authorized configured stage", map[string]any{"id": text, "checked": list, "comment": text, "state": text},
 			[]string{"id"}),
 	}
+}
+
+type taskToolInput struct {
+	team.WorkflowCall
 }
 
 func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, arguments json.RawMessage) (any, error) {
 	if name == "answer_request" {
 		return t.answerRequest(ctx, identity, arguments)
 	}
-	var call team.WorkflowCall
-	if err := decode(bytes.NewReader(arguments), &call); err != nil {
+	var input taskToolInput
+	if err := decode(bytes.NewReader(arguments), &input); err != nil {
 		return nil, err
+	}
+	call := input.WorkflowCall
+	if (input.Version != "" || input.ReleaseURL != "") && name != "move_task" {
+		return nil, fmt.Errorf("release metadata is only valid for move_task")
 	}
 	manager, store, err := t.Provider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("open task board: %w", err)
 	}
 	store.ReadOnly = store.ReadOnly || manager.ReadOnly
+	if identity.Team != manager.Team.Name {
+		return nil, fmt.Errorf("task identity belongs to another team")
+	}
 	actor, err := manager.Team.ResolveTaskActor(identity.Member)
 	if err != nil {
 		return nil, fmt.Errorf("resolve task actor: %w", err)
 	}
+	if name == "task_workflow" || name == "pending_release" {
+		return t.workflowRead(ctx, store, manager, actor, name, &call)
+	}
 	if name == "list_tasks" || name == "my_tasks" {
 		return readTasks(ctx, store, name, identity.Member, &call)
 	}
+	return t.changeTask(ctx, identity, name, &input, manager, store, actor)
+}
+
+func (t *TaskTools) changeTask(ctx context.Context, identity Identity, name string, input *taskToolInput,
+	manager *team.Manager, store team.BoardStore, actor team.TaskActor,
+) (any, error) {
+	call := input.WorkflowCall
 	change, err := team.WorkflowChange(name, &call)
 	if err != nil {
 		return nil, fmt.Errorf("select task change: %w", err)

@@ -4,6 +4,7 @@
 import json
 import os
 import pathlib
+import re
 import tempfile
 import threading
 
@@ -46,6 +47,23 @@ def main():
                          if item["id"] == "smoke-task"), {})
 
         terminal = Terminal(root, env)
+
+        def move(stage):
+            offset = len(terminal.output)
+            terminal.send(b"m")
+            terminal.wait(lambda: b"Move task smoke-task" in terminal.output[offset:], "move destination selector")
+            terminal.settle(0.15)
+            plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", terminal.output[offset:].decode(errors="replace"))
+            match = re.search(r"(?:^|\n)[ >]*(\d+) " + re.escape(stage) + r" \[", plain)
+            if not match:
+                raise RuntimeError("requested stage absent from authorized move destinations: " + stage + "\n" + plain)
+            index = int(match.group(1))
+            if index > 9:
+                raise RuntimeError("default smoke destination exceeds direct selector keys")
+            terminal.send(str(index).encode())
+            terminal.wait(lambda: task().get("state") == stage, stage + " transition")
+            terminal.settle()
+
         try:
             terminal.deadline += 20
             terminal.wait(lambda: b"1 Dashboard" in terminal.output and b"5 Board" in terminal.output,
@@ -70,16 +88,8 @@ def main():
             terminal.send(b"Worker\x13")
             terminal.wait(lambda: task().get("assignee") == "Worker", "persisted assignee")
             terminal.settle()
-            terminal.send(b"m")
-            terminal.settle(0.15)
-            terminal.send(b"2")
-            terminal.wait(lambda: task().get("state") == "ready", "ready transition")
-            terminal.settle()
-            terminal.send(b"m")
-            terminal.settle(0.15)
-            terminal.send(b"3")
-            terminal.wait(lambda: task().get("state") == "in_progress", "in-progress transition")
-            terminal.settle()
+            move("ready")
+            move("in_progress")
             terminal.send(b"c")
             terminal.settle()
             terminal.send(b"PTY comment evidence\x13")

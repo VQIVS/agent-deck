@@ -32,8 +32,8 @@ change still succeeds and reports **notices skipped**; they are not claimed queu
 automatically replayed. JSON mutation output includes a separate optional `warning`.
 These local-user privileges remain cooperative under the same-user bash trust model.
 
-Version-2 boards use `backlog → ready → in_progress → review → done`, with `blocked`
-and `cancelled` alternatives. Tasks carry descriptions, acceptance checklists, owned
+The compatibility workflow uses `backlog → ready → in_progress → review → done`, with `blocked`
+and `cancelled` alternatives and a separate `released` shipment stage. Tasks carry descriptions, acceptance checklists, owned
 paths/dependencies, priority/labels, assignee/reviewer, Git links, timestamps, attributed
 history and comments. JSON estimates accept human durations such as `"10m"`; legacy
 numeric nanoseconds remain readable.
@@ -48,7 +48,48 @@ read-only loads only migrate in memory. Legacy done outcomes retain an explicit 
 completion marker so dependents remain schedulable; failed outcomes become blocked,
 and pending tasks with unmet dependencies return to backlog. Legacy markers are not new
 accepted reviews. History/comment budgets and bounded backup retention prevent unbounded growth.
-The workflow model is the foundation; task MCP/CLI and Kanban integration follow separately.
+### Configured workflow stages and shipment
+
+A workflow separates stage names from execution categories: `todo`, `ready`, `active`,
+`review`, `done`, `shipped`, `blocked` and `cancelled`. A team can call its review stage
+`Testing` or its done stage `Ready for release`; the category controls scheduling,
+evidence checks, notices and completion accounting. Stage names never grant authority.
+
+Task move inputs use the configured stage name, including names containing spaces.
+Use the same stage names in MCP `move_task.state` and CLI `task move --state`.
+Shipment also requires a nonempty version; optional release evidence is separate:
+
+```sh
+agent-deck task move --team example --id T-1 --state released --version v1.2.3
+agent-deck task workflow --team example --id T-1 --json
+agent-deck task pending-release --team example --json
+```
+
+The default done → released move belongs to `release-manager` or the privileged user;
+lead/master status alone does not authorize shipment. Custom transition rules remain
+subject to acceptance evidence and actor guards. A release records a delivery claim,
+not independently verified deployment. Shipped work is terminal, satisfies ordinary
+dependencies, and preserves the implementation completion evidence and timestamp.
+It does not create another completion-metrics sample or reacquire implementation leases.
+
+`task workflow` and MCP `task_workflow` expose the persisted ordered definition and,
+when an ID is supplied, moves permitted by the engine for the caller. A shipped move
+in the preview still requires an actual version when executed. Read-only callers can
+inspect definitions and the pending-release queue; they cannot mutate tasks. The CLI
+acts as the privileged local user; MCP derives member authority from authentication.
+MCP `pending_release` and CLI `pending-release` list accepted done-category work, not
+already shipped tasks. Shipment metadata appears as `release_version`/`release_url`.
+Entering the done category queues a private notice for a present `release-manager`;
+entering shipped queues a version-attributed notice for the lead. Event-keyed runtime
+journal delivery is idempotent across repeated notification attempts and restart.
+The pending-release query remains available even if the release-manager was absent
+when acceptance occurred. Renaming a stage within the same category does not create
+another acceptance/shipment event.
+
+MCP shipment example: `move_task` with
+`{"id":"T-1","state":"released","version":"v1.2.3","release_url":"https://example.test/releases/v1.2.3"}`.
+The URL is optional; the version is mandatory. Unknown stages, denied transitions,
+missing acceptance evidence and unauthorized releases fail without persisting a move.
 
 ## Shared-checkout workflow identity (v0.2)
 

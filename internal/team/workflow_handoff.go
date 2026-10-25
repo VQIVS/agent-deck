@@ -54,7 +54,7 @@ func handoffOpenTasks(ctx context.Context, manager *Manager, member *Member, tex
 	text.WriteString("Open tasks:\n")
 	for i := range state.Board.Tasks {
 		task := &state.Board.Tasks[i]
-		if task.State == "done" || task.State == TaskCancelled {
+		if TaskAccepted(task) || taskCategory(task) == TaskCancelled {
 			continue
 		}
 		if member.Role != "master" && task.Assignee != member.Name {

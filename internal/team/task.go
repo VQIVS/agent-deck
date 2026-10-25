@@ -20,12 +20,14 @@ const TaskCancelled = "cancelled" //nolint:misspell // Public workflow state spe
 
 // TaskChange records an attributed workflow event.
 type TaskChange struct {
-	Actor string    `json:"actor"`
-	At    time.Time `json:"at"`
-	Task  string    `json:"task,omitempty"`
-	Field string    `json:"field"`
-	From  string    `json:"from,omitempty"`
-	To    string    `json:"to,omitempty"`
+	FromCategory string    `json:"from_category,omitempty"`
+	ToCategory   string    `json:"to_category,omitempty"`
+	Actor        string    `json:"actor"`
+	At           time.Time `json:"at"`
+	Task         string    `json:"task,omitempty"`
+	Field        string    `json:"field"`
+	From         string    `json:"from,omitempty"`
+	To           string    `json:"to,omitempty"`
 }
 
 // TaskComment is an attributed task discussion entry.
@@ -117,8 +119,7 @@ func validateBoardTask(task *Task, version int) error {
 	if task.Estimate.Duration < 0 || task.Estimate.Tokens < 0 || invalidCost(task.Estimate.Cost) {
 		return fmt.Errorf("task estimate must be finite and nonnegative")
 	}
-	states := []string{"backlog", "ready", "in_progress", "review", "done", "blocked", TaskCancelled}
-	if !slices.Contains(states, task.State) {
+	if taskCategory(task) == "" {
 		return fmt.Errorf("unknown workflow state %q", task.State)
 	}
 	if task.Priority != "" && !slices.Contains([]string{"low", "normal", "high", "urgent"}, task.Priority) {
@@ -134,13 +135,14 @@ func validateWorkflowDetails(task *Task) error {
 	if task.Worker != task.Assignee {
 		return fmt.Errorf("worker compatibility alias must match assignee")
 	}
-	if (task.State == "in_progress" || task.State == "review") && task.Assignee == "" {
+	category := taskCategory(task)
+	if (category == "active" || category == "review") && task.Assignee == "" {
 		return fmt.Errorf("active task requires assignee")
 	}
-	if task.State == "review" && task.Reviewer == "" {
+	if category == "review" && task.Reviewer == "" {
 		return fmt.Errorf("review requires reviewer")
 	}
-	if task.State != "backlog" && task.State != TaskCancelled && (len(task.Paths) == 0 || len(task.Criteria) == 0) {
+	if category != "todo" && category != TaskCancelled && (len(task.Paths) == 0 || len(task.Criteria) == 0) {
 		return fmt.Errorf("planned task requires paths and acceptance criteria")
 	}
 	return validateTaskCriteria(task)
@@ -154,8 +156,11 @@ func validateTaskCriteria(task *Task) error {
 		}
 		ids[criterion.ID] = true
 	}
-	if task.State == "done" && !taskCompletionValid(task) {
+	if TaskAccepted(task) && !taskCompletionValid(task) {
 		return fmt.Errorf("done requires accepted review or passing structured report")
+	}
+	if TaskShipped(task) && strings.TrimSpace(task.ReleaseVersion) == "" {
+		return fmt.Errorf("shipped task requires release version")
 	}
 	return nil
 }
@@ -200,11 +205,16 @@ func acceptedTaskReview(task *Task) bool {
 	if task.Review != nil && task.Review.Accepted && task.Review.Reviewer == task.Reviewer && task.Reviewer != "" &&
 		!task.Review.At.IsZero() && task.Review.Digest == taskContentDigest(task) {
 		return slices.ContainsFunc(task.History, func(change TaskChange) bool {
-			return change.Field == "review" && change.From == "review" && change.To == "done" &&
+			return change.Field == "review" && acceptedReviewEvent(&change) &&
 				(change.Actor == task.Reviewer || change.Actor == "user") && change.At.Equal(task.Review.At)
 		})
 	}
 	return false
+}
+
+func acceptedReviewEvent(change *TaskChange) bool {
+	return change.FromCategory == "review" && change.ToCategory == "done" ||
+		change.FromCategory == "" && change.ToCategory == "" && change.From == "review" && change.To == "done"
 }
 
 func validTaskReportIdentity(task *Task, record *ReportRecord) bool {
@@ -244,13 +254,19 @@ func taskByID(board *TaskBoard, id string) (*Task, error) {
 }
 
 func taskEvent(board *TaskBoard, task *Task, mutation TaskMutation, field, from, to string) {
+	bindTaskCategory(board, task)
 	event := TaskChange{Actor: mutation.name(), At: mutation.Now.UTC(), Task: task.ID, Field: field, From: from, To: to}
+	if field == "state" || field == "review" || field == "shipped" {
+		event.FromCategory, event.ToCategory = board.Category(from), board.Category(to)
+	}
 	task.UpdatedAt = event.At
-	if task.State == "in_progress" && task.StartedAt.IsZero() {
+	if taskCategory(task) == "active" && task.StartedAt.IsZero() {
 		task.StartedAt = event.At
 	}
-	if task.State == "done" || task.State == TaskCancelled {
-		task.CompletedAt = event.At
+	if TaskAccepted(task) || taskCategory(task) == TaskCancelled {
+		if task.CompletedAt.IsZero() {
+			task.CompletedAt = event.At
+		}
 	} else {
 		task.CompletedAt = time.Time{}
 	}
@@ -281,10 +297,10 @@ func validateWorkflowBoard(board *TaskBoard) error {
 			}
 			active[task.Assignee] = true
 		}
-		if task.State == "ready" || TaskActive(task) {
+		if taskCategory(task) == "ready" || TaskActive(task) {
 			for _, id := range task.Dependencies {
 				dependency, err := taskByID(board, id)
-				if err != nil || dependency.State != "done" {
+				if err != nil || !TaskAccepted(dependency) {
 					return fmt.Errorf("planned active task has unfinished dependency")
 				}
 			}

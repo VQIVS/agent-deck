@@ -112,7 +112,7 @@ func (input *SchedulingInput) committedUsage() (tokens int64, cost float64) {
 		if task.Measured != nil {
 			tokens = saturatingTokens(tokens, task.Measured.Tokens)
 			cost += task.Measured.Cost
-		} else if TaskActive(task) || task.State == "done" || TaskFailed(task) {
+		} else if TaskActive(task) || TaskAccepted(task) || TaskFailed(task) {
 			// Unmeasured work reserves its estimate; reports never count as measurements.
 			tokens = saturatingTokens(tokens, task.Estimate.Tokens)
 			cost += task.Estimate.Cost

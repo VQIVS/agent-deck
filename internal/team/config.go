@@ -49,24 +49,25 @@ type Member struct {
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
-	ProjectPrivate   *Team            `yaml:"-" json:"-"`
-	ProjectPolicy    *ProjectPolicy   `yaml:"-" json:"-"`
-	DefinitionOfDone DefinitionOfDone `yaml:"definition_of_done,omitempty"`
-	ProjectOverlay   bool             `yaml:"-" json:"-"`
-	ProjectRules     string           `yaml:"-" json:"-"`
-	Approval         string           `yaml:"approval,omitempty"`
-	SafeCommands     []string         `yaml:"safe_commands,omitempty"`
-	LeasePool        bool             `yaml:"lease_pool,omitempty"`
-	Version          int              `yaml:"version"`
-	Name             string           `yaml:"name"`
-	Server           string           `yaml:"server"`
-	Repo             string           `yaml:"repo"`
-	Base             string           `yaml:"base"`
-	Model            string           `yaml:"model,omitempty"`
-	Capacity         int              `yaml:"capacity"`
-	Rules            string           `yaml:"rules,omitempty"`
-	RosterTemplate   string           `yaml:"roster_template,omitempty"`
-	Members          []Member         `yaml:"members"`
+	Workflow         WorkflowDefinition `yaml:"workflow,omitempty"`
+	ProjectPrivate   *Team              `yaml:"-" json:"-"`
+	ProjectPolicy    *ProjectPolicy     `yaml:"-" json:"-"`
+	DefinitionOfDone DefinitionOfDone   `yaml:"definition_of_done,omitempty"`
+	ProjectOverlay   bool               `yaml:"-" json:"-"`
+	ProjectRules     string             `yaml:"-" json:"-"`
+	Approval         string             `yaml:"approval,omitempty"`
+	SafeCommands     []string           `yaml:"safe_commands,omitempty"`
+	LeasePool        bool               `yaml:"lease_pool,omitempty"`
+	Version          int                `yaml:"version"`
+	Name             string             `yaml:"name"`
+	Server           string             `yaml:"server"`
+	Repo             string             `yaml:"repo"`
+	Base             string             `yaml:"base"`
+	Model            string             `yaml:"model,omitempty"`
+	Capacity         int                `yaml:"capacity"`
+	Rules            string             `yaml:"rules,omitempty"`
+	RosterTemplate   string             `yaml:"roster_template,omitempty"`
+	Members          []Member           `yaml:"members"`
 }
 
 func Slug(s string) string {
@@ -113,6 +114,9 @@ func memberSlug(name string, taken map[string]bool) (string, error) {
 }
 
 func (t *Team) Validate() error {
+	if err := t.Workflow.Validate(); err != nil {
+		return err
+	}
 	if err := t.validatePolicies(); err != nil {
 		return err
 	}

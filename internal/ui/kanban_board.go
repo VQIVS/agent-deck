@@ -21,8 +21,10 @@ func (m *Model) kanbanBoardView() string {
 	if m.teams != nil && m.teams.Manager != nil {
 		current = &m.teams.Manager.Team
 	}
+	m.board.Kanban.Workflow = m.board.State.Board.Workflow
 	view, targets := RenderKanbanReview(m.board.State.Board.Tasks, &m.board.Kanban, &KanbanOptions{
-		Width: m.w, Height: max(1, m.h-1), Now: time.Now(), Theme: m.theme, ReadOnly: m.opts.ReadOnly,
+		Workflow: m.board.State.Board.Workflow,
+		Width:    m.w, Height: max(1, m.h-1), Now: time.Now(), Theme: m.theme, ReadOnly: m.opts.ReadOnly,
 		GitFacts:   m.board.Git,
 		GitTargets: m.taskEvidenceTargets(current),
 	}, current)
@@ -37,7 +39,7 @@ func (m *Model) kanbanBoardView() string {
 func (m *Model) activeTask(member string) string {
 	for i := range m.board.State.Board.Tasks {
 		task := &m.board.State.Board.Tasks[i]
-		if task.Assignee == member && (team.TaskActive(task) || task.State == "blocked") {
+		if task.Assignee == member && (team.TaskActive(task) || m.board.State.Board.Category(task.State) == "blocked") {
 			return task.ID + " " + task.Title
 		}
 	}
@@ -45,6 +47,10 @@ func (m *Model) activeTask(member string) string {
 }
 
 func (m *Model) kanbanBoardKey(v tea.KeyMsg) tea.Cmd {
+	m.board.Kanban.Workflow = m.board.State.Board.Workflow
+	if v.String() == "m" && !m.board.Kanban.Move {
+		m.prepareKanbanMoves()
+	}
 	if form := m.board.Form; form != nil && form.Open {
 		if edit := KanbanFormKey(form, v, m.opts.ReadOnly); edit != nil {
 			return m.saveKanbanEdit(edit)
@@ -62,6 +68,7 @@ func (m *Model) kanbanBoardKey(v tea.KeyMsg) tea.Cmd {
 		task := kanbanTask(m.board.State.Board.Tasks, m.board.Kanban.Selected)
 		if task != nil {
 			m.board.Form = NewKanbanForm("review", task, m.board.State.Revision)
+			m.board.Form.Workflow = m.board.State.Board.Workflow
 		}
 		return nil
 	}
@@ -70,6 +77,12 @@ func (m *Model) kanbanBoardKey(v tea.KeyMsg) tea.Cmd {
 		return m.readTaskGit()
 	}
 	return m.kanbanIntent(intent)
+}
+
+func (m *Model) prepareKanbanMoves() {
+	stages := m.board.State.Board.ValidMoves(m.board.Kanban.Selected,
+		team.TaskMutation{Actor: team.TaskActor{User: true}, Now: time.Now().UTC(), ReadOnly: m.opts.ReadOnly})
+	m.board.Kanban.MoveStages = stages
 }
 
 func (m *Model) kanbanIntent(intent *KanbanIntent) tea.Cmd {
@@ -85,8 +98,18 @@ func (m *Model) kanbanIntent(intent *KanbanIntent) tea.Cmd {
 		if !m.opts.ReadOnly {
 			task := kanbanTask(m.board.State.Board.Tasks, intent.TaskID)
 			m.board.Form = NewKanbanForm(intent.Action, task, m.board.State.Revision)
+			m.board.Form.Workflow = m.board.State.Board.Workflow
 		}
 	case "move":
+		if m.board.State.Board.Category(intent.State) == "shipped" {
+			task := kanbanTask(m.board.State.Board.Tasks, intent.TaskID)
+			if task != nil {
+				m.board.Form = NewKanbanForm("release", task, m.board.State.Revision)
+				m.board.Form.TargetStage = intent.State
+				m.board.Form.Workflow = m.board.State.Board.Workflow
+			}
+			return nil
+		}
 		return m.saveKanbanEdit(&KanbanEdit{Intent: *intent, Revision: m.board.State.Revision})
 	case "worker":
 		if m.teams == nil || m.teams.Manager == nil {

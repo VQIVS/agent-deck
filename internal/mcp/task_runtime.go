@@ -71,6 +71,9 @@ func (s *Service) notifyOne(ctx context.Context, notice *team.TaskNotice) error 
 	if notice.Brief != "" {
 		return s.notifyBrief(ctx, notice)
 	}
+	if notice.Event != "" {
+		return s.notifyWorkflowEvent(ctx, notice, notice.Event)
+	}
 	if len(notice.Text) > s.options.MaxBytes {
 		notice.Text = notice.Text[:s.options.MaxBytes]
 	}

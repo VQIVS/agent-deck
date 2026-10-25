@@ -36,7 +36,7 @@ func (b *TaskBoard) PlanTask(spec *TaskSpec, m TaskMutation) (string, error) {
 		return "", err
 	}
 	if spec.Ready {
-		if err := b.MoveTask(task.ID, "ready", m); err != nil {
+		if err := b.MoveTask(task.ID, b.Destination("ready"), m); err != nil {
 			return "", err
 		}
 	}
@@ -126,6 +126,9 @@ func (s *TaskSpec) merge(next, fields *Task) {
 
 // SplitTask replaces a task with at least two planned parts and cancels the original.
 func (b *TaskBoard) SplitTask(id string, parts []TaskSpec, m TaskMutation) error {
+	if err := b.CanTransition(id, b.Destination(TaskCancelled), m); err != nil {
+		return err
+	}
 	if _, err := taskByID(b, id); err != nil || len(parts) < 2 {
 		return fmt.Errorf("split needs an existing task and at least two parts")
 	}
@@ -140,7 +143,7 @@ func (b *TaskBoard) SplitTask(id string, parts []TaskSpec, m TaskMutation) error
 	if err := b.CommentTask(id, "Split into "+strings.Join(created, ", "), m); err != nil {
 		return err
 	}
-	return b.MoveTask(id, TaskCancelled, m)
+	return b.MoveTask(id, b.Destination(TaskCancelled), m)
 }
 
 // AssignTask sets the reviewer (when given) and the assignee in one change.
@@ -185,8 +188,8 @@ func (b *TaskBoard) moveByTool(id, state string, m TaskMutation) error {
 	if err != nil {
 		return err
 	}
-	resumes := task.State == "blocked" && !task.StartedAt.IsZero()
-	if state == "in_progress" && !resumes && !m.Actor.User && !m.Actor.Automation {
+	resumes := taskCategory(task) == "blocked" && !task.StartedAt.IsZero()
+	if b.Category(state) == "active" && !resumes && !m.Actor.User && !m.Actor.Automation {
 		return fmt.Errorf("agent-deck starts assigned ready tasks when the worker is free; use set_assignee")
 	}
 	return b.MoveTask(id, state, m)
@@ -194,6 +197,8 @@ func (b *TaskBoard) moveByTool(id, state string, m TaskMutation) error {
 
 // WorkflowCall is one decoded board tool call.
 type WorkflowCall struct {
+	Version    string `json:"version,omitempty"`
+	ReleaseURL string `json:"release_url,omitempty"`
 	TaskSpec
 	State    string     `json:"state,omitempty"`
 	Text     string     `json:"text,omitempty"`
@@ -215,7 +220,12 @@ func WorkflowChange(name string, call *WorkflowCall) (func(*TaskBoard, TaskMutat
 		"set_assignee": func(b *TaskBoard, m TaskMutation) error {
 			return b.AssignTask(call.ID, call.Assignee, call.Reviewer, m)
 		},
-		"move_task":    func(b *TaskBoard, m TaskMutation) error { return b.moveByTool(call.ID, call.State, m) },
+		"move_task": func(b *TaskBoard, m TaskMutation) error {
+			if b.Category(call.State) == "shipped" {
+				return b.MoveTaskRelease(call.ID, call.State, &TaskRelease{Version: call.Version, URL: call.ReleaseURL}, m)
+			}
+			return b.moveByTool(call.ID, call.State, m)
+		},
 		"comment_task": func(b *TaskBoard, m TaskMutation) error { return b.CommentTask(call.ID, call.Text, m) },
 		"review_task": func(b *TaskBoard, m TaskMutation) error {
 			return b.ReviewTask(call.ID, call.Decision, call.Comment, m)

@@ -58,6 +58,7 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 	if history := estimationPrompt(ctx, t, member); history != "" {
 		system += "\n\n" + history
 	}
+	system += configuredWorkflowInstructions(t)
 	o := api.PromptOptions{
 		System: strings.TrimSpace(t.Rules + "\n\n" + system + leaseInstructions(t) + workflowInstructions(t, member)),
 		Agent:  member.Agent,

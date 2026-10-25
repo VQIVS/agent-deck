@@ -18,6 +18,7 @@ type KanbanEdit struct {
 	Task     *team.Task
 	Comment  string
 	Original string
+	Release  *team.TaskRelease
 }
 
 // KanbanSaved distinguishes durable task state from optional notification errors.
@@ -113,7 +114,7 @@ func (e *KanbanExecutor) mutate(board *team.TaskBoard, edit *KanbanEdit, m team.
 	case "edit":
 		return e.update(board, edit, m)
 	case "move":
-		return kanbanMutationError("move", board.MoveTask(id, edit.Intent.State, m))
+		return kanbanMutationError("move", board.MoveTaskRelease(id, edit.Intent.State, edit.Release, m))
 	case "comment":
 		return kanbanMutationError("comment", board.CommentTask(id, edit.Comment, m))
 	case "assign":

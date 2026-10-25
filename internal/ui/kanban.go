@@ -13,6 +13,9 @@ import (
 
 // KanbanScreen contains transient navigation only; task data stays on the team board.
 type KanbanScreen struct {
+	Workflow     team.WorkflowDefinition
+	MoveIndex    int
+	MoveStages   []team.WorkflowStage
 	Selected     string
 	Column       string
 	Detail       bool
@@ -31,6 +34,7 @@ type KanbanFilter struct{ Assignee, Label, State, Query string }
 
 // KanbanOptions supplies explicit rendering time and member badge colors.
 type KanbanOptions struct {
+	Workflow      team.WorkflowDefinition
 	GitFacts      map[string]*taskGitResult
 	GitTargets    map[string]TaskEvidenceTarget
 	Width, Height int
@@ -39,6 +43,10 @@ type KanbanOptions struct {
 	ReadOnly      bool
 	MemberColors  map[string]lipgloss.Color
 	Definitions   map[string]team.DefinitionOfDone
+}
+
+func optsWorkflowCategory(opts *KanbanOptions, stage string) string {
+	return opts.Workflow.Category(stage)
 }
 
 // KanbanIntent requests guarded integration; it never executes task mutations.
@@ -51,10 +59,25 @@ type KanbanTarget struct {
 }
 
 func KanbanStates() []string {
-	return []string{
-		"backlog", "ready", "in_progress", "review", "done", "blocked",
-		"cancelled", //nolint:misspell // W1 wire state.
+	return workflowStageNames(team.DefaultWorkflow())
+}
+
+func workflowStageNames(definition team.WorkflowDefinition) []string {
+	stages := definition.Resolved().Stages
+	names := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		names = append(names, stage.Name)
 	}
+	return names
+}
+
+func (s *KanbanScreen) states() []string { return workflowStageNames(s.Workflow) }
+
+func (s *KanbanScreen) moveStates() []string {
+	if s.MoveStages == nil {
+		return s.states()
+	}
+	return workflowStageNames(team.WorkflowDefinition{Stages: s.MoveStages})
 }
 
 func kanbanAssignee(task *team.Task) string {
@@ -99,8 +122,8 @@ func (s *KanbanScreen) reconcile(tasks []team.Task) *team.Task {
 			return task
 		}
 	}
-	if !slices.Contains(KanbanStates(), s.Column) {
-		s.Column = "backlog"
+	if !slices.Contains(s.states(), s.Column) {
+		s.Column = s.states()[0]
 	}
 	for _, task := range visible {
 		if task.State == s.Column {

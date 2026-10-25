@@ -18,9 +18,10 @@ func (v *taskValues) String() string         { return fmt.Sprint([]string(*v)) }
 func (v *taskValues) Set(value string) error { *v = append(*v, value); return nil }
 
 type taskFlags struct {
-	Team, Server, File string
-	JSON, ReadOnly     bool
-	Call               team.WorkflowCall
+	Team, Server, File  string
+	JSON, ReadOnly      bool
+	Call                team.WorkflowCall
+	Version, ReleaseURL string
 }
 
 func parseTaskFlags(command string, args []string) (taskFlags, error) {
@@ -45,7 +46,8 @@ func parseTaskFlags(command string, args []string) (taskFlags, error) {
 			return options, err
 		}
 	}
-	if command != "ls" && command != "add" && options.Call.ID == "" {
+	needsID := command != "ls" && command != "add" && command != "workflow" && command != "pending-release"
+	if needsID && options.Call.ID == "" {
 		return options, fmt.Errorf("--id is required")
 	}
 	return options, nil
@@ -56,9 +58,11 @@ func taskActionFlags(f *flag.FlagSet, options *taskFlags, command string) error 
 		addTaskSpecFlags(f, options)
 	} else {
 		switch command {
-		case "ls", "show":
+		case "ls", "show", "workflow", "pending-release":
 		case "move":
-			f.StringVar(&options.Call.State, "state", "", "target state")
+			f.StringVar(&options.Call.State, "state", "", "configured target workflow stage")
+			f.StringVar(&options.Version, "version", "", "shipment version (required for shipped category)")
+			f.StringVar(&options.ReleaseURL, "release-url", "", "optional shipment evidence URL")
 		case "assign":
 			f.StringVar(&options.Call.Assignee, "assignee", "", "current member name")
 			f.StringVar(&options.Call.Reviewer, "reviewer", "", "reviewer name")

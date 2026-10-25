@@ -14,7 +14,7 @@
 
                                    ╭────────────────────────────────────────────────────────────────────────────────────────╮
                                    │Team: review-pool                                                                       │
-                                   │[Settings] [+ Worker] [Back] [Teams]                                                    │
+                                   │[Settings] [Workflow] [+ Worker] [Back] [Teams]                                         │
                                    │  IDLE · Sol · master                                                                   │
                                    │  leases: none · coder · creation rules (not live verification)                         │
                                    │  /workspace/project · session-sol                                                      │

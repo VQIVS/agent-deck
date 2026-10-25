@@ -13,9 +13,10 @@ import (
 
 // TaskNotice is a message agent-deck delivers to one member after a board change.
 type TaskNotice struct {
-	To   string
-	Task string
-	Text string
+	Event string `json:",omitempty"`
+	To    string
+	Task  string
+	Text  string
 	// Brief identifies the exact assignment/session; empty for ordinary notices.
 	Brief string `json:",omitempty"`
 }
@@ -41,6 +42,9 @@ func ChangeTasksState(ctx context.Context, store BoardStore, t *Team, actor Task
 		var state BoardState
 		state, err = loadWorkflowBoard(ctx, store)
 		if err != nil {
+			return BoardState{}, nil, err
+		}
+		if err := state.Board.bindWorkflow(t.Workflow); err != nil {
 			return BoardState{}, nil, err
 		}
 		before := cloneBoard(&state.Board)
@@ -99,7 +103,10 @@ func loadWorkflowBoard(ctx context.Context, store BoardStore) (BoardState, error
 }
 
 func cloneBoard(board *TaskBoard) TaskBoard {
-	clone := TaskBoard{Version: board.Version, History: slices.Clone(board.History), Tasks: make([]Task, len(board.Tasks))}
+	clone := TaskBoard{
+		Version: board.Version, Workflow: board.Workflow.Clone(),
+		History: slices.Clone(board.History), Tasks: make([]Task, len(board.Tasks)),
+	}
 	for i := range board.Tasks {
 		clone.Tasks[i] = cloneTask(&board.Tasks[i])
 	}
@@ -123,6 +130,9 @@ func TaskNotices(before, after *TaskBoard, t *Team, actor TaskActor) []TaskNotic
 			}
 		}
 		notices = append(notices, generated...)
+		if old := previous[task.ID]; old == nil || old.State != task.State {
+			notices = append(notices, releaseNotices(task, t)...)
+		}
 		if actor.User {
 			notices = appendUserChange(notices, previous[task.ID], task, master)
 		}
@@ -130,6 +140,25 @@ func TaskNotices(before, after *TaskBoard, t *Team, actor TaskActor) []TaskNotic
 	return slices.DeleteFunc(notices, func(n TaskNotice) bool {
 		return n.To == "" || n.To == actor.Member || !onRoster(t, n.To)
 	})
+}
+
+func releaseNotices(task *Task, current *Team) []TaskNotice {
+	var notices []TaskNotice
+	if taskCategory(task) == "done" && onRoster(current, "release-manager") {
+		notices = append(notices, TaskNotice{
+			To: "release-manager", Task: task.ID,
+			Event: fmt.Sprintf("accepted:%s:%d", task.ID, task.CompletedAt.UnixNano()),
+			Text:  fmt.Sprintf("Task %s %q is accepted and waiting for release.", task.ID, task.Title),
+		})
+	}
+	if TaskShipped(task) {
+		notices = append(notices, TaskNotice{
+			To: teamMaster(current), Task: task.ID,
+			Event: fmt.Sprintf("shipped:%s:%d", task.ID, task.ShippedAt.UnixNano()),
+			Text:  fmt.Sprintf("Task %s %q shipped as %s (%s).", task.ID, task.Title, task.ReleaseVersion, task.ReleaseURL),
+		})
+	}
+	return notices
 }
 
 // appendUserChange tells the master about board changes the user made, since the master owns
@@ -169,16 +198,17 @@ func taskNotices(old, task *Task, master string) []TaskNotice {
 	if old != nil {
 		oldState, oldAssignee = old.State, old.Assignee
 	}
-	if oldAssignee != "" && oldAssignee != task.Assignee && briefed(oldState) {
+	oldCategory := previousCategory(old)
+	if oldAssignee != "" && oldAssignee != task.Assignee && categoryBriefed(oldCategory) {
 		notify(oldAssignee, fmt.Sprintf("You were unassigned from task %s %q; stop working on it and leave "+
 			"its files as they are.", task.ID, task.Title))
 	}
-	alreadyBriefed := old != nil && oldAssignee == task.Assignee && briefed(oldState)
-	if briefable(task.Assignee, task.State) && !alreadyBriefed {
+	alreadyBriefed := old != nil && oldAssignee == task.Assignee && categoryBriefed(oldCategory)
+	if taskBriefable(task) && !alreadyBriefed {
 		notify(task.Assignee, TaskBrief(task))
 	}
 	if task.State != oldState {
-		stateNotices(task, oldState, master, notify)
+		stateNotices(task, oldCategory, master, notify)
 	}
 	if old != nil && len(task.Comments) > len(old.Comments) && commentsSinceStateChange(task) <= maxCommentWakes {
 		comment := task.Comments[len(task.Comments)-1]
@@ -191,19 +221,28 @@ func taskNotices(old, task *Task, master string) []TaskNotice {
 	return notices
 }
 
+func taskBriefable(task *Task) bool { return task.Assignee != "" && taskCategory(task) == "active" }
+
+func previousCategory(task *Task) string {
+	if task == nil {
+		return ""
+	}
+	return taskCategory(task)
+}
+
 // maxCommentWakes bounds agent-to-agent wakeups through comments, like the channel hop limit;
 // later comments are still stored and visible through my_tasks and list_tasks.
 const maxCommentWakes = 3
 
 func stateNotices(task *Task, oldState, master string, notify func(to, text string)) {
-	switch task.State {
+	switch taskCategory(task) {
 	case "review":
 		notify(task.Reviewer, fmt.Sprintf("Task %s %q is ready for your review. Check the acceptance "+
 			"criteria, then call review_task with decision accept or changes and a comment.", task.ID, task.Title))
 		notify(master, fmt.Sprintf("Task %s %q moved to review (reviewer %s).", task.ID, task.Title, task.Reviewer))
 	case "done", "blocked", TaskCancelled:
 		notify(master, fmt.Sprintf("Task %s %q is now %s.", task.ID, task.Title, task.State))
-	case "in_progress":
+	case "active":
 		if oldState == "review" {
 			notify(task.Assignee, fmt.Sprintf("Review requested changes on task %s %q. Read the latest "+
 				"comment with my_tasks, fix it, then move the task to review again.", task.ID, task.Title))
@@ -211,12 +250,8 @@ func stateNotices(task *Task, oldState, master string, notify func(to, text stri
 	}
 }
 
-func briefable(assignee, state string) bool {
-	return assignee != "" && state == "in_progress"
-}
-
-func briefed(state string) bool {
-	return state == "in_progress" || state == "review" || state == "blocked"
+func categoryBriefed(category string) bool {
+	return category == "active" || category == "review" || category == "blocked"
 }
 
 func commentsSinceStateChange(task *Task) int {

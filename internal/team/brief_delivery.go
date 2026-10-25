@@ -19,12 +19,14 @@ func BriefDeliveryKey(task *Task, current *Team) string {
 			identity = member.ID + "\x00" + member.Session
 		}
 	}
-	if identity == "" || !briefable(task.Assignee, task.State) {
+	if identity == "" || task.Assignee == "" || current.Workflow.Category(task.State) != "active" {
 		return ""
 	}
 	assignment := task.CreatedAt.UTC().String()
-	for _, change := range task.History {
-		if change.Field == "assignee" || change.Field == "state" && change.To == "in_progress" {
+	for i := range task.History {
+		change := &task.History[i]
+		active := change.ToCategory == "active" || change.ToCategory == "" && current.Workflow.Category(change.To) == "active"
+		if change.Field == "assignee" || change.Field == "state" && active {
 			assignment = fmt.Sprintf("%s:%s:%s:%d", change.Field, change.From, change.To, change.At.UnixNano())
 		}
 	}
@@ -33,7 +35,8 @@ func BriefDeliveryKey(task *Task, current *Team) string {
 
 // BriefDelivered means that the private journal append was durably acknowledged on the task.
 func BriefDelivered(task *Task, key string) bool {
-	for _, change := range task.History {
+	for i := range task.History {
+		change := &task.History[i]
 		if key != "" && change.Field == briefDeliveryField && change.To == key {
 			return true
 		}

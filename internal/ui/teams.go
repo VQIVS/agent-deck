@@ -28,6 +28,7 @@ type teamUI struct {
 	Index, MemberIndex, Field int
 	Fields                    []formField
 	Draft                     team.Team
+	WorkflowEditor            *WorkflowEditor
 	Models, Agents            []string
 	Confirm                   string
 	Force, Busy               bool
@@ -252,6 +253,8 @@ func (m *Model) teamContent() string {
 		return m.teamConfirmation()
 	}
 	switch u.Screen {
+	case "workflow":
+		return m.workflowEditorView()
 	case "members":
 		return m.membersView()
 	case "team-form", "member-form":
@@ -322,6 +325,7 @@ func (m *Model) membersView() string {
 		m.buttonRow(
 			[]button{
 				{"Settings", "team-settings", m.opts.ReadOnly},
+				{"Workflow", "team-workflow", false},
 				{"+ Worker", "team-add", m.opts.ReadOnly},
 				{"Back", "team-back", false},
 				{"Teams", "team-picker", false},
@@ -405,6 +409,10 @@ func (m *Model) choicesView() string {
 }
 
 func (m *Model) teamAction(action string) tea.Cmd {
+	if action == "team-workflow" {
+		m.openWorkflowEditor()
+		return nil
+	}
 	u := m.teams
 	if u == nil {
 		return nil
@@ -687,7 +695,14 @@ func (m *Model) confirmTeam() tea.Cmd {
 
 func (m *Model) teamKey(v tea.KeyMsg) tea.Cmd {
 	u := m.teams
+	if u.Screen == "workflow" {
+		return m.workflowEditorKey(v)
+	}
 	k := v.String()
+	if k == "W" && u.Screen == "members" {
+		m.openWorkflowEditor()
+		return nil
+	}
 	if handled, cmd := m.transferKey(v); handled {
 		return cmd
 	}
@@ -821,6 +836,9 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 }
 
 func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
+	if result, ok := msg.(workflowSavedMsg); ok {
+		return true, m.applyWorkflowSaved(&result)
+	}
 	if result, ok := msg.(taskGitResult); ok {
 		m.applyTaskGitResult(&result)
 		return true, nil

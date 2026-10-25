@@ -89,8 +89,8 @@ func releaseHealingTasks(board *TaskBoard, request *ReconcileRequest) error {
 		if err := board.SetAssignee(task.ID, "", mutation); err != nil {
 			return err
 		}
-		if task.State == "blocked" {
-			if err := board.MoveTask(task.ID, "ready", mutation); err != nil {
+		if taskCategory(task) == "blocked" {
+			if err := board.MoveTask(task.ID, board.Destination("ready"), mutation); err != nil {
 				return err
 			}
 		}

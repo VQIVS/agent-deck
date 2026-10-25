@@ -197,7 +197,7 @@ func (input *SchedulingInput) blocked(task *Task) string {
 	for _, dependency := range task.Dependencies {
 		for i := range input.Board.Tasks {
 			other := &input.Board.Tasks[i]
-			if other.ID == dependency && other.State != "done" {
+			if other.ID == dependency && !TaskAccepted(other) {
 				return "dependencies are not done"
 			}
 		}
@@ -288,7 +288,8 @@ func (b *TaskBoard) Assign(id, worker string, input *SchedulingInput) error {
 		if b.Tasks[i].ID == id {
 			b.Tasks[i].State, b.Tasks[i].Worker = "assigned", worker
 			if b.Version >= 2 {
-				b.Tasks[i].State = "in_progress"
+				b.Tasks[i].State = b.Destination("active")
+				bindTaskCategory(b, &b.Tasks[i])
 				b.Tasks[i].Assignee = worker
 			}
 			return nil

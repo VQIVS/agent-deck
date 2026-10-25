@@ -75,7 +75,8 @@ func updateEstimationHistory(history *estimationHistory, board *TaskBoard) {
 		if !exists {
 			estimate = task.Estimate
 		}
-		if task.State != "done" {
+		category := board.Category(task.State)
+		if category != "done" && category != "shipped" {
 			if len(original) < 1000 {
 				original[task.ID] = estimate
 			}

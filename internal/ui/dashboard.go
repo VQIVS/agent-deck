@@ -73,6 +73,7 @@ type (
 type Model struct {
 	workspace                    workspaceUI
 	changes                      changesUI
+	gitTUI                       gitTUIUI
 	summary                      SummaryState
 	palette                      PaletteScreen
 	board                        boardUI
@@ -465,7 +466,7 @@ func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	if m.workspace.View == "git" {
-		cmd := m.changesKey(v)
+		cmd := m.gitViewKey(v)
 		return m, cmd
 	}
 	if m.workspace.View == "summary" {

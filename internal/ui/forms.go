@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/vqivs/agent-deck/internal/server"
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
@@ -108,7 +111,7 @@ func (m *Model) saveForm() tea.Cmd {
 		}
 		version = u.Manager.Version
 	}
-	v, err := u.Store.Save(m.context(), &u.Draft, version)
+	v, err := m.saveTeamDraft(version)
 	if err != nil {
 		m.note = err.Error()
 		return nil
@@ -126,6 +129,48 @@ func (m *Model) saveForm() tea.Cmd {
 		return m.teamOperation("roster", 0, false)
 	}
 	return nil
+}
+
+func (m *Model) saveTeamDraft(version []byte) ([]byte, error) {
+	u := m.teams
+	if u.Manager == nil || !memberNamesChanged(&u.Manager.Team, &u.Draft) {
+		v, err := u.Store.Save(m.context(), &u.Draft, version)
+		if err != nil {
+			return nil, fmt.Errorf("save team draft: %w", err)
+		}
+		return v, nil
+	}
+	root, err := server.StateRoot()
+	if err != nil {
+		return nil, fmt.Errorf("locate member rename board: %w", err)
+	}
+	manager := &team.Manager{
+		Store: u.Store, Team: u.Manager.Team.PrivateCopy(), Version: version, ReadOnly: m.opts.ReadOnly,
+	}
+	board := team.BoardStore{
+		Root: filepath.Join(root, "boards"), Team: team.Slug(manager.Team.Name), ReadOnly: m.opts.ReadOnly,
+	}
+	err = team.SaveMemberChanges(m.context(), manager, &u.Draft, board)
+	// The helper preserves the committed team revision even when board repair fails.
+	// Keep that binding so a retry cannot overwrite a newer save with stale state.
+	if err != nil {
+		u.Manager = manager
+		return nil, fmt.Errorf("save member draft: %w", err)
+	}
+	return manager.Version, nil
+}
+
+func memberNamesChanged(before, after *team.Team) bool {
+	for i := range before.Members {
+		old := &before.Members[i]
+		for j := range after.Members {
+			next := &after.Members[j]
+			if old.ID != "" && old.ID == next.ID && old.Name != next.Name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (u *teamUI) masterChanged(wasMember bool) bool {

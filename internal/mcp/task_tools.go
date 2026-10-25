@@ -138,7 +138,7 @@ func (t *TaskTools) changeTask(ctx context.Context, identity Identity, name stri
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	result := taskResult{Tasks: changedTasks(&board, &call)}
-	if t.Notify != nil && len(notices) > 0 {
+	if t.Notify != nil {
 		if err := t.Notify(ctx, notices); err != nil {
 			result.Warning = "saved, but notifying members failed: " + err.Error()
 		}

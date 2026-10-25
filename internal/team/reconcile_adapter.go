@@ -175,7 +175,9 @@ func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,
 			return ReconcileResult{}, fmt.Errorf("assignment binding changed")
 		}
 		member.Leases = slices.Clone(request.Member.Leases)
-		if t.WorkerSetup != nil && member.ControlDir != "" {
+		// Only pool-created workers get their identity from the pool; user-configured workers set it
+		// up explicitly and already have one.
+		if t.WorkerSetup != nil && member.PoolCreated && member.ControlDir != "" {
 			if err := t.WorkerSetup(ctx, manager, index); err != nil {
 				return ReconcileResult{}, fmt.Errorf("prepare worker identity: %w", err)
 			}

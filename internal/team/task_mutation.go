@@ -115,6 +115,13 @@ func (b *TaskBoard) SetAssignee(id, member string, m TaskMutation) error {
 }
 
 func (b *TaskBoard) MoveTask(id, state string, m TaskMutation) error {
+	if err := b.checkAutomaticTaskStart(id, state, m.Actor.Automation); err != nil {
+		return err
+	}
+	return b.moveSchedulableTask(id, state, m)
+}
+
+func (b *TaskBoard) moveSchedulableTask(id, state string, m TaskMutation) error {
 	return b.mutate(id, m, func(board *TaskBoard, task *Task) error {
 		from, to := taskCategory(task), board.Category(state)
 		if to == "shipped" {

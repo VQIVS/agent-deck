@@ -9,6 +9,7 @@ import (
 
 // TaskSpec is the plannable part of a task, as the master or user writes it.
 type TaskSpec struct {
+	Kind         string   `json:"kind,omitempty"`
 	ID           string   `json:"id,omitempty"`
 	Title        string   `json:"title,omitempty"`
 	Description  string   `json:"description,omitempty"`
@@ -48,7 +49,8 @@ func (b *TaskBoard) PlanTask(spec *TaskSpec, m TaskMutation) (string, error) {
 
 func (s *TaskSpec) task(id string) (Task, error) {
 	task := Task{
-		ID: id, Title: strings.TrimSpace(s.Title), Description: s.Description, Paths: s.Paths,
+		Kind: s.Kind,
+		ID:   id, Title: strings.TrimSpace(s.Title), Description: s.Description, Paths: s.Paths,
 		Dependencies: s.Dependencies, Priority: s.Priority, Labels: s.Labels, Reviewer: s.Reviewer,
 	}
 	for i, text := range s.Criteria {
@@ -92,6 +94,9 @@ func (b *TaskBoard) EditTask(spec *TaskSpec, m TaskMutation) error {
 }
 
 func (s *TaskSpec) merge(next, fields *Task) {
+	if s.Kind != "" {
+		next.Kind = fields.Kind
+	}
 	if fields.Title != "" {
 		next.Title = fields.Title
 	}

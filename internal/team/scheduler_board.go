@@ -33,6 +33,7 @@ type TaskReport struct {
 
 // Task is one independently owned unit of work on a versioned board.
 type Task struct {
+	Kind             string `json:"kind,omitempty"`
 	category         string
 	categoryState    string
 	ReleaseVersion   string          `json:"release_version,omitempty"`

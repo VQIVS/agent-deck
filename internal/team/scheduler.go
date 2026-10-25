@@ -194,6 +194,9 @@ func (input *SchedulingInput) ready(plan *SchedulingPlan) []Task {
 }
 
 func (input *SchedulingInput) blocked(task *Task) string {
+	if !TaskSchedulable(task) {
+		return "epic is planning-only; schedule implementation tasks"
+	}
 	for _, dependency := range task.Dependencies {
 		for i := range input.Board.Tasks {
 			other := &input.Board.Tasks[i]

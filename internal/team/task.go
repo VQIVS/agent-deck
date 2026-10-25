@@ -107,6 +107,9 @@ func (m TaskMutation) manages() bool {
 }
 
 func validateBoardTask(task *Task, version int) error {
+	if err := validateTaskKind(task); err != nil {
+		return err
+	}
 	if version == 1 {
 		return validateTask(task)
 	}

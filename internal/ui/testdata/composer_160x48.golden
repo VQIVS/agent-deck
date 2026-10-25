@@ -1,0 +1,47 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   ╭────────────────────────────────────────────────────────────────────────────────────────╮
+                                   │Send message / pinned recipient: ui-dev                                                 │
+                                   │Server: http://127.0.0.1:4096 / session ses_b / member ui-dev                           │
+                                   │Code checkout: /tmp/team                                                                │
+                                   │Same recipient while focus, pane order or size changes.                                 │
+                                   │                                                                                        │
+                                   │Draft / Enter sends / Ctrl+J newline                                                    │
+                                   │┃   1 Please include the terminal restoration checks.                                   │
+                                   │┃                                                                                       │
+                                   │┃                                                                                       │
+                                   │┃                                                                                       │
+                                   │┃                                                                                       │
+                                   │┃                                                                                       │
+                                   │[Enter Send to ui-dev] [Esc Cancel, keep draft] [Ctrl+X Discard draft]                  │
+                                   │Draft / not sent / live transcript continues behind this composer                       │
+                                   ╰────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Enter send  ·  Ctrl+J newline  ·  Esc keep draft  ·  Ctrl+X discard  ·  Confirmation defaults to No

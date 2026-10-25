@@ -223,7 +223,7 @@ func (m *Model) changesView() string {
 	if m.w < 45 || m.h < 7 {
 		return fit("Git diff · resize to 45×8 · Esc back", m.w)
 	}
-	width, height := m.w, max(1, m.h-3)
+	width, height := m.w, max(1, m.h-4)
 	listWidth := min(38, max(20, width/3))
 	diffWidth := max(1, width-listWidth-4)
 	list := []string{fmt.Sprintf("Changed files (%d)", len(m.changes.Files))}
@@ -259,8 +259,9 @@ func (m *Model) changesView() string {
 	}
 	leftPanel := m.theme.panel(listWidth).Height(height - 2).Render(strings.Join(list, "\n"))
 	rightPanel := m.theme.panel(diffWidth).Height(height - 2).Render(strings.Join(right, "\n"))
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel) + "\n" +
-		fit("j/k files · Tab diff focus · Ctrl+d/u scroll · gg/G · v Vim · r refresh · Esc dashboard · "+m.note, width)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel) + "\n" + m.gitLaunchBar(height, width) + "\n" +
+		fit("j/k files · Tab diff focus · Ctrl+d/u scroll · gg/G · v Vim · t Git TUI · r refresh · Esc dashboard · "+
+			m.note, width)
 }
 
 func (m *Model) changesDisplayDiff() string {

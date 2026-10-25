@@ -30,7 +30,12 @@ func (m *Model) workspaceResult(msg tea.Msg) (bool, tea.Cmd) {
 	switch v := msg.(type) {
 	case changedFilesMsg:
 		cmd := m.applyChangedFiles(v)
-		return true, cmd
+		return true, tea.Batch(cmd, m.gitChangesArrived(&v))
+	case gitClientsMsg:
+		m.applyGitClients(v)
+		return true, nil
+	case gitClientReturned:
+		return true, m.gitClientDone(v)
 	case fileDiffMsg:
 		m.applyFileDiff(v)
 		return true, nil
@@ -93,6 +98,10 @@ func (m *Model) openWorkspace(view string) tea.Cmd {
 		return m.readBoard()
 	case "git":
 		return m.refreshChanges()
+	case "git-tui":
+		m.workspace.View = "git"
+		refresh := m.refreshChanges()
+		return tea.Batch(refresh, m.openGitTUI())
 	}
 	return nil
 }
@@ -123,6 +132,9 @@ func (m *Model) workspaceMouse(z zone, ok bool) (bool, tea.Cmd) {
 }
 
 func (m *Model) changeClick(z zone, ok bool) (bool, tea.Cmd) {
+	if handled, cmd := m.gitTUIClick(z, ok); handled || m.gitTUI.Open {
+		return handled, cmd
+	}
 	if m.workspace.View == "git" && ok && strings.HasPrefix(z.Action, "change:") {
 		index, err := strconv.Atoi(strings.TrimPrefix(z.Action, "change:"))
 		if err == nil && index >= 0 && index < len(m.changes.Files) {
@@ -147,7 +159,7 @@ func (m *Model) workspaceView() string {
 	var body string
 	switch m.workspace.View {
 	case "git":
-		body = m.changesView()
+		body = m.gitView()
 	case "summary":
 		body = m.summaryView()
 	default:

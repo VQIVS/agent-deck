@@ -1,0 +1,24 @@
+[1 Dashboard] [2 Git] [3 Summary] [4 Channel] [5 Board] [6 Inbox]
+Git / core-dev                                            [Esc Built-in diff]
+╭─ Launch target ──────────────────────────────────────────────────────────────╮
+│ Checkout: /Users/dev/agent-deck                                              │
+│ Member: core-dev  |  [i Checkout details]                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Full-screen handoff ────────────────────────────────────────────────────────╮
+│ Dashboard pauses while Git TUI is open.                                      │
+│ Pending requests are visible again after you return.                         │
+│ External client uses its own keys, settings and Git actions.                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Installed clients / choose one ─────────────────────────────────────────────╮
+│ > lazygit  Suggested: Vim-style defaults; q returns · /usr/local/bin/lazygit │
+│   tig      Opens status; client quit returns · /usr/bin/tig                  │
+│                                                                              │
+│ Checked PATH only. No installation, setup or login performed.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Launch options ─────────────────────────────────────────────────────────────╮
+│ [ ] Remember this choice for this agent-deck run                             │
+│ [Enter Open lazygit] [Esc Keep built-in diff]                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ GIT TUI  Target is fixed while this launcher is open; rechecked before starti…
+j/k choose  Space remember  Enter open  i checkout  r detect again  Esc cancel
+Dashboard resumes when the client exits; Esc inside a client may only go back.

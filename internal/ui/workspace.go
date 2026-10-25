@@ -77,7 +77,9 @@ func (m *Model) workspaceKey(v tea.KeyMsg) (bool, tea.Cmd) {
 }
 
 func (m *Model) workspaceBlocked() bool {
-	return m.modalOpen() || m.searching || m.channel.Editing || m.palette.Open || m.board.Form != nil || m.teamModalOpen()
+	return m.modalOpen() || m.searching || m.channel.Editing || m.palette.Open ||
+		m.board.Form != nil || m.teamModalOpen() ||
+		(m.workspace.View == "summary" && m.summary.Mode == "picker")
 }
 
 func (m *Model) teamModalOpen() bool {
@@ -115,12 +117,32 @@ func (m *Model) workspaceTabs(width int) string {
 		{"5 Board", "view:board", false},
 		{"6 Inbox", "view:inbox", false},
 	}
+	active := m.workspace.View
+	if active == "" {
+		active = "dashboard"
+	}
+	switch {
+	case m.inbox.Open:
+		active = "inbox"
+	case m.board.Open:
+		active = "board"
+	case m.channel.Open:
+		active = "channel"
+	}
+	for i := range buttons {
+		if buttons[i].Action == "view:"+active {
+			buttons[i].Label = ">" + buttons[i].Label
+		}
+	}
 	return m.buttonRow(buttons, 0, 0, width, -1)
 }
 
 func (m *Model) workspaceMouse(z zone, ok bool) (bool, tea.Cmd) {
 	if m.workflowMouseTarget(z, ok) {
 		return true, m.workflowEditorClick(z.Action)
+	}
+	if handled, cmd := m.summaryClick(z, ok); handled {
+		return true, cmd
 	}
 	if m.workspaceBlocked() {
 		return false, nil
@@ -151,7 +173,7 @@ func (m *Model) workspaceView() string {
 	if m.w <= 0 || m.h <= 0 {
 		return ""
 	}
-	if m.h < 9 || m.teamModalOpen() || m.modalOpen() {
+	if (m.h < 9 && m.workspace.View != "summary") || m.teamModalOpen() || m.modalOpen() {
 		return m.mainView()
 	}
 	width, height := m.w, m.h

@@ -246,6 +246,7 @@ func (m *Model) notify(i int) tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	msg = unwrapReload(msg)
+	m.summaryObserve(msg)
 	if handled, cmd := m.workspaceResult(msg); handled {
 		return m, cmd
 	}

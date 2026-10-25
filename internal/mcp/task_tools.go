@@ -23,7 +23,7 @@ type TaskTools struct {
 var taskToolNames = []string{
 	"list_tasks", "create_task", "update_task", "split_task", "set_assignee", "move_task",
 	"comment_task", "review_task", "my_tasks", "update_my_task", "answer_request",
-	"task_workflow", "pending_release",
+	"task_workflow", "pending_release", "show_task",
 }
 
 // IsTaskTool reports whether a tool name belongs to the workflow board.
@@ -36,7 +36,13 @@ func (t *TaskTools) Definitions() []map[string]any {
 		"title": text, "description": text, "criteria": list, "paths": list, "dependencies": list,
 		"priority": text, "labels": list, "estimate": text, "tokens": map[string]any{"type": "integer"},
 		"assignee": text, "reviewer": text, "ready": map[string]any{"type": "boolean"},
-		"parallel": map[string]any{"type": "boolean"},
+		"parallel": map[string]any{
+			"type": []string{"boolean", "null"},
+			"description": "Whether this task may run alongside non-overlapping tasks. " +
+				"On update, omit or use null to preserve the existing value; " +
+				"false explicitly makes the task serial and true explicitly allows parallel work. " +
+				"On create, omitted or null defaults to true.",
+		},
 	}
 	withID := map[string]any{"id": text}
 	for key, value := range task {
@@ -44,6 +50,7 @@ func (t *TaskTools) Definitions() []map[string]any {
 	}
 	parts := map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": task}}
 	return []map[string]any{
+		showTaskDefinition(),
 		tool("task_workflow", "Read configured stages and currently permitted moves for an optional task",
 			map[string]any{"id": text}, nil),
 		tool("pending_release", "List accepted done-category tasks waiting for shipment", nil, nil),
@@ -99,6 +106,9 @@ func (t *TaskTools) Call(ctx context.Context, identity Identity, name string, ar
 	actor, err := manager.Team.ResolveTaskActor(identity.Member)
 	if err != nil {
 		return nil, fmt.Errorf("resolve task actor: %w", err)
+	}
+	if name == "show_task" {
+		return readShowTask(ctx, store, call.ID)
 	}
 	if name == "task_workflow" || name == "pending_release" {
 		return t.workflowRead(ctx, store, manager, actor, name, &call)

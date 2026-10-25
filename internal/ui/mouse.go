@@ -168,7 +168,7 @@ func (m *Model) workspaceWheel(msg tea.MouseMsg) (bool, tea.Cmd) {
 			m.changes.DiffFocus = true
 			return true, m.moveChange(delta)
 		} else {
-			m.summary.Offset = max(0, m.summary.Offset+delta)
+			m.summaryWheelAt(msg.X, msg.Y, delta)
 		}
 		return true, nil
 	}

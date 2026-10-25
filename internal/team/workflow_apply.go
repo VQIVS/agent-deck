@@ -315,7 +315,11 @@ func TaskBrief(task *Task) string {
 	}
 	b.WriteString("\nWork only inside the owned paths. Use update_my_task to tick criteria, add progress " +
 		"comments or mark the task blocked with a reason. When every criterion is met and package tests " +
-		"pass, move it to review with update_my_task and submit_report with the evidence for your reviewer.")
+		"pass, commit only the files you changed for this task, following the repository's commit " +
+		"conventions: git add -- <new file>... for files you created, then git commit -m \"<message>\" -- " +
+		"<file>... Put the commit SHA in your update_my_task " +
+		"comment, move the task to review and submit_report with the evidence for your reviewer. If review " +
+		"asks for changes, fix them and commit again the same way. Then you are free for your next task.")
 	return b.String()
 }
 
@@ -337,6 +341,8 @@ const masterManual = `Board operating manual (you are the master; the task board
 - Use list_tasks to see the board. Workers report through update_my_task and submit_report; you are
   notified on review, blocked, done and comments. Answer blocked tasks quickly, re-plan when work fails.
 - Review with review_task (accept or changes with a concrete comment). Never mark your own work accepted.
+  Workers commit their own task files when they move a task to review and put the SHA on the task;
+  review that commit (git show <sha>). You commit integration work only.
 - Use propose_workers when ready tasks outnumber idle workers; the user approves new workers.
 - Workers' permission requests come to you, not the user. Decide each with answer_request: allow work
   that fits the worker's task (once, or always for routine tools), reject anything outside the task's

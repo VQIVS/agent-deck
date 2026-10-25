@@ -85,8 +85,11 @@ func LeasePrompt(members []Member) string {
 		}
 		fmt.Fprintf(&text, "%s %s: %s\n", role, member.Name, leases)
 	}
-	text.WriteString("Workers edit only their leases and never run git write commands. " +
-		"Only the master commits code. The master may edit paths not leased to another member. " +
+	text.WriteString("Workers edit only their leases. Their only git write is committing their own task's " +
+		"files when handing the task to review: git add -- <new file>... then git commit -m \"<message>\" -- " +
+		"<file>... (explicit files only, never -a, --amend, --no-verify or a whole-directory pathspec). " +
+		"The master commits integration " +
+		"work. The master may edit paths not leased to another member. " +
 		"Ask the master before editing another member's paths. Run package-scoped tests; " +
 		"the master runs full checks when workers are idle. Release workers are the exception for " +
 		"releases: they may commit their leased files, fast-forward and push main, tag, push tags and run " +

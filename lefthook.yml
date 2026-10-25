@@ -1,14 +1,8 @@
 pre-commit:
   commands:
-    format:
+    verify:
       glob: "*.go"
-      run: golangci-lint fmt --diff
-    lint:
-      glob: "*.go"
-      run: golangci-lint run ./...
-    test:
-      glob: "*.go"
-      run: go test ./...
+      run: sh scripts/verify_staged.sh
 commit-msg:
   commands:
     convention:

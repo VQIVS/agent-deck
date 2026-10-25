@@ -227,8 +227,19 @@ func TestWorkerGitCommandBoundaries(t *testing.T) {
 		"git commit -m x", "cd a && git add .", "/usr/bin/git push",
 		"git -C /x reset --hard", "git -c user.name=x commit -m x",
 		"git --no-pager commit -m x", `sh -c "git commit -m x"`,
+		"git commit -a -m x", "git commit -am x -- a.go", "git commit -m x --amend -- a.go",
+		"git commit -m x --no-verify -- a.go", "git commit -m x -n -- a.go", "git commit -m x -- .",
+		"git commit -m x -- ./", "git commit -m x -- :/", "git commit -m x -- ../other.go",
+		"git commit -m x -- /repo/a.go", "git commit -m x --all -- a.go",
+		"git add .", "git add -A", "git add -u -- a.go", "git add -- .", "git add -- ../x", "git add -- :/",
 	} {
 		assertLeaseAction(t, rules, "bash", command, "deny")
+	}
+	for _, command := range []string{
+		`git commit -m "fix(team): release leases" -- internal/team/lease.go internal/team/lease_test.go`,
+		"git commit -m 'feat(ui): add view' -- internal/ui/view.go", "git add -- internal/ui/view_test.go",
+	} {
+		assertLeaseAction(t, rules, "bash", command, "allow")
 	}
 	for _, command := range []string{
 		"git diff -- internal/team", "git log --format=%h",

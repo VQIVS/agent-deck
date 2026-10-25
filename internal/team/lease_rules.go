@@ -137,8 +137,31 @@ var releaseDeniedGit = append(strings.Fields("reset checkout switch stash rebase
 	"push* --force", "push* -f", "push* +", "branch* -D", "branch* -d", "branch* --delete", "tag* -d", "tag* --delete")
 
 func workerGitRules() []api.Rule {
-	return gitDenyRules(strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
+	rules := gitDenyRules(strings.Fields("add commit push reset checkout switch stash rebase merge restore clean " +
 		"am apply cherry-pick revert rm mv branch tag update-ref symbolic-ref worktree init clone config gc"))
+	return append(rules, workerCommitRules()...)
+}
+
+// workerCommitRules let a worker commit its own task files by explicit pathspec in the shared checkout:
+// git commit -- <paths> commits only those paths, so other members' uncommitted edits stay out, and
+// git add -- <paths> exists only so new files can be named.
+func workerCommitRules() []api.Rule {
+	flags := []string{"* -a*", "* --all*", "*--amend*", "*--no-verify*", "* -n *", "*--include*", "*--allow-empty*"}
+	paths := []string{"* -- .", "* -- . *", "* -- ./*", "* -- :*", "* -- *..*", "* -- /*"}
+	rules := make([]api.Rule, 0, 2+len(flags)+2*len(paths))
+	rules = append(rules,
+		api.Rule{Permission: "bash", Pattern: "git add -- *", Action: "allow"},
+		api.Rule{Permission: "bash", Pattern: "git commit -m * -- *", Action: "allow"},
+	)
+	for _, flag := range flags {
+		rules = append(rules, api.Rule{Permission: "bash", Pattern: "git commit" + flag, Action: "deny"})
+	}
+	for _, command := range []string{"git add", "git commit"} {
+		for _, path := range paths {
+			rules = append(rules, api.Rule{Permission: "bash", Pattern: command + path, Action: "deny"})
+		}
+	}
+	return rules
 }
 
 func gitDenyRules(commands []string) []api.Rule {

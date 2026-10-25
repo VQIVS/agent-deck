@@ -3,6 +3,13 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-10-25
+
+### Fixed
+
+- Assigning tasks to user-configured workers skips automatic pool identity setup, preserving
+  their configured sessions and avoiding uncertain assignment effects.
+
 ## [0.3.0] - 2026-10-24
 
 ### Added

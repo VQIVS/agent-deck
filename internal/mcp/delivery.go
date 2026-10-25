@@ -67,6 +67,9 @@ func (s *Service) Deliver(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if err := s.reconcileTaskLeases(ctx); err != nil {
+		return fmt.Errorf("delivery waiting for native task policy repair: %w", err)
+	}
 	s.mu.Lock()
 	if s.options.ReadOnly != nil && s.options.ReadOnly() {
 		s.mu.Unlock()

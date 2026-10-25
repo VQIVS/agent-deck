@@ -19,6 +19,9 @@ func (p *PoolRuntime) AutoReconcile(ctx context.Context) ([]TaskNotice, error) {
 	if p.board.ReadOnly {
 		return nil, nil
 	}
+	if err := p.ReconcileTaskLeases(ctx); err != nil {
+		return nil, fmt.Errorf("reconcile task leases before scheduling: %w", err)
+	}
 	var failures []error
 	if err := p.ResumeHealing(ctx); err != nil {
 		failures = append(failures, fmt.Errorf("resume automatic healing: %w", err))

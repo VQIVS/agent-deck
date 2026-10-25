@@ -53,12 +53,16 @@ func (r *Runtime) taskTools() *TaskTools {
 
 // Notify delivers board notices as private agent-deck messages; delivery wakes idle members.
 func (s *Service) Notify(ctx context.Context, notices []team.TaskNotice) error {
+	leaseErr := s.reconcileTaskLeases(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.options.ReadOnly != nil && s.options.ReadOnly() {
 		return fmt.Errorf("channel posting is disabled")
 	}
 	var failures []error
+	if leaseErr != nil {
+		failures = append(failures, fmt.Errorf("task saved; notices queued; native policy repair pending: %w", leaseErr))
+	}
 	for _, notice := range notices {
 		if err := s.notifyOne(ctx, &notice); err != nil {
 			failures = append(failures, err)

@@ -249,6 +249,9 @@ func (r *Runtime) Step(ctx context.Context) error {
 	changed := r.roster != text
 	r.mu.Unlock()
 	var failures []error
+	if err := r.repairMemberTaskNames(ctx, manager); err != nil {
+		return fmt.Errorf("repair member task references: %w", err)
+	}
 	if err := r.revokeChanged(manager); err != nil {
 		failures = append(failures, err)
 	}
@@ -262,6 +265,10 @@ func (r *Runtime) Step(ctx context.Context) error {
 		}
 	}
 	if !manager.ReadOnly {
+		manager, err = r.reconcileTaskLeaseManager(ctx)
+		if err != nil {
+			return err
+		}
 		if err := r.autoReconcile(ctx); err != nil {
 			failures = append(failures, fmt.Errorf("automatic board reconcile: %w", err))
 		}

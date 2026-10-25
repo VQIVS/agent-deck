@@ -87,23 +87,3 @@ func (m *Model) actionDialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
 	}
 	return false, nil
 }
-
-func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
-	key := v.String()
-	if key == "esc" {
-		m.editing = false
-		return nil
-	}
-	if key == "ctrl+s" || key == "enter" {
-		text := strings.TrimSpace(m.input.Value())
-		if text != "" {
-			m.editing = false
-			return m.prompt(text)
-		}
-	} else {
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(v)
-		return cmd
-	}
-	return nil
-}

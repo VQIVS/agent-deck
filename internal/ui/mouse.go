@@ -36,7 +36,7 @@ func paneButtons(permission, readOnly, zoom bool) []button {
 	}
 	out := []button{
 		z,
-		{"Message", "m", readOnly},
+		{"Send message", "m", readOnly},
 		{"Nudge", "n", readOnly},
 		{"Stop", "s", readOnly},
 		{"Attach", "a", readOnly},
@@ -291,6 +291,8 @@ func (m *Model) clickAction(action string) tea.Cmd {
 		key.Type = tea.KeyEsc
 	case "send":
 		key.Type = tea.KeyCtrlS
+	case "discard":
+		key.Type = tea.KeyCtrlX
 	case "ctrl+p":
 		key.Type = tea.KeyCtrlP
 	default:
@@ -340,10 +342,10 @@ func (m *Model) dialogView() string {
 			"Default: No. Click outside or press Esc to cancel.",
 		)
 	}
-	title := "Message to " + m.panes[m.focus].Agent.Name
-	if m.rejecting {
-		title = "Reject permission · optional message"
+	if !m.rejecting {
+		return m.composerView()
 	}
+	title := "Reject permission · optional message"
 	m.input.SetWidth(max(10, m.w-2))
 	m.input.SetHeight(min(4, max(1, m.h-5)))
 	input := m.input.View()

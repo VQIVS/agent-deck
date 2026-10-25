@@ -74,6 +74,7 @@ type Model struct {
 	workspace                    workspaceUI
 	changes                      changesUI
 	gitTUI                       gitTUIUI
+	composer                     composerUI
 	summary                      SummaryState
 	palette                      PaletteScreen
 	board                        boardUI
@@ -268,6 +269,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.updateTick(v)...)
 	case streamMsg:
 		cmds = append(cmds, m.updateStream(&v)...)
+	case messageSent:
+		m.applyMessageSent(v)
 	case actionMsg:
 		if v.Err != nil {
 			m.note = v.Err.Error()
@@ -597,12 +600,7 @@ func (m *Model) sessionKey(key string) tea.Cmd {
 	}
 	switch key {
 	case "m":
-		m.editing = true
-		m.input.Reset()
-		m.input.Placeholder = "Message (Enter sends, Ctrl+J newline, Esc cancels)"
-		m.input.SetHeight(4)
-		m.input.Focus()
-		return textarea.Blink
+		return m.openComposer(m.focus)
 	case "n":
 		return m.prompt("continue your task")
 	case "s":
@@ -633,21 +631,23 @@ func (m *Model) refreshCommands() []tea.Cmd {
 }
 
 func (m *Model) prompt(text string) tea.Cmd {
-	a := m.panes[m.focus].Agent
+	send, name := m.promptTo(m.focus, text), m.panes[m.focus].Agent.Name
+	return func() tea.Msg { return actionMsg{Err: send(), Text: "Message sent to " + name} }
+}
+
+// promptTo binds the send to pane i's session now, so later focus or order changes cannot retarget it.
+func (m *Model) promptTo(i int, text string) func() error {
+	a, ctx := m.panes[i].Agent, m.context()
 	if m.teams != nil && m.teams.Manager != nil {
 		manager := m.teams.Manager
-		for i := range manager.Team.Members {
-			member := &manager.Team.Members[i]
-			if member.Session == a.Session {
-				return func() tea.Msg {
-					return actionMsg{Err: manager.Send(m.context(), i, text), Text: "Message sent to " + a.Name}
-				}
+		for n := range manager.Team.Members {
+			if manager.Team.Members[n].Session == a.Session {
+				return func() error { return manager.Send(ctx, n, text) }
 			}
 		}
 	}
-	return func() tea.Msg {
-		return actionMsg{Err: m.client.Prompt(m.context(), a.Dir, a.Session, text), Text: "Message sent to " + a.Name}
-	}
+	client := m.client
+	return func() error { return client.Prompt(ctx, a.Dir, a.Session, text) }
 }
 
 func (m *Model) navigate(key string) {
@@ -906,7 +906,7 @@ func (m *Model) overlayView(header string) (string, bool) {
 		body := m.dialogView()
 		width := m.w
 		m.w = w
-		footer := "  Enter send  ·  Ctrl+J newline  ·  Esc cancel  ·  Confirmation defaults to No"
+		footer := "  Enter send  ·  Ctrl+J newline  ·  Esc keep draft  ·  Ctrl+X discard  ·  Confirmation defaults to No"
 		return m.frameView(body, footer, width), true
 	}
 	return "", false

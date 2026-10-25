@@ -37,7 +37,7 @@ func PaletteCommands() []PaletteCommand {
 		{ID: "team-members", Title: "Manage team", Group: "Workspace", Team: true},
 		{ID: "team-add", Title: "Add worker", Group: "Workspace", Team: true, Mutates: true},
 		{ID: "r", Title: "Refresh sessions", Key: "r", Group: "Workspace"},
-		{ID: "m", Title: "Message member", Key: "m", Group: "Session", Session: true, Mutates: true},
+		{ID: "m", Title: "Send message", Key: "m", Group: "Session", Session: true, Mutates: true},
 		{ID: "n", Title: "Nudge member", Key: "n", Group: "Session", Session: true, Mutates: true},
 		{ID: "s", Title: "Stop session", Key: "s", Group: "Session", Session: true, Mutates: true},
 		{ID: "a", Title: "Attach to session", Key: "a", Group: "Session", Session: true, Mutates: true},

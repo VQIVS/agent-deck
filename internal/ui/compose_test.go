@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,13 +33,18 @@ func TestEnterSendsComposedMessage(t *testing.T) {
 	}))
 	defer server.Close()
 	m := requestModel(server.URL, false)
-	m.editing = true
+	m.openComposer(0)
 	m.input.SetValue("Hello worker")
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil || m.editing {
+	if cmd == nil || !m.editing {
 		t.Fatal("Enter did not submit message")
 	}
-	if result := cmd().(actionMsg); result.Err != nil || !sent {
+	result := cmd().(messageSent)
+	if result.Err != nil || !sent {
 		t.Fatalf("send failed: %v", result.Err)
+	}
+	m.Update(result)
+	if m.editing || !strings.Contains(m.note, "transport accepted") {
+		t.Fatalf("editing=%v note=%q", m.editing, m.note)
 	}
 }

@@ -2,6 +2,7 @@ package transcript
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -69,7 +70,67 @@ func TestMarkdownWidthAndExpansion(t *testing.T) {
 		t.Fatal(raw)
 	}
 	text, _ := r.Render([]api.Part{{ID: "reason", Type: "reasoning", Text: "hidden thought"}}, Options{Width: 80})
-	if text != "" {
-		t.Fatal("reasoning visible")
+	if strings.Contains(text, "hidden thought") || !strings.Contains(ansi.Strip(text), "REASONING / collapsed") {
+		t.Fatalf("reasoning: %q", text)
+	}
+}
+
+func turnParts(tools int) []api.Part {
+	parts := []api.Part{
+		{ID: "old", Role: "user", Type: "text", Text: "earlier request"},
+		{ID: "old-answer", Role: "assistant", Type: "text", Text: "earlier answer"},
+		{ID: "ask", Role: "user", Type: "text", Text: "current request"},
+	}
+	for i := range tools {
+		p := api.Part{ID: fmt.Sprintf("t%d", i), Role: "assistant", Type: "tool", Tool: "bash"}
+		p.State.Status = "completed"
+		p.State.Input = json.RawMessage(fmt.Sprintf(`{"command":"step %d"}`, i))
+		parts = append(parts, p)
+	}
+	return append(parts, api.Part{ID: "answer", Role: "assistant", Type: "text", Text: "final answer"})
+}
+
+func TestCompactViewKeepsCurrentTurnPrompt(t *testing.T) {
+	r := New()
+	short, _ := r.Render(turnParts(2), Options{Width: 80})
+	short = ansi.Strip(short)
+	for _, want := range []string{
+		"earlier loaded turns hidden", "YOU", "current request", "TOOL bash / COMPLETED",
+		"$ step 1", "ASSISTANT", "final answer",
+	} {
+		if !strings.Contains(short, want) {
+			t.Fatalf("missing %q:\n%s", want, short)
+		}
+	}
+	if strings.Contains(short, "earlier request") {
+		t.Fatalf("previous turn shown in compact view:\n%s", short)
+	}
+	long, _ := r.Render(turnParts(10), Options{Width: 80})
+	long = ansi.Strip(long)
+	if !strings.Contains(long, "current request") || !strings.Contains(long, "+5 parts in this turn hidden") ||
+		strings.Contains(long, "$ step 4") || !strings.Contains(long, "$ step 9") {
+		t.Fatalf("long turn lost its prompt or hid the wrong parts:\n%s", long)
+	}
+	full, _ := r.Render(turnParts(10), Options{Width: 80, Full: true})
+	if !strings.Contains(ansi.Strip(full), "earlier request") || !strings.Contains(full, "not a complete archive") {
+		t.Fatal("full loaded history incomplete or overclaimed")
+	}
+	orphan, _ := r.Render(turnParts(10)[3:], Options{Width: 80})
+	if !strings.Contains(ansi.Strip(orphan), "prompt not in loaded window") {
+		t.Fatalf("missing prompt not reported:\n%s", orphan)
+	}
+}
+
+func TestToolStateIsLiteralAndStatic(t *testing.T) {
+	for status, want := range map[string]string{
+		"completed": "COMPLETED", "error": "ERROR", "pending": "PENDING", "": "STATE UNKNOWN", "running": "RUNNING",
+	} {
+		p := api.Part{ID: "x", Type: "tool", Tool: "read"}
+		p.State.Status = status
+		a, _ := New().Render([]api.Part{p}, Options{Width: 80, Frame: 0})
+		b, _ := New().Render([]api.Part{p}, Options{Width: 80, Frame: 1})
+		if !strings.Contains(ansi.Strip(a), "TOOL read / "+want) || (status != "running") != (a == b) {
+			t.Fatalf("status %q rendered %q / animates=%v", status, ansi.Strip(a), a != b)
+		}
 	}
 }

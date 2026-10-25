@@ -183,30 +183,88 @@ func (r *Renderer) Render(parts []api.Part, o Options) (string, []Range) {
 		blocks = append(blocks, s)
 		line += n + 1
 	}
-	start := 0
-	if !o.Full && len(parts) > 7 {
-		start = len(parts) - 7
+	window := visibleWindow(parts, o.Full)
+	if window.Note != "" {
+		appendBlock(dim(window.Note), "")
 	}
-	for i := start; i < len(parts); i++ {
+	speaker := ""
+	for _, i := range window.Indices {
 		p := &parts[i]
-		if p.Role == "user" {
-			stamp := ""
-			if p.Created > 0 {
-				stamp = time.UnixMilli(p.Created).Format("15:04:05")
+		if p.Type != "reasoning" {
+			if header := roleHeader(p, speaker); header != "" {
+				appendBlock(header, "")
 			}
-			appendBlock("── turn "+stamp+" ──", "")
+			speaker = p.Role + "/" + p.Type
 		}
-		if p.Type == "reasoning" && !o.Reasoning {
-			continue
-		}
-		if p.Type != "tool" {
+		switch {
+		case p.Type == "reasoning" && !o.Reasoning:
+			appendBlock(dim("REASONING / collapsed · R show"), p.ID)
+		case p.Type == "tool":
+			appendBlock(toolPart(p, o, w), p.ID)
+		default:
 			appendBlock(r.textPart(p, o, w), p.ID)
-			continue
 		}
-		appendBlock(toolPart(p, o, w), p.ID)
 	}
 	return strings.Join(blocks, "\n\n"), ranges
 }
+
+// window is the slice of loaded parts a view shows, plus an honest note about what it hides.
+type window struct {
+	Indices []int
+	Note    string
+}
+
+// visibleWindow keeps the current turn's prompt in compact views instead of an arbitrary tail.
+func visibleWindow(parts []api.Part, full bool) window {
+	all := make([]int, len(parts))
+	for i := range parts {
+		all[i] = i
+	}
+	if full {
+		return window{Indices: all, Note: "Full loaded history / not a complete archive"}
+	}
+	user := -1
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i].Role == "user" {
+			user = i
+			break
+		}
+	}
+	if user < 0 {
+		if len(parts) > 7 {
+			note := "Available recent content / prompt not in loaded window · z full view"
+			return window{Indices: all[len(all)-7:], Note: note}
+		}
+		return window{Indices: all}
+	}
+	note := ""
+	if user > 0 {
+		note = "Recent turn / earlier loaded turns hidden · z full view"
+	}
+	turn := all[user:]
+	if len(turn) > 7 {
+		hidden := len(turn) - 7
+		note = fmt.Sprintf("Recent turn / +%d parts in this turn hidden · z full view", hidden)
+		turn = append([]int{user}, turn[hidden+1:]...)
+	}
+	return window{Indices: turn, Note: note}
+}
+
+func roleHeader(p *api.Part, previous string) string {
+	stamp := ""
+	if p.Created > 0 {
+		stamp = " / " + time.UnixMilli(p.Created).Format("15:04")
+	}
+	switch {
+	case p.Role == "user":
+		return lipgloss.NewStyle().Bold(true).Render("YOU" + stamp)
+	case p.Type != "tool" && previous != p.Role+"/"+p.Type:
+		return lipgloss.NewStyle().Bold(true).Render("ASSISTANT" + stamp)
+	}
+	return ""
+}
+
+func dim(s string) string { return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(s) }
 
 func (r *Renderer) textPart(p *api.Part, o Options, width int) string {
 	text := p.Text
@@ -229,15 +287,9 @@ func toolPart(p *api.Part, o Options, width int) string {
 	if p.ID == o.Selected {
 		prefix = "> "
 	}
-	card := prefix + Card(p, o.Dir) + " " + marker + toolDuration(p)
-	card = lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(ansi.Truncate(card, width, "…"))
-	if p.Tool == "bash" {
-		var metadata map[string]any
-		_ = json.Unmarshal(p.State.Metadata, &metadata)
-		if code, ok := metadata["exit"]; ok {
-			card += fmt.Sprintf(" · exit %v", code)
-		}
-	}
+	header := prefix + "TOOL " + Clean(p.Tool) + " / " + marker + toolExit(p) + toolDuration(p)
+	card := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).Render(ansi.Truncate(header, width, "…"))
+	card += "\n" + ansi.Truncate("  "+Card(p, o.Dir), width, "…")
 	output := toolOutput(p, o.Expanded[p.ID])
 	if output != "" {
 		card += "\n" + ansi.Hardwrap(output, width, true)
@@ -252,15 +304,29 @@ func toolPart(p *api.Part, o Options, width int) string {
 	return card
 }
 
+// toolMarker states the stored status literally; only a running part animates.
 func toolMarker(status string, frame int) (marker, color string) {
 	switch status {
-	case "running", "pending":
-		return []string{"⠋", "⠙", "⠹", "⠸"}[frame%4], "214"
+	case "running":
+		return "RUNNING " + []string{"⠋", "⠙", "⠹", "⠸"}[frame%4], "214"
+	case "pending":
+		return "PENDING", "214"
 	case "error":
-		return "✗", "196"
+		return "ERROR", "196"
+	case "completed":
+		return "COMPLETED", "42"
 	default:
-		return "✓", "42"
+		return "STATE UNKNOWN", "245"
 	}
+}
+
+func toolExit(p *api.Part) string {
+	var metadata map[string]any
+	_ = json.Unmarshal(p.State.Metadata, &metadata)
+	if code, ok := metadata["exit"]; ok && p.Tool == "bash" {
+		return fmt.Sprintf(" / exit %v", code)
+	}
+	return ""
 }
 
 func toolDuration(p *api.Part) string {
@@ -271,7 +337,7 @@ func toolDuration(p *api.Part) string {
 	if end == 0 {
 		end = time.Now().UnixMilli()
 	}
-	return " " + (time.Duration(max(0, end-p.State.Time.Start)) * time.Millisecond).String()
+	return " / " + (time.Duration(max(0, end-p.State.Time.Start)) * time.Millisecond).String()
 }
 
 func toolOutput(p *api.Part, expanded bool) string {

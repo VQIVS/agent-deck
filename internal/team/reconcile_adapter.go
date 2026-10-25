@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"time"
 
 	api "github.com/vqivs/agent-deck/internal/opencode"
@@ -174,7 +173,11 @@ func (t *LifecycleTransport) execute(ctx context.Context, manager *Manager,
 		if member.Session != request.Member.Session || member.Role != "worker" {
 			return ReconcileResult{}, fmt.Errorf("assignment binding changed")
 		}
-		member.Leases = slices.Clone(request.Member.Leases)
+		leases, err := assignmentLeasePaths(ctx, manager, index, request.Member.Leases)
+		if err != nil {
+			return ReconcileResult{}, err
+		}
+		member.Leases = leases
 		if t.WorkerSetup != nil && member.ControlDir != "" {
 			if err := t.WorkerSetup(ctx, manager, index); err != nil {
 				return ReconcileResult{}, fmt.Errorf("prepare worker identity: %w", err)
@@ -289,6 +292,9 @@ func (t *LifecycleTransport) createFreshWorker(ctx context.Context, manager *Man
 	if err := manager.Save(ctx); err != nil {
 		return result, err
 	}
+	if err := recordFreshTaskLease(ctx, manager, index); err != nil {
+		return result, err
+	}
 	if err := manager.Send(ctx, index, member.Brief); err != nil {
 		return result, err
 	}
@@ -298,6 +304,9 @@ func (t *LifecycleTransport) createFreshWorker(ctx context.Context, manager *Man
 func (t *LifecycleTransport) setupFreshWorker(ctx context.Context, manager *Manager, index int,
 ) (ReconcileResult, error) {
 	if err := manager.Save(ctx); err != nil {
+		return ReconcileResult{}, err
+	}
+	if err := recordFreshTaskLease(ctx, manager, index); err != nil {
 		return ReconcileResult{}, err
 	}
 	if err := t.WorkerSetup(ctx, manager, index); err != nil {

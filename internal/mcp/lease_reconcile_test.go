@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -17,15 +19,29 @@ func TestOwnerNoticeReleasesNativeLeasesAndRestartRetries(t *testing.T) {
 	var fail atomic.Bool
 	fail.Store(true)
 	var patches atomic.Int32
+	var policyMu sync.Mutex
+	nativePolicies := map[string][]api.Rule{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		policyMu.Lock()
+		defer policyMu.Unlock()
 		if req.Method == http.MethodGet {
 			switch req.URL.Path {
 			case "/session/status":
 				w.Write([]byte(`{"worker-session":{"type":"busy"}}`))
-			case "/permission", "/question":
+			case "/permission", "/question", "/session":
 				w.Write([]byte(`[]`))
 			default:
-				w.Write([]byte(`[]`))
+				if strings.HasPrefix(req.URL.Path, "/session/") {
+					id := strings.TrimPrefix(req.URL.Path, "/session/")
+					if err := json.NewEncoder(w).Encode(map[string]any{
+						"id": id, "permission": nativePolicies[id],
+					}); err != nil {
+						t.Error(err)
+					}
+					return
+				}
+				t.Error("unexpected native read", req.URL)
+				w.WriteHeader(http.StatusNotFound)
 			}
 			return
 		}
@@ -50,6 +66,8 @@ func TestOwnerNoticeReleasesNativeLeasesAndRestartRetries(t *testing.T) {
 			w.WriteHeader(503)
 			return
 		}
+		id := strings.TrimPrefix(req.URL.Path, "/session/")
+		nativePolicies[id] = append(nativePolicies[id], payload.Permission...)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()

@@ -56,7 +56,7 @@ func TestTaskLeaseProjectionPreservesActiveAndReassignment(t *testing.T) {
 
 func TestReconcileTaskLeasesRefreshesResetAndRestart(t *testing.T) {
 	patches := map[string][]api.Rule{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(appendPolicyFake(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(500)
@@ -125,7 +125,7 @@ func TestTaskLeaseProjectionPreservesOtherActiveTask(t *testing.T) {
 func TestReconcileTaskLeasesRetryFailedNativeReset(t *testing.T) {
 	fail := true
 	patches := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(appendPolicyFake(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("unexpected %s", r.Method)
 		}

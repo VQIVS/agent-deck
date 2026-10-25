@@ -273,7 +273,7 @@ func TestPoolSessionsCannotInvokePrivilegedCLI(t *testing.T) {
 func TestApplyLeasePermissions(t *testing.T) {
 	calls := 0
 	rules := []api.Rule{{Permission: "edit", Pattern: "internal/**", Action: "allow"}}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(appendPolicyFake(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if r.Method != http.MethodPatch || r.URL.EscapedPath() != "/session/ses_test%2Fid" ||
 			r.URL.Query().Get("directory") != "/repo with space" {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -15,11 +16,30 @@ import (
 )
 
 func TestActiveTaskPathMutationReconcilesOwnerPolicy(t *testing.T) {
+	testActiveTaskPathMutation(t, nil)
+}
+
+func testActiveTaskPathMutation(t *testing.T, capCheck func(*testing.T, *Runtime, *TaskTools, *Service,
+	*team.Manager, team.BoardStore, Identity, *sync.Mutex, *[][]api.Rule, map[string][]api.Rule),
+) {
+	t.Helper()
 	r, manager := poolIdentityFixture(t)
 	var mu sync.Mutex
 	var policies [][]api.Rule
+	nativePolicies := map[string][]api.Rule{}
 	fail := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		id := strings.TrimPrefix(req.URL.Path, "/session/")
+		if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/session/") {
+			if err := json.NewEncoder(w).Encode(map[string]any{
+				"id": id, "permission": nativePolicies[id],
+			}); err != nil {
+				t.Error(err)
+			}
+			return
+		}
 		if req.Method != http.MethodPatch {
 			t.Errorf("unexpected session operation: %s %s", req.Method, req.URL)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -31,13 +51,12 @@ func TestActiveTaskPathMutationReconcilesOwnerPolicy(t *testing.T) {
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			t.Error(err)
 		}
-		mu.Lock()
-		defer mu.Unlock()
 		policies = append(policies, payload.Permission)
 		if fail {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
+		nativePolicies[id] = append(nativePolicies[id], payload.Permission...)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -186,8 +205,12 @@ func TestActiveTaskPathMutationReconcilesOwnerPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	mu.Lock()
-	defer mu.Unlock()
 	if len(policies) != before {
+		mu.Unlock()
 		t.Fatal("restart repair was not idempotent")
+	}
+	mu.Unlock()
+	if capCheck != nil {
+		capCheck(t, r, tools, service, manager, store, identity, &mu, &policies, nativePolicies)
 	}
 }

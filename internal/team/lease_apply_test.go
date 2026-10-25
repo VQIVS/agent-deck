@@ -40,6 +40,7 @@ func leasedManager(t *testing.T, server string) *Manager {
 
 func TestApplyLeasesPreservesSessionAndSkipsUnchanged(t *testing.T) {
 	var rules []api.Rule
+	native := map[string][]api.Rule{}
 	var prompts []string
 	creates, patches := 0, 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +49,8 @@ func TestApplyLeasesPreservesSessionAndSkipsUnchanged(t *testing.T) {
 			var body struct{ Permission []api.Rule }
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			rules = body.Permission
+			id := strings.TrimPrefix(r.URL.Path, "/session/")
+			native[id] = append(native[id], body.Permission...)
 			if r.URL.Path != "/session/worker" {
 				t.Error("patched wrong session")
 			}
@@ -55,6 +58,9 @@ func TestApplyLeasesPreservesSessionAndSkipsUnchanged(t *testing.T) {
 			return
 		}
 		switch {
+		case r.Method == http.MethodGet && (r.URL.Path == "/session/worker" || r.URL.Path == "/session/master"):
+			id := strings.TrimPrefix(r.URL.Path, "/session/")
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "permission": native[id]})
 		case r.URL.Path == "/session" && r.Method == http.MethodPost:
 			var body struct{ Permission []api.Rule }
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -143,5 +149,57 @@ func TestApplyLeasesGuards(t *testing.T) {
 	m.Team.Members[1].Capability = "coder"
 	if err := m.ApplyLeases(t.Context(), 1); err == nil {
 		t.Fatal("offline member replaced")
+	}
+}
+
+func TestApplyLeasesRetryAfterFingerprintLoss(t *testing.T) {
+	native := map[string][]api.Rule{}
+	patches := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/session/")
+		switch {
+		case r.Method == http.MethodPatch:
+			var body struct{ Permission []api.Rule }
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Error(err)
+				return
+			}
+			patches++
+			native[id] = append(native[id], body.Permission...)
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == "/session/worker":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "permission": native[id]})
+		case r.URL.Path == "/session":
+			fmt.Fprint(w, `[{"id":"worker"},{"id":"master"}]`)
+		case r.URL.Path == "/session/status":
+			fmt.Fprint(w, `{}`)
+		default:
+			fmt.Fprint(w, `[]`)
+		}
+	}))
+	defer server.Close()
+	m := leasedManager(t, server.URL)
+	for range 20 {
+		m.Team.Members[1].LeasePolicy = ""
+		if err := m.ApplyLeases(t.Context(), 1); err != nil {
+			t.Fatal(err)
+		}
+		loaded, version, err := m.Store.Load(t.Context(), m.Team.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m = &Manager{Store: m.Store, Team: loaded, Version: version}
+	}
+	if patches != 1 {
+		t.Fatalf("lost fingerprints grew native history: %d patches", patches)
+	}
+	m.Team.Members[1].Leases = []string{"changed/**"}
+	m.Team.Members[1].LeasePolicy = ""
+	native["worker"] = make([]api.Rule, api.MaxNativePermissionRules)
+	if err := m.ApplyLeases(t.Context(), 1); err == nil || !strings.Contains(err.Error(), "pending") {
+		t.Fatal("over-limit policy did not fail pending", err)
+	}
+	if patches != 1 || m.Team.Members[1].LeasePolicy != "" {
+		t.Fatal("over-limit policy mutated native rules or advanced fingerprint")
 	}
 }

@@ -7,13 +7,17 @@ import (
 	"net/url"
 )
 
-// ApplyPermissions appends native rules to a session; OpenCode keeps earlier rules and later matches win.
+// ApplyPermissions bounds native append history and skips an already-applied ordered policy suffix.
 func (c *Client) ApplyPermissions(ctx context.Context, dir, id string, rules []Rule) error {
 	if id == "" {
 		return fmt.Errorf("apply permissions: session ID required")
 	}
-	if rules == nil {
-		rules = []Rule{}
+	needed, err := c.permissionAppendNeeded(ctx, dir, id, rules)
+	if err != nil {
+		return err
+	}
+	if !needed {
+		return nil
 	}
 	body := struct {
 		Permission []Rule `json:"permission"`

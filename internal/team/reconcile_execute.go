@@ -121,7 +121,8 @@ func reconcileMember(snapshot *ReconcileSnapshot, action *ReconcileAction) (Memb
 		return Member{
 			Name: "pool-" + action.ID[:16], Role: "worker", Mode: "shared", Dir: snapshot.Team.Repo,
 			Agent: "build", Model: action.Proposal.Model, Capability: "coder", Permissions: Preset("coder"),
-			Leases: slices.Clone(action.Proposal.Paths),
+			Leases:         slices.Clone(action.Proposal.Paths),
+			SchedulingRole: action.Proposal.Role, Skills: slices.Clone(action.Proposal.Skills),
 		}, nil
 	}
 	for i := range snapshot.Team.Members {

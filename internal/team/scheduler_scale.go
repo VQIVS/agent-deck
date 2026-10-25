@@ -72,6 +72,9 @@ func (input *SchedulingInput) propose(plan *SchedulingPlan, task *Task, tokens *
 		reason = "usage budget exhausted"
 	}
 	if reason != "" {
+		if mismatch := input.compatibilityRejections(task); mismatch != "" {
+			reason += "; " + mismatch
+		}
 		plan.Blocked[task.ID] = reason
 		return false
 	}

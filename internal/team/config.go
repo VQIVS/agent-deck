@@ -17,6 +17,9 @@ import (
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
+	SchedulingRole       string            `yaml:"scheduling_role,omitempty"`
+	Skills               []string          `yaml:"skills,omitempty"`
+	Areas                Leases            `yaml:"areas,omitempty"`
 	ControlDir           string            `yaml:"control_dir,omitempty"`
 	PreviousSession      string            `yaml:"previous_session,omitempty"`
 	PreviousDir          string            `yaml:"previous_dir,omitempty"`
@@ -174,6 +177,9 @@ func (m *Member) validate() error {
 	}
 	if m.Mode == "adopt" && m.Session == "" {
 		return fmt.Errorf("adopt needs a session ID")
+	}
+	if err := m.validateScheduling(); err != nil {
+		return err
 	}
 	return m.validatePermissions()
 }

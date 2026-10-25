@@ -12,6 +12,7 @@ type SchedulerWorker struct {
 	Name            string    `json:"name"`
 	Role            string    `json:"role"`
 	Skills          []string  `json:"skills,omitempty"`
+	Areas           Leases    `json:"areas,omitempty"`
 	Leases          Leases    `json:"leases,omitempty"`
 	State           string    `json:"state"`
 	IdleSince       time.Time `json:"idle_since,omitempty"`
@@ -102,8 +103,8 @@ func (input *SchedulingInput) validate() error {
 			return fmt.Errorf("scheduler worker names must be nonempty and unique")
 		}
 		names[worker.Name] = true
-		if err := worker.Leases.Validate(); err != nil {
-			return fmt.Errorf("worker %q leases: %w", worker.Name, err)
+		if err := worker.validatePaths(); err != nil {
+			return err
 		}
 		switch worker.State {
 		case "idle", "busy", "waiting", "stalled", "context-full", "offline":
@@ -154,7 +155,7 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 		}
 		worker := input.fitWorker(task, reserved)
 		if worker == "" && task.Assignee != "" {
-			plan.Blocked[task.ID] = "waiting for " + task.Assignee
+			plan.Blocked[task.ID] = input.assigneeRejection(task)
 			continue
 		}
 		if worker == "" {
@@ -259,15 +260,25 @@ func (input *SchedulingInput) fitWorker(task *Task, reserved map[string]bool) st
 		if input.leaseContention(task, worker.Name) {
 			continue
 		}
-		if task.Role != "" && task.Role != worker.Role {
-			continue
-		}
-		if slices.ContainsFunc(task.Skills, func(skill string) bool { return !slices.Contains(worker.Skills, skill) }) {
+		if workerCompatibility(task, worker) != "" {
 			continue
 		}
 		return worker.Name
 	}
 	return ""
+}
+
+func (input *SchedulingInput) assigneeRejection(task *Task) string {
+	for i := range input.Workers {
+		worker := &input.Workers[i]
+		if worker.Name == task.Assignee {
+			if reason := workerCompatibility(task, worker); reason != "" {
+				return "assignee " + worker.Name + ": " + reason
+			}
+			return "waiting for " + worker.Name
+		}
+	}
+	return "assignee " + task.Assignee + " is absent from the bound worker snapshot"
 }
 
 func (input *SchedulingInput) assigned(worker string) bool {

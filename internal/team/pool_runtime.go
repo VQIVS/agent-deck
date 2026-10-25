@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -152,8 +153,13 @@ func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Ti
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, err
 		}
+		role := member.SchedulingRole
+		if role == "" {
+			role = "worker"
+		}
 		workers = append(workers, SchedulerWorker{
-			Name: member.Name, Role: "worker", State: status.State, Leases: member.Leases, IdleSince: p.idle[key],
+			Name: member.Name, Role: role, Skills: slices.Clone(member.Skills), Areas: slices.Clone(member.Areas),
+			State: status.State, Leases: slices.Clone(member.Leases), IdleSince: p.idle[key],
 			ContextTokens:   status.ContextTokens,
 			CompactedTokens: compacted.Tokens,
 		})

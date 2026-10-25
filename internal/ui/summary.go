@@ -16,14 +16,26 @@ type SummaryAssistant struct {
 	Member, Directory, Session string
 	Messages                   []api.Message
 	Limit                      int
+	Status                     SummaryStatus
+}
+
+// SummaryStatus records actual fetch results independently from record counts.
+// A successful zero-record fetch is loaded; an unrequested source is unknown.
+type SummaryStatus struct {
+	Loaded, Loading bool
+	LastSuccess     time.Time
+	Error           string
 }
 
 // SummarySource combines persisted evidence and explicitly bounded session excerpts.
 // Channel records must already be visibility-filtered by the caller.
 type SummarySource struct {
-	Board      *team.TaskBoard
-	Channel    []channel.Record
-	Assistants []SummaryAssistant
+	Board                      *team.TaskBoard
+	Channel                    []channel.Record
+	Assistants                 []SummaryAssistant
+	Team                       string
+	Members                    []string
+	BoardStatus, ChannelStatus SummaryStatus
 }
 
 // SummaryEntry is an attributed evidence item, never an AI-generated completion claim.
@@ -31,6 +43,8 @@ type SummaryEntry struct {
 	ID, Member, Kind, TaskID, Text string
 	At                             time.Time
 	Inferred                       bool
+	Truncated                      bool
+	Report                         *team.DoneReport
 }
 
 func ProjectSummary(source *SummarySource) []SummaryEntry {
@@ -56,6 +70,9 @@ func ProjectSummary(source *SummarySource) []SummaryEntry {
 		result = append(result, entry)
 	}
 	sort.Slice(result, func(i, j int) bool {
+		if result[i].At.IsZero() != result[j].At.IsZero() {
+			return !result[i].At.IsZero()
+		}
 		if !result[i].At.Equal(result[j].At) {
 			return result[i].At.Before(result[j].At)
 		}
@@ -91,7 +108,7 @@ func summaryBoard(board *team.TaskBoard, add func(SummaryEntry)) {
 			}
 			add(SummaryEntry{
 				ID: fmt.Sprintf("report:%s:%d", task.ID, record.RecordedAt.UnixNano()), Member: record.Member, TaskID: task.ID,
-				Kind: "report", Text: text, At: record.RecordedAt, Inferred: inferred,
+				Kind: "report", Text: text, At: record.RecordedAt, Inferred: inferred, Report: record.Reported,
 			})
 		}
 		if task.Report != nil {
@@ -149,13 +166,19 @@ func summaryAssistant(source *SummaryAssistant, add func(SummaryEntry)) {
 			continue
 		}
 		excerpt := []rune(strings.Join(text, "\n"))
-		if len(excerpt) > 4000 {
-			excerpt = append(excerpt[:4000], []rune("… [excerpt truncated]")...)
+		truncated := len(excerpt) > 4000
+		if truncated {
+			marker := []rune("… [excerpt truncated]")
+			excerpt = append(excerpt[:4000-len(marker)], marker...)
+		}
+		at := time.Time{}
+		if message.Info.Time.Created > 0 {
+			at = time.UnixMilli(message.Info.Time.Created)
 		}
 		add(SummaryEntry{
 			ID:     fmt.Sprintf("assistant:%q:%q:%q", source.Directory, source.Session, message.Info.ID),
 			Member: source.Member, Kind: "assistant", Text: string(excerpt),
-			At: time.UnixMilli(message.Info.Time.Created), Inferred: true,
+			At: at, Inferred: true, Truncated: truncated,
 		})
 	}
 }

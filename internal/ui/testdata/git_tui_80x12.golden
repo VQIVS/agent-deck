@@ -1,4 +1,4 @@
-[1 Dashboard] [2 Git] [3 Summary] [4 Channel] [5 Board] [6 Inbox]
+[1 Dashboard] [>2 Git] [3 Summary] [4 Channel] [5 Board] [6 Inbox]
 Git / core-dev                                            [Esc Built-in diff]
 Checkout: /work/agent-deck · core-dev
 Dashboard pauses while Git TUI is open.

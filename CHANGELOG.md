@@ -3,6 +3,13 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-10-26
+
+### Fixed
+
+- Avoid repeatedly appending an unchanged native permission policy when it already matches the session's trailing rules.
+- Bound native permission-history growth, leaving policy application pending without appending rules when the limit would be exceeded.
+
 ## [0.6.0] - 2026-10-26
 
 ### Added

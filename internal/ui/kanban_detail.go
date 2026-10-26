@@ -36,13 +36,33 @@ func renderKanbanDetailRequirements(task *team.Task, screen *KanbanScreen,
 	height := max(0, opts.Height-6)
 	screen.DetailOffset = max(0, min(screen.DetailOffset, max(0, len(wrapped)-height)))
 	end := min(len(wrapped), screen.DetailOffset+height)
-	header := kanbanFit(inboxLine("Task "+task.ID+" · "+task.State+" · "+task.Title), width)
-	footer := kanbanFit("Esc board · PgUp/PgDown scroll · e edit · c comment · a assign · m move · w worker", width)
+	header := clipLine(inboxLine("Task "+task.ID+" · "+task.State+" · "+task.Title), width)
+	footer := clipLine("Esc board · PgUp/PgDown scroll · e edit · c comment · a assign · m move · w worker", width)
 	view := header + "\n" + strings.Join(wrapped[screen.DetailOffset:end], "\n") + "\n" + footer
 	panel := lipgloss.NewStyle().Width(width).Border(lipgloss.RoundedBorder()).
 		BorderForeground(opts.Theme.Accent).Background(opts.Theme.Surface).Render(view)
 	panel = lipgloss.Place(opts.Width, opts.Height, lipgloss.Center, lipgloss.Center, panel)
 	return kanbanBound(panel, opts.Width, opts.Height), nil
+}
+
+// TaskDefinitionDetail keeps merged requirements separate from completion claims.
+func TaskDefinitionDetail(definition team.DefinitionOfDone, width int) string {
+	if len(definition) == 0 || width <= 0 {
+		return ""
+	}
+	lines := []string{"Merged definition of done (task + current team)"}
+	for _, criterion := range definition {
+		label := "optional"
+		if criterion.Required {
+			label = "required"
+		}
+		lines = append(lines, criterion.ID+" ["+label+"]: "+criterion.Text)
+	}
+	lines = append(lines, "Requirements only; not evidence of completion.")
+	for i := range lines {
+		lines[i] = RenderInboxLine(lines[i], width)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func kanbanDetailLines(task *team.Task) []string {

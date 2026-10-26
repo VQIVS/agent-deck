@@ -50,7 +50,7 @@ func (m *Model) actionDialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
 	if m.permissionConfirm {
 		m.permissionConfirm = false
 		if key == "y" || key == "Y" {
-			return true, m.replyPermission("always", "")
+			return true, m.replyPermissionTarget(m.permissionTarget, "always", "")
 		}
 		return true, nil
 	}
@@ -61,7 +61,7 @@ func (m *Model) actionDialogKey(v tea.KeyMsg) (bool, tea.Cmd) {
 			return true, nil
 		case "ctrl+s":
 			m.rejecting = false
-			return true, m.replyPermission("reject", strings.TrimSpace(m.input.Value()))
+			return true, m.replyPermissionTarget(m.permissionTarget, "reject", strings.TrimSpace(m.input.Value()))
 		default:
 			var cmd tea.Cmd
 			m.input, cmd = m.input.Update(v)

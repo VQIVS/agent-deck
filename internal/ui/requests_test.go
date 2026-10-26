@@ -29,6 +29,18 @@ func requestModel(server string, ro bool) *Model {
 	)
 }
 func key(s string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)} }
+
+func TestPermissionReplyTargetRejectsReboundSession(t *testing.T) {
+	m := requestModel("http://unused.invalid", false)
+	m.panes[0].State.UpdateRequests([]api.Permission{{ID: "request", SessionID: "session-a"}}, nil, time.Now())
+	m.permissionKey("Y")
+	m.panes[0].Agent.Session = "replacement"
+	m.panes[0].State.UpdateRequests([]api.Permission{{ID: "request", SessionID: "replacement"}}, nil, time.Now())
+	if cmd := m.replyPermissionTarget(m.permissionTarget, "always", ""); cmd != nil {
+		t.Fatal("confirmation followed a replacement session")
+	}
+}
+
 func TestWaitingPollAndReplyUI(t *testing.T) {
 	var replies []string
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

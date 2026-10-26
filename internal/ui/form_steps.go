@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // FormStep describes one named step and its contiguous range of form fields.
@@ -86,7 +85,7 @@ func formStepKeys(last, readOnly bool) string {
 func fitFormStep(text string, width int) string {
 	lines := strings.Split(text, "\n")
 	for i := range lines {
-		lines[i] = ansi.Truncate(lines[i], width, "…")
+		lines[i] = clipLine(lines[i], width)
 	}
 	return strings.Join(lines, "\n")
 }

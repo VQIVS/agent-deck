@@ -5,7 +5,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // InboxScreen holds local navigation and identity-bound confirmation state.
@@ -241,5 +240,5 @@ func RenderInboxLine(text string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	return ansi.Truncate(inboxLine(text), width, "…")
+	return clipLine(inboxLine(text), width)
 }

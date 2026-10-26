@@ -133,7 +133,7 @@ func (m *Model) permissionKey(key string) tea.Cmd {
 	}
 	switch key {
 	case "y":
-		return m.replyPermission("once", "")
+		return m.replyPermissionTarget(m.permissionTarget, "once", "")
 	case "Y":
 		m.permissionConfirm = true
 	case "x":
@@ -144,10 +144,6 @@ func (m *Model) permissionKey(key string) tea.Cmd {
 		return textarea.Blink
 	}
 	return nil
-}
-
-func (m *Model) replyPermission(reply, message string) tea.Cmd {
-	return m.replyPermissionTarget(m.permissionTarget, reply, message)
 }
 
 func (m *Model) replyPermissionTarget(target permissionTarget, reply, message string) tea.Cmd {

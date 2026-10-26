@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/vqivs/agent-deck/internal/team"
 )
@@ -60,8 +59,8 @@ func RenderKanban(tasks []team.Task, screen *KanbanScreen, opts *KanbanOptions) 
 		footer = "READ ONLY · ←→ columns · ↑↓ cards · Enter detail · w worker"
 	}
 	lines := []string{
-		kanbanFit(header, opts.Width), lipgloss.JoinHorizontal(lipgloss.Top, views...),
-		kanbanFit(footer, opts.Width), kanbanFit(filterHelp, opts.Width),
+		clipLine(header, opts.Width), lipgloss.JoinHorizontal(lipgloss.Top, views...),
+		clipLine(footer, opts.Width), clipLine(filterHelp, opts.Width),
 	}
 	return kanbanBound(strings.Join(lines, "\n"), opts.Width, opts.Height), targets
 }
@@ -90,7 +89,7 @@ func renderKanbanColumn(tasks []team.Task, screen *KanbanScreen, opts *KanbanOpt
 	label, color := kanbanStagePresentation(screen, state, len(items) == 0 && bounds.W <= 12)
 	pill := lipgloss.NewStyle().Foreground(lipgloss.Color("#141619")).Background(color).Bold(true).
 		Render(" " + fmt.Sprintf("%s %d", label, len(items)) + " ")
-	lines := []string{kanbanFit(pill, width)}
+	lines := []string{clipLine(pill, width)}
 	var targets []KanbanTarget
 	start := 0
 	capacity := max(1, (bounds.H-1)/8)
@@ -103,7 +102,7 @@ func renderKanbanColumn(tasks []team.Task, screen *KanbanScreen, opts *KanbanOpt
 	for _, task := range items[start:] {
 		if screen.Swimlanes && lane != kanbanAssignee(task) {
 			lane = kanbanAssignee(task)
-			lines = append(lines, kanbanFit("── "+inboxLine(kanbanOwner(lane))+" ──", width))
+			lines = append(lines, clipLine("── "+inboxLine(kanbanOwner(lane))+" ──", width))
 		}
 		if len(lines)+8 > bounds.H {
 			break
@@ -129,7 +128,7 @@ func renderKanbanColumn(tasks []team.Task, screen *KanbanScreen, opts *KanbanOpt
 		return "", nil
 	}
 	for i := range lines {
-		lines[i] = lipgloss.NewStyle().Width(bounds.W).Render(kanbanFit(lines[i], width))
+		lines[i] = lipgloss.NewStyle().Width(bounds.W).Render(clipLine(lines[i], width))
 	}
 	return strings.Join(lines[:min(len(lines), bounds.H)], "\n"), targets
 }
@@ -186,7 +185,7 @@ func kanbanCard(task *team.Task, selected bool, opts *KanbanOptions, width int) 
 		bar + " · " + kanbanAge(task.CreatedAt, opts.Now), inboxLine(strings.Join(task.Labels, " · ")), alert, "[<] [>]",
 	}
 	for i := range lines {
-		lines[i] = kanbanFit(lines[i], inner)
+		lines[i] = clipLine(lines[i], inner)
 	}
 	border, color := lipgloss.RoundedBorder(), opts.Theme.Border
 	if selected {
@@ -248,18 +247,11 @@ func kanbanAge(created, now time.Time) string {
 	return fmt.Sprintf("%dm", int(d/time.Minute))
 }
 
-func kanbanFit(text string, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	return ansi.Truncate(strings.ReplaceAll(text, "\n", " "), width, "…")
-}
-
 func kanbanBound(text string, width, height int) string {
 	lines := strings.Split(text, "\n")
 	lines = lines[:min(len(lines), max(0, height))]
 	for i := range lines {
-		lines[i] = kanbanFit(lines[i], width)
+		lines[i] = clipLine(lines[i], width)
 	}
 	return strings.Join(lines, "\n")
 }

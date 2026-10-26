@@ -721,7 +721,15 @@ func clean(s string) string {
 }
 
 func fit(s string, w int) string {
-	return ansi.Truncate(strings.ReplaceAll(clean(s), "\n", " "), max(1, w), "…")
+	return clipLine(strings.ReplaceAll(clean(s), "\n", " "), max(1, w))
+}
+
+// clipLine bounds styled terminal cells; callers retain their own sanitation policy.
+func clipLine(text string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	return ansi.Truncate(strings.ReplaceAll(text, "\n", " "), width, "…")
 }
 
 func (m *Model) renderPane(i, x, y, w, h int) string {

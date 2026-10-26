@@ -3,16 +3,16 @@ agent-deck · WAITING 2 · requests 1P/1Q · streams 2/2 · http://127.0.0.1:409
 [Team] [+ Worker] [Sessions] [Inbox] [Channel] [Board] [Commands] [Refresh]
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │ IDLE  ★ Sol · leases PENDING apply                                           │
-│[⤢] [Message] [Nudge] [Stop] [Attach] [Compact]                               │
+│[⤢] [Send message] [Nudge] [Stop] [Attach] [Compact]                          │
 │context [■·········] 24000/128000 (19%) · nudges 0/0 · tool: —                │
+│ASSISTANT                                                                     │
+│                                                                              │
 │  ## Review plan                                                              │
 │                                                                              │
 │  Verify health signals, then integrate the worker changes.                   │
 │                                                                              │
 │  • Run package tests                                                         │
 │  • Review pending permissions                                                │
-│                                                                              │
-│                                                                              │
 │                                                                              │
 │                                                                              │
 │                                                                              │

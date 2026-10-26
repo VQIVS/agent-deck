@@ -63,7 +63,8 @@ func TestButtonVisibility(t *testing.T) {
 		time.Now(),
 	)
 	view := m.View()
-	for _, text := range []string{"[Message]", "[Nudge]", "[Stop]", "[Attach]", "[Approve once]", "[Always]", "[Reject]"} {
+	buttons := []string{"[Send message]", "[Nudge]", "[Stop]", "[Attach]", "[Approve once]", "[Always]", "[Reject]"}
+	for _, text := range buttons {
 		if !strings.Contains(view, text) {
 			t.Fatal("button missing", text)
 		}
@@ -145,9 +146,10 @@ func TestMouseModalsAndPicker(t *testing.T) {
 	}
 	clickZone(t, m, "m", 0)
 	m.input.SetValue("hello")
-	if cmd := clickZone(t, m, "send", -1); cmd == nil || m.editing {
-		t.Fatal("send dispatch")
+	if cmd := clickZone(t, m, "send", -1); cmd == nil || !m.editing || m.composer.Pending[m.composer.Target] == "" {
+		t.Fatal("send dispatch did not keep the pinned composer in a sending state")
 	}
+	clickZone(t, m, "esc", -1)
 	m.inventory.Sessions = []api.Session{{ID: "session-a", Title: "Worker", Directory: "/tmp/team"}}
 	clickZone(t, m, "p", -1)
 	if !m.picker {

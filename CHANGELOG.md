@@ -3,6 +3,24 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-10-26
+
+### Changed
+
+- Consolidate atomic persistence, cancellable file locks, workflow views and shared UI helpers.
+- Remove unreachable adapters and test-only wrappers while preserving public compatibility and regression coverage.
+
+### Fixed
+
+- Continue polling and answering worker permission requests when another runtime root is unavailable.
+- Retain unknown legacy lease origins as manual leases without blocking runtime startup.
+- Reject new implementation assignments to the master while preserving historical task compatibility.
+- Reliably deliver task comments and review evidence once to the assignee and lead, including later comments.
+
+### Removed
+
+- Obsolete public verification log and stale documentation links.
+
 ## [0.7.0] - 2026-10-26
 
 ### Added

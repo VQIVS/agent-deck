@@ -3,6 +3,19 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-26
+
+### Fixed
+
+- Release task-derived leases when work leaves active ownership, preserving manually granted paths
+  and reconciling path edits across runtime mutation and restart.
+- Exclude epics from automatic worker assignment and preserve worker capabilities when checking
+  task compatibility.
+- Update open task assignee and reviewer references when members are renamed, including UI saves.
+- Preserve task parallel settings on partial CLI, MCP and UI edits.
+- Expose full authenticated task details through show_task.
+- Allow workers to commit their own task files, verifying the staged tree in an isolated checkout.
+
 ## [0.4.0] - 2026-10-25
 
 ### Added

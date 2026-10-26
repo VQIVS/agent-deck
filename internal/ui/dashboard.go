@@ -45,6 +45,8 @@ type pane struct {
 	Messages      []api.Message
 	History       bool
 	Ranges        []transcript.Range
+	HistoryParts  int
+	NewParts      int
 }
 type streamMsg struct {
 	Dir        string
@@ -740,6 +742,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 		lipgloss.NewStyle().Foreground(MemberColor(p.Agent.Name)).Render(fit(name, max(1, inner-12)))
 	buttons := m.paneControlRows(controls, &plan, x, inner, i)
 	atBottom := p.View.AtBottom()
+	p.observeHistoryParts()
 	anchorID, anchorLine := transcriptAnchor(p.Ranges, p.View.YOffset)
 	p.View.Width = inner
 	p.View.Height = body
@@ -768,9 +771,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	}
 	p.Ranges = ranges
 	detail := m.paneHealth(i) + " · tool: " + p.State.Tool()
-	if p.History {
-		detail += " · HISTORY / loaded only · G Latest"
-	}
+	detail += p.historyNotice()
 	content := header + "\n" + buttons + "\n" + fit(detail, inner) + "\n" + p.View.View() + "\n" + fit(p.Git, inner)
 	if p.State.Waiting() {
 		lines := strings.Split(ansi.Hardwrap(clean(p.State.WaitingText()), inner, true), "\n")

@@ -138,7 +138,10 @@ func TestComposerIdentityWrapsAndReturnsToDraft(t *testing.T) {
 	m.panes[0].Agent.Dir = "/work/" + strings.Repeat("nested/", 50) + "target-end"
 	m.Update(key("m"))
 	typeText(m, "keep me")
-	m.composeKey(tea.KeyMsg{Type: tea.KeyCtrlI})
+	m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if !m.composer.Identity {
+		t.Fatal("actual terminal Tab did not open full identity")
+	}
 	view := m.composerIdentityView()
 	if !strings.Contains(view, "API directory:") || !strings.Contains(view, "target-end") {
 		t.Fatal("full wrapped identity unavailable")

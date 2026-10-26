@@ -103,7 +103,7 @@ func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 	}
 	_, sending := c.Pending[c.Target]
 	switch key {
-	case "ctrl+i":
+	case "tab", "ctrl+i":
 		c.Identity, c.IdentityOffset = true, 0
 		return nil
 	case "ctrl+r":
@@ -138,7 +138,7 @@ func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 
 func (c *composerUI) identityKey(key string) {
 	switch key {
-	case "esc", "ctrl+i":
+	case "esc", "tab", "ctrl+i":
 		c.Identity = false
 	case "j", "down":
 		c.IdentityOffset++

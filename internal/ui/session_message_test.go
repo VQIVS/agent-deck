@@ -119,12 +119,33 @@ func TestComposerSendingBlocksDuplicatesAndFailureKeepsDraft(t *testing.T) {
 		t.Fatalf("draft edited while sending: %q", m.input.Value())
 	}
 	m.Update(messageSent{Target: m.composer.Target, Text: "once", Err: errors.New("connection refused")})
-	if !m.editing || !strings.Contains(m.composer.Status, "Send failed; draft kept") ||
+	if !m.editing || !strings.Contains(m.composer.Status, "Outcome unknown; draft kept") ||
 		m.composer.Drafts[m.composer.Target] != "once" {
 		t.Fatalf("failure state: editing=%v status=%q", m.editing, m.composer.Status)
 	}
+	if _, retry := m.Update(tea.KeyMsg{Type: tea.KeyEnter}); retry != nil {
+		t.Fatal("uncertain send allowed immediate duplicate retry")
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if _, retry := m.Update(tea.KeyMsg{Type: tea.KeyEnter}); retry == nil {
 		t.Fatal("explicit retry not possible after failure")
+	}
+}
+
+func TestComposerIdentityWrapsAndReturnsToDraft(t *testing.T) {
+	m := twoSessionModel(t, "http://127.0.0.1:1", false)
+	m.w, m.h = 80, 24
+	m.panes[0].Agent.Dir = "/work/" + strings.Repeat("nested/", 50) + "target-end"
+	m.Update(key("m"))
+	typeText(m, "keep me")
+	m.composeKey(tea.KeyMsg{Type: tea.KeyCtrlI})
+	view := m.composerIdentityView()
+	if !strings.Contains(view, "API directory:") || !strings.Contains(view, "target-end") {
+		t.Fatal("full wrapped identity unavailable")
+	}
+	m.composeKey(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.composer.Identity || m.input.Value() != "keep me" {
+		t.Fatal("identity view lost draft")
 	}
 }
 

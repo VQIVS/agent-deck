@@ -3,6 +3,28 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-25
+
+### Added
+
+- Configurable workflow stages with names, colors and lifecycle categories, reflected in the Kanban board.
+- Team Workflow editor with stage reorder and occupied-stage rename, validation and stale-save protection.
+- CLI and MCP workflow discovery and a pending-release queue for accepted tasks.
+- Role-restricted, versioned shipment that preserves accepted review evidence and completion history,
+  with category-based delivery notices.
+
+### Changed
+
+- Existing boards retain default workflow behavior while workflow definitions and shipment metadata
+  persist across migration and reopen.
+
+## [0.3.1] - 2026-10-25
+
+### Fixed
+
+- Assigning tasks to user-configured workers skips automatic pool identity setup, preserving
+  their configured sessions and avoiding uncertain assignment effects.
+
 ## [0.3.0] - 2026-10-24
 
 ### Added

@@ -3,6 +3,14 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-26
+
+### Added
+
+- Explicit launch of an installed Git TUI from the Git view, with the built-in diff available as a fallback.
+- Checkout context and scrollable full details that remain usable on narrow and short terminals.
+- Terminal handoff to the Git client and dashboard/keyboard restoration after the client exits.
+
 ## [0.4.1] - 2026-10-26
 
 ### Fixed

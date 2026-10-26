@@ -292,5 +292,13 @@ func TestGitTUICompactKeepsActionsOnShortTerminals(t *testing.T) {
 		if size == [2]int{80, 12} {
 			assertScreenGolden(t, "git_tui_80x12", view)
 		}
+		m.gitViewKey(gitKey("i"))
+		details := m.View()
+		if lines := strings.Split(details, "\n"); len(lines) > size[1] ||
+			!strings.Contains(ansi.Strip(details), "Esc back to launcher") ||
+			!strings.Contains(ansi.Strip(details), "Git root: /work/agent-deck") {
+			t.Fatalf("%dx%d details overflow or lost its footer:\n%s", size[0], size[1], ansi.Strip(details))
+		}
+		m.gitViewKey(gitKey("esc"))
 	}
 }

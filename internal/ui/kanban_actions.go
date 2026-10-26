@@ -137,7 +137,7 @@ func (e *KanbanExecutor) update(board *team.TaskBoard, edit *KanbanEdit, m team.
 	}
 	replacement := *edit.Task
 	desired, previous := replacement.Assignee, current.Assignee
-	replacement.Assignee, replacement.Worker = current.Assignee, current.Worker
+	replacement.Assignee = current.Assignee
 	if err := board.UpdateTask(current.ID, &replacement, m); err != nil {
 		return fmt.Errorf("update Kanban task: %w", err)
 	}

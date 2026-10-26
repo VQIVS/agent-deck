@@ -3,7 +3,7 @@
 ## Team channel foundation
 
 `internal/team/scheduler*.go` provides a pure task-board and scheduling policy core:
-dependency/lease contention checks, capacity/cooldown/budget proposals, ask-by-default
+dependency/lease contention checks, capacity/cooldown proposals, ask-by-default
 approval and read-only guards. It performs no session creation or retirement; a runtime
 controller must revalidate each proposal and persist/journal accepted transitions.
 

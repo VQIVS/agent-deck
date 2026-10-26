@@ -34,7 +34,7 @@ func TestAutoReconcileRecoversExistingIdleBrief(t *testing.T) {
 	}
 	worker := current.Members[1].Name
 	task := Task{
-		ID: "T-1", Title: "Existing work", Assignee: worker, Worker: worker, State: "in_progress",
+		ID: "T-1", Title: "Existing work", Assignee: worker, State: "in_progress",
 		Paths: []string{"internal/example/*"}, Criteria: []TaskCriterion{{ID: "c1", Text: "Works"}},
 	}
 	state := BoardState{

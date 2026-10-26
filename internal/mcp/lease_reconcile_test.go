@@ -105,7 +105,7 @@ func TestOwnerNoticeReleasesNativeLeasesAndRestartRetries(t *testing.T) {
 		Tasks: []team.Task{{
 			ID: "T-1", Title: "active work", State: "Building", Assignee: manager.Team.Members[0].Name,
 			Reviewer: manager.Team.Members[1].Name,
-			Worker:   manager.Team.Members[0].Name, Paths: team.Leases{"own/**"},
+			Paths:    team.Leases{"own/**"},
 			Criteria: []team.TaskCriterion{{ID: "c1", Text: "works"}},
 		}, {
 			ID: "T-2", Title: "next work", State: "ready", Paths: team.Leases{"next/**"},

@@ -104,7 +104,7 @@ func (m *Model) boardView() string {
 	lines = append(lines, "Work board · Esc back · y approve · x reject · r refresh")
 	for i := range m.board.State.Board.Tasks {
 		task := &m.board.State.Board.Tasks[i]
-		lines = append(lines, fmt.Sprintf("%s · %s · %s · %s", task.ID, task.State, task.Worker, task.Title))
+		lines = append(lines, fmt.Sprintf("%s · %s · %s · %s", task.ID, task.State, task.Assignee, task.Title))
 	}
 	for i := range m.board.Actions {
 		action := &m.board.Actions[i]

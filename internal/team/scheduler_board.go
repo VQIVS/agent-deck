@@ -16,57 +16,38 @@ type TaskEstimate struct {
 	Cost     float64       `json:"cost"`
 }
 
-// TaskUsage contains externally measured usage and its provenance.
-type TaskUsage struct {
-	Duration time.Duration `json:"duration"`
-	Tokens   int64         `json:"tokens"`
-	Cost     float64       `json:"cost"`
-	Rework   int           `json:"rework"`
-	Source   string        `json:"source"`
-}
-
-// TaskReport is worker-reported evidence, distinct from measured usage.
-type TaskReport struct {
-	Text  string `json:"text"`
-	Tests string `json:"tests,omitempty"`
-}
-
 // Task is one independently owned unit of work on a versioned board.
 type Task struct {
-	Kind             string `json:"kind,omitempty"`
-	category         string
-	categoryState    string
-	ReleaseVersion   string          `json:"release_version,omitempty"`
-	ReleaseURL       string          `json:"release_url,omitempty"`
-	ShippedAt        time.Time       `json:"shipped_at,omitempty"`
-	LegacyCompletion bool            `json:"legacy_completion,omitempty"`
-	StartedAt        time.Time       `json:"started_at,omitempty"`
-	CompletedAt      time.Time       `json:"completed_at,omitempty"`
-	Description      string          `json:"description,omitempty"`
-	Criteria         []TaskCriterion `json:"criteria,omitempty"`
-	Priority         string          `json:"priority,omitempty"`
-	Labels           []string        `json:"labels,omitempty"`
-	Assignee         string          `json:"assignee,omitempty"`
-	Reviewer         string          `json:"reviewer,omitempty"`
-	Branch           string          `json:"branch,omitempty"`
-	Commits          []string        `json:"commits,omitempty"`
-	CreatedAt        time.Time       `json:"created_at,omitempty"`
-	UpdatedAt        time.Time       `json:"updated_at,omitempty"`
-	History          []TaskChange    `json:"history,omitempty"`
-	Comments         []TaskComment   `json:"comments,omitempty"`
-	Review           *TaskReview     `json:"review,omitempty"`
-	Completion       *ReportRecord   `json:"completion,omitempty"`
-	ID               string          `json:"id"`
-	Title            string          `json:"title"`
-	Paths            Leases          `json:"paths"`
-	Dependencies     []string        `json:"dependencies,omitempty"`
-	Role             string          `json:"role,omitempty"`
-	Skills           []string        `json:"skills,omitempty"`
-	Estimate         TaskEstimate    `json:"estimate"`
-	State            string          `json:"state"`
-	Worker           string          `json:"worker,omitempty"`
-	Report           *TaskReport     `json:"report,omitempty"`
-	Measured         *TaskUsage      `json:"measured,omitempty"`
+	Kind           string `json:"kind,omitempty"`
+	category       string
+	categoryState  string
+	ReleaseVersion string          `json:"release_version,omitempty"`
+	ReleaseURL     string          `json:"release_url,omitempty"`
+	ShippedAt      time.Time       `json:"shipped_at,omitempty"`
+	StartedAt      time.Time       `json:"started_at,omitempty"`
+	CompletedAt    time.Time       `json:"completed_at,omitempty"`
+	Description    string          `json:"description,omitempty"`
+	Criteria       []TaskCriterion `json:"criteria,omitempty"`
+	Priority       string          `json:"priority,omitempty"`
+	Labels         []string        `json:"labels,omitempty"`
+	Assignee       string          `json:"assignee,omitempty"`
+	Reviewer       string          `json:"reviewer,omitempty"`
+	Branch         string          `json:"branch,omitempty"`
+	Commits        []string        `json:"commits,omitempty"`
+	CreatedAt      time.Time       `json:"created_at,omitempty"`
+	UpdatedAt      time.Time       `json:"updated_at,omitempty"`
+	History        []TaskChange    `json:"history,omitempty"`
+	Comments       []TaskComment   `json:"comments,omitempty"`
+	Review         *TaskReview     `json:"review,omitempty"`
+	Completion     *ReportRecord   `json:"completion,omitempty"`
+	ID             string          `json:"id"`
+	Title          string          `json:"title"`
+	Paths          Leases          `json:"paths"`
+	Dependencies   []string        `json:"dependencies,omitempty"`
+	Role           string          `json:"role,omitempty"`
+	Skills         []string        `json:"skills,omitempty"`
+	Estimate       TaskEstimate    `json:"estimate"`
+	State          string          `json:"state"`
 }
 
 // TaskBoard stores task state separately from team session bindings.
@@ -78,8 +59,11 @@ type TaskBoard struct {
 }
 
 func (b *TaskBoard) Validate() error {
-	if b == nil || (b.Version != 1 && b.Version != 2) {
-		return fmt.Errorf("task board requires version 1 or 2")
+	if b != nil && b.Version == 1 {
+		return fmt.Errorf("board v1 unsupported; open it once with agent-deck v0.3.x")
+	}
+	if b == nil || b.Version != 2 {
+		return fmt.Errorf("task board requires version 2")
 	}
 	if err := b.Workflow.Validate(); err != nil {
 		return err
@@ -87,16 +71,14 @@ func (b *TaskBoard) Validate() error {
 	index := make(map[string]int, len(b.Tasks))
 	for i := range b.Tasks {
 		task := &b.Tasks[i]
-		if b.Version == 2 {
-			bindTaskCategory(b, task)
-			if task.category == "" {
-				return fmt.Errorf("task %q uses undefined workflow stage %q", task.ID, task.State)
-			}
+		bindTaskCategory(b, task)
+		if task.category == "" {
+			return fmt.Errorf("task %q uses undefined workflow stage %q", task.ID, task.State)
 		}
 		if _, exists := index[task.ID]; task.ID == "" || exists {
 			return fmt.Errorf("task ids must be nonempty and unique")
 		}
-		if err := validateBoardTask(task, b.Version); err != nil {
+		if err := validateBoardTask(task); err != nil {
 			return fmt.Errorf("task %q: %w", task.ID, err)
 		}
 		index[task.ID] = i
@@ -107,56 +89,7 @@ func (b *TaskBoard) Validate() error {
 			return err
 		}
 	}
-	if b.Version == 2 {
-		return validateWorkflowBoard(b)
-	}
-	return nil
-}
-
-func validateTask(task *Task) error {
-	if task.Title == "" || len(task.Paths) == 0 {
-		return fmt.Errorf("title and owned paths are required")
-	}
-	if err := task.Paths.Validate(); err != nil {
-		return fmt.Errorf("owned paths: %w", err)
-	}
-	if task.Estimate.Duration < 0 || task.Estimate.Tokens < 0 || invalidCost(task.Estimate.Cost) {
-		return fmt.Errorf("estimate must be finite and nonnegative")
-	}
-	if err := validateTaskState(task); err != nil {
-		return err
-	}
-	if task.Measured != nil {
-		return validateUsage(task.Measured)
-	}
-	return nil
-}
-
-func validateTaskState(task *Task) error {
-	switch task.State {
-	case "pending":
-		if task.Worker != "" || task.Report != nil || task.Measured != nil {
-			return fmt.Errorf("pending task cannot have assignment or outcomes")
-		}
-	case "assigned":
-		if task.Worker == "" || task.Report != nil || task.Measured != nil {
-			return fmt.Errorf("assigned task requires worker and no outcomes")
-		}
-	case "done", "failed":
-		if task.Worker == "" || task.Report == nil || task.Report.Text == "" {
-			return fmt.Errorf("finished task requires worker and report")
-		}
-	default:
-		return fmt.Errorf("unknown task state %q", task.State)
-	}
-	return nil
-}
-
-func validateUsage(usage *TaskUsage) error {
-	if usage.Source == "" || usage.Duration < 0 || usage.Tokens < 0 || usage.Rework < 0 || invalidCost(usage.Cost) {
-		return fmt.Errorf("measured usage requires provenance and finite nonnegative values")
-	}
-	return nil
+	return validateWorkflowBoard(b)
 }
 
 func invalidCost(value float64) bool {

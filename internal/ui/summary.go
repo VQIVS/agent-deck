@@ -107,13 +107,6 @@ func summaryBoard(board *team.TaskBoard, add func(SummaryEntry)) {
 				Kind: "report", Text: summaryReport(record.Reported), At: record.RecordedAt, Report: record.Reported,
 			})
 		}
-		if task.Report != nil {
-			add(SummaryEntry{
-				ID: "legacy-report:" + task.ID, Member: kanbanAssignee(task), TaskID: task.ID,
-				Kind: "report", Text: task.Report.Text + " · tests claimed: " + task.Report.Tests,
-				At: task.UpdatedAt, Inferred: true,
-			})
-		}
 	}
 }
 

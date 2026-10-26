@@ -55,7 +55,7 @@ func reconcileFixture(t *testing.T) (*Reconciler, *ReconcileSnapshot, *reconcile
 		Team:     Team{Name: "pool", Repo: "/repo", Members: []Member{{Name: "lead", Role: "master", Session: "ses_lead"}}},
 		Revision: "revision-1", Approved: map[string]bool{},
 		Input: SchedulingInput{
-			Board: &TaskBoard{Version: 1}, Now: time.Now(),
+			Board: &TaskBoard{Version: 2}, Now: time.Now(),
 			Policy: SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
 		},
 	}
@@ -164,7 +164,9 @@ func TestReconcileAssignmentAndRetirement(t *testing.T) {
 		{Name: "worker", State: "idle", IdleSince: snapshot.Input.Now.Add(-time.Hour)},
 	}
 	snapshot.Input.Board.Tasks = []Task{{
-		ID: "task", Title: "Implement", State: "pending", Paths: Leases{"owned/**"},
+		ID: "task", Title: "Implement", State: "ready",
+		Criteria: []TaskCriterion{{ID: "check", Text: "Check"}},
+		Paths:    Leases{"owned/**"},
 		Estimate: TaskEstimate{Parallel: true},
 	}}
 	actions, err := DesiredReconcileActions(snapshot)
@@ -223,7 +225,11 @@ func TestReconcileAskAllowsAssignmentWithoutApproval(t *testing.T) {
 	})
 	snapshot.Input.Workers = []SchedulerWorker{{Name: "worker", State: "idle"}}
 	snapshot.Input.Board.Tasks = []Task{
-		{ID: "task", Title: "task", Paths: Leases{"own/**"}, State: "pending", Estimate: TaskEstimate{Parallel: true}},
+		{
+			ID: "task", Title: "task", Paths: Leases{"own/**"}, State: "ready",
+			Criteria: []TaskCriterion{{ID: "check", Text: "Check"}},
+			Estimate: TaskEstimate{Parallel: true},
+		},
 	}
 	actions, err := DesiredReconcileActions(snapshot)
 	if err != nil || len(actions) != 1 || actions[0].Kind != "assign" {

@@ -28,8 +28,10 @@ func schedulerToolFixture() (*SchedulerTools, *SchedulerSnapshot, *fakeScheduler
 		Team: "test", Revision: "revision-1",
 		Members: []Member{{ID: "master-1", Name: "alice", Role: "master"}, {ID: "worker-1", Name: "bob", Role: "worker"}},
 		Input: &team.SchedulingInput{
-			Board: &team.TaskBoard{Version: 1, Tasks: []team.Task{{
-				ID: "task", Title: "task", State: "pending", Paths: team.Leases{"internal/example/**"},
+			Board: &team.TaskBoard{Version: 2, Tasks: []team.Task{{
+				ID: "task", Title: "task", State: "ready",
+				Criteria: []team.TaskCriterion{{ID: "check", Text: "Check"}},
+				Paths:    team.Leases{"internal/example/**"},
 				Estimate: team.TaskEstimate{Parallel: true},
 			}}},
 			Policy: team.SchedulingPolicy{MaxWorkers: 3, Cooldown: time.Minute}, Now: time.Unix(10000, 0),
@@ -77,7 +79,7 @@ func TestSchedulerToolsAssignmentAndRetirement(t *testing.T) {
 	if _, err := tools.Call(t.Context(), master, "assign_task", arguments); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Input.Board.Tasks[0].State != "pending" || actions.actions[0].Worker != "bob" {
+	if snapshot.Input.Board.Tasks[0].State != "ready" || actions.actions[0].Worker != "bob" {
 		t.Fatal("adapter mutated board or lost assignment")
 	}
 	for _, raw := range []string{`{"task":"missing","worker":"bob"}`, `{"task":"task","worker":"unknown"}`} {

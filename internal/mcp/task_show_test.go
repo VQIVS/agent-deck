@@ -79,7 +79,7 @@ func TestShowTaskAuthenticatedFullDetailsWithoutMutation(t *testing.T) {
 	}
 }
 
-func TestShowTaskReadDoesNotPersistLegacyMigration(t *testing.T) {
+func TestShowTaskRejectsLegacyWithoutWriting(t *testing.T) {
 	store := team.BoardStore{Root: t.TempDir(), Team: "legacy"}
 	directory := filepath.Join(store.Root, store.Team)
 	if err := os.Mkdir(directory, 0o700); err != nil {
@@ -92,16 +92,17 @@ func TestShowTaskReadDoesNotPersistLegacyMigration(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readShowTask(t.Context(), store, "old"); err != nil {
-		t.Fatal(err)
+	_, err := readShowTask(t.Context(), store, "old")
+	if err == nil || !strings.Contains(err.Error(), "board v1 unsupported") {
+		t.Fatal("unclear legacy board error", err)
 	}
 	after, err := os.ReadFile(path)
 	if err != nil || !bytes.Equal(data, after) {
 		t.Fatal("read persisted legacy migration", err)
 	}
 	_, err = readShowTask(t.Context(), store, "missing")
-	if err == nil || !strings.Contains(err.Error(), "unknown task") {
-		t.Fatal("unclear missing task error", err)
+	if err == nil || !strings.Contains(err.Error(), "board v1 unsupported") {
+		t.Fatal("unclear legacy board error", err)
 	}
 }
 

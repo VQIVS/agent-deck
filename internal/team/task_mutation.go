@@ -45,13 +45,11 @@ func (b *TaskBoard) CreateTask(task *Task, m TaskMutation) error {
 	}
 	created := cloneTask(task)
 	created.State = b.Destination("todo")
-	created.Worker = created.Assignee
 	created.CreatedAt = m.Now.UTC()
 	created.History = nil
 	created.Comments = nil
 	created.Review = nil
 	created.Completion = nil
-	created.LegacyCompletion = false
 	candidate := TaskBoard{
 		Version: 2, Workflow: b.Workflow,
 		Tasks: slices.Clone(b.Tasks), History: slices.Clone(b.History),
@@ -73,8 +71,7 @@ func (b *TaskBoard) UpdateTask(id string, replacement *Task, m TaskMutation) err
 		if TaskShipped(task) {
 			return fmt.Errorf("shipped task is immutable; create follow-up work")
 		}
-		if replacement.ID != id || replacement.State != task.State || replacement.Assignee != task.Assignee ||
-			replacement.Worker != task.Worker {
+		if replacement.ID != id || replacement.State != task.State || replacement.Assignee != task.Assignee {
 			return fmt.Errorf("use workflow actions to change state or assignee")
 		}
 		updated := cloneTask(replacement)
@@ -83,7 +80,6 @@ func (b *TaskBoard) UpdateTask(id string, replacement *Task, m TaskMutation) err
 		updated.CreatedAt = task.CreatedAt
 		updated.Review = nil
 		updated.Completion = nil
-		updated.LegacyCompletion = false
 		*task = updated
 		taskEvent(board, task, m, "edited", "", "")
 		return nil
@@ -100,12 +96,8 @@ func (b *TaskBoard) SetAssignee(id, member string, m TaskMutation) error {
 		}
 		before := task.Assignee
 		task.Assignee = member
-		task.Worker = member
 		task.Review = nil
 		task.Completion = nil
-		task.Report = nil
-		task.Measured = nil
-		task.LegacyCompletion = false
 		if TaskActive(task) {
 			task.State = board.Destination("ready")
 		}

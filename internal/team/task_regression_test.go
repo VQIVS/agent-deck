@@ -41,7 +41,7 @@ func TestWorkflowSingleActiveAndDependencyEdit(t *testing.T) {
 	}
 }
 
-func TestWorkflowAggregateBudgetAndUnlockedMigration(t *testing.T) {
+func TestWorkflowAggregateBudgetAndUnlockedLoad(t *testing.T) {
 	board := &TaskBoard{Version: 2}
 	for i := 0; i < 8; i++ {
 		task := Task{ID: fmt.Sprint(i), Title: "task", State: "backlog"}
@@ -56,7 +56,7 @@ func TestWorkflowAggregateBudgetAndUnlockedMigration(t *testing.T) {
 		t.Fatal("aggregate board over budget accepted")
 	}
 	store := BoardStore{Root: t.TempDir(), Team: "migration"}
-	legacy := BoardState{Version: 1, Board: TaskBoard{Version: 1}, Policy: SchedulingPolicy{}}
+	legacy := BoardState{Version: 2, Board: TaskBoard{Version: 2}, Policy: SchedulingPolicy{}}
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	if err := store.Exclusive(ctx, func() error {
@@ -65,7 +65,7 @@ func TestWorkflowAggregateBudgetAndUnlockedMigration(t *testing.T) {
 		}
 		state, err := store.LoadUnlocked(ctx)
 		if err == nil && state.Version != 2 {
-			t.Fatal("unlocked load did not migrate in memory")
+			t.Fatal("unlocked load changed version")
 		}
 		return err
 	}); err != nil {
@@ -117,23 +117,5 @@ func TestTaskActorResolved(t *testing.T) {
 	tm.Members[0].Muted = true
 	if _, err := tm.ResolveTaskActor("worker"); err == nil {
 		t.Fatal("muted actor authorized")
-	}
-}
-
-func TestLegacyDoneAndPendingDependencies(t *testing.T) {
-	board := TaskBoard{Version: 1, Tasks: []Task{
-		{
-			ID: "done", Title: "done", Paths: Leases{"a/**"}, State: "done", Worker: "worker",
-			Report: &TaskReport{Text: "legacy"},
-		},
-		{ID: "pending", Title: "pending", Paths: Leases{"b/**"}, State: "pending", Dependencies: []string{"done"}},
-		{ID: "unmet", Title: "unmet", Paths: Leases{"c/**"}, State: "pending", Dependencies: []string{"pending"}},
-	}}
-	if err := MigrateTaskBoard(&board); err != nil {
-		t.Fatal(err)
-	}
-	if board.Tasks[0].State != "done" || !board.Tasks[0].LegacyCompletion || board.Tasks[1].State != "ready" ||
-		board.Tasks[2].State != "backlog" {
-		t.Fatal("migration lost legacy planning", board)
 	}
 }

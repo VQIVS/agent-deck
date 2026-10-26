@@ -20,14 +20,12 @@ type SchedulerWorker struct {
 	CompactedTokens int64     `json:"compacted_tokens,omitempty"`
 }
 
-// SchedulingPolicy bounds proposals; zero budgets mean no configured budget limit.
+// SchedulingPolicy bounds worker capacity and scaling proposals.
 type SchedulingPolicy struct {
 	MinWorkers   int               `json:"min_workers"`
 	MaxWorkers   int               `json:"max_workers"`
 	Approval     string            `json:"approval,omitempty"`
 	Cooldown     time.Duration     `json:"cooldown"`
-	TokenBudget  int64             `json:"token_budget,omitempty"`
-	CostBudget   float64           `json:"cost_budget,omitempty"`
 	Models       map[string]string `json:"models,omitempty"`
 	ContextLimit int64             `json:"context_limit,omitempty"`
 	StallAfter   time.Duration     `json:"stall_after,omitempty"`
@@ -74,8 +72,8 @@ func (p *SchedulingPolicy) Validate() error {
 	if p.MinWorkers < 0 || p.MaxWorkers < p.MinWorkers || p.Cooldown < 0 {
 		return fmt.Errorf("scheduling policy needs 0 <= min <= max and nonnegative cooldown")
 	}
-	if p.TokenBudget < 0 || invalidCost(p.CostBudget) || p.ContextLimit < 0 || p.StallAfter < 0 {
-		return fmt.Errorf("scheduling budgets must be finite and nonnegative")
+	if p.ContextLimit < 0 || p.StallAfter < 0 {
+		return fmt.Errorf("scheduling context limit and stall threshold must be nonnegative")
 	}
 	if p.Approval != "" && p.Approval != "ask" && p.Approval != "auto" && p.Approval != "off" {
 		return fmt.Errorf("scheduling approval must be ask, auto or off")
@@ -118,13 +116,13 @@ func (input *SchedulingInput) validate() error {
 		if !TaskActive(task) {
 			continue
 		}
-		if !names[task.Worker] {
+		if !names[task.Assignee] {
 			continue
 		}
-		if assigned[task.Worker] {
+		if assigned[task.Assignee] {
 			return fmt.Errorf("assigned tasks require distinct current workers")
 		}
-		assigned[task.Worker] = true
+		assigned[task.Assignee] = true
 	}
 	return nil
 }
@@ -146,7 +144,6 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 	ready := input.ready(&plan)
 	reserved := make(map[string]bool)
 	var selected []Task
-	tokens, cost := input.committedUsage()
 	for i := range ready {
 		task := &ready[i]
 		if tasksContend(task, selected) {
@@ -163,18 +160,16 @@ func PlanSchedule(input *SchedulingInput) (SchedulingPlan, error) {
 				plan.Blocked[task.ID] = "active lease contention"
 				continue
 			}
-			if !input.propose(&plan, task, &tokens, &cost) {
+			if !input.propose(&plan, task) {
 				continue
 			}
 		} else {
 			plan.Assignments = append(plan.Assignments, TaskAssignment{Task: task.ID, Worker: worker})
 			reserved[worker] = true
-			tokens = saturatingTokens(tokens, task.Estimate.Tokens)
-			cost += task.Estimate.Cost
 		}
 		selected = append(selected, *task)
 	}
-	input.scale(&plan, reserved, tokens, cost)
+	input.scale(&plan, reserved)
 	return plan, nil
 }
 
@@ -283,6 +278,6 @@ func (input *SchedulingInput) assigneeRejection(task *Task) string {
 
 func (input *SchedulingInput) assigned(worker string) bool {
 	return slices.ContainsFunc(input.Board.Tasks, func(task Task) bool {
-		return TaskActive(&task) && task.Worker == worker
+		return TaskActive(&task) && task.Assignee == worker
 	})
 }

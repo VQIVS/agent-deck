@@ -34,9 +34,9 @@ func kanbanFixture() ([]team.Task, time.Time) {
 			},
 			Paths: team.Leases{"internal/ui/**"}, Description: "Render the workflow clearly and preserve task identity.",
 			Reviewer: "Sol", Branch: "feat/workflow", Commits: []string{"abc123 add task view"},
-			History:  []team.TaskChange{{Actor: "Sol", At: now.Add(-time.Hour), Field: "state", From: "ready", To: state}},
-			Comments: []team.TaskComment{{Actor: "health", At: now, Text: "Ready for integration review."}},
-			Report:   &team.TaskReport{Text: "Focused tests pass", Tests: "go test ./internal/ui/..."},
+			History:    []team.TaskChange{{Actor: "Sol", At: now.Add(-time.Hour), Field: "state", From: "ready", To: state}},
+			Comments:   []team.TaskComment{{Actor: "health", At: now, Text: "Ready for integration review."}},
+			Completion: &team.ReportRecord{Source: "structured", Reported: &team.DoneReport{Summary: "Focused tests pass"}},
 		})
 	}
 	tasks[2].Dependencies = []string{"W2"}

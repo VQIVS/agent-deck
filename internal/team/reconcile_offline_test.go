@@ -13,7 +13,7 @@ func TestRecoverMissingActiveWorkerAfterSpareRetirement(t *testing.T) {
 		Name: "missing", Role: "worker", Mode: "shared", PoolCreated: true, Session: "ses_missing",
 	})
 	snapshot.Input.Board = &TaskBoard{Version: 2, Tasks: []Task{{
-		ID: "T-1", Title: "Active", State: "in_progress", Assignee: "missing", Worker: "missing",
+		ID: "T-1", Title: "Active", State: "in_progress", Assignee: "missing",
 		Paths: []string{"fixture/**"}, Criteria: []TaskCriterion{{ID: "c1", Text: "Observed"}},
 	}}}
 	snapshot.Input.Workers = []SchedulerWorker{

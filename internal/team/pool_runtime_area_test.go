@@ -140,7 +140,6 @@ func TestPoolSnapshotSchedulingMetadataMatchesRequirements(t *testing.T) {
 			}
 			if strings.HasPrefix(scenario, "explicit-") {
 				task.Assignee = member.Name
-				task.Worker = member.Name
 			}
 			if _, err := store.Save(t.Context(), &tm, version); err != nil {
 				t.Fatal(err)

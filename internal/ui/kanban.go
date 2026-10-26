@@ -77,10 +77,7 @@ func (s *KanbanScreen) moveStates() []string {
 }
 
 func kanbanAssignee(task *team.Task) string {
-	if task.Assignee != "" {
-		return task.Assignee
-	}
-	return task.Worker
+	return task.Assignee
 }
 
 func kanbanMatches(task *team.Task, filter KanbanFilter) bool {

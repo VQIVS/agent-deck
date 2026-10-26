@@ -4,65 +4,6 @@ import (
 	"fmt"
 )
 
-// MigrateTaskBoard converts legacy state without treating unstructured reports as verified completion.
-func MigrateTaskBoard(board *TaskBoard) error {
-	board.Workflow = board.Workflow.Resolved()
-	if board.Version == 2 {
-		return board.Validate()
-	}
-	if err := board.Validate(); err != nil {
-		return err
-	}
-	for i := range board.Tasks {
-		task := &board.Tasks[i]
-		before := task.State
-		switch before {
-		case "pending":
-			task.State = "ready"
-		case "assigned":
-			task.State = "in_progress"
-		case "done":
-			task.State = "done"
-			task.LegacyCompletion = true
-		case "failed":
-			task.State = "blocked"
-		}
-		task.Assignee = task.Worker
-		if len(task.Criteria) == 0 {
-			task.Criteria = []TaskCriterion{{ID: "legacy-verification", Text: "Review and verify the legacy task outcome"}}
-		}
-		event := TaskChange{Actor: "migration", Task: task.ID, Field: "state", From: before, To: task.State}
-		task.History = append(task.History, event)
-		board.History = append(board.History, event)
-	}
-	board.Version = 2
-	for i := range board.Tasks {
-		task := &board.Tasks[i]
-		if task.State != "ready" {
-			continue
-		}
-		for _, id := range task.Dependencies {
-			dependency, err := taskByID(board, id)
-			if err == nil && dependency.State != "done" {
-				task.State = "backlog"
-				break
-			}
-		}
-	}
-	return board.Validate()
-}
-
-func migrateBoardState(state *BoardState) error {
-	if state.Version != 1 && state.Version != 2 {
-		return fmt.Errorf("board state requires version 1 or 2")
-	}
-	if err := MigrateTaskBoard(&state.Board); err != nil {
-		return err
-	}
-	state.Version = 2
-	return nil
-}
-
 // UpdateTaskProgress lets an assigned worker record checklist claims without changing acceptance text.
 func (b *TaskBoard) UpdateTaskProgress(id string, checked map[string]bool, m TaskMutation) error {
 	return b.mutate(id, m, func(board *TaskBoard, task *Task) error {

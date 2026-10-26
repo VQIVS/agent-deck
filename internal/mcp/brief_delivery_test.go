@@ -17,7 +17,7 @@ func briefFixture(t *testing.T) (*Service, *team.Manager, team.BoardStore, team.
 		{ID: "member-1", Name: "worker", Role: "worker", Session: "session-1"},
 	}}}
 	store := team.BoardStore{Root: t.TempDir(), Team: "pool"}
-	task := team.Task{ID: "T-1", Title: "Work", Assignee: "worker", Worker: "worker", State: "in_progress"}
+	task := team.Task{ID: "T-1", Title: "Work", Assignee: "worker", State: "in_progress"}
 	task.Paths = []string{"internal/example/*"}
 	task.Criteria = []team.TaskCriterion{{ID: "c1", Text: "Works"}}
 	state := team.BoardState{Version: 2, Board: team.TaskBoard{Version: 2, Tasks: []team.Task{task}}}

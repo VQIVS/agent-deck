@@ -40,7 +40,7 @@ func TestRuntimeRepairsRenamedTaskReferencesBeforeCredentialRevoke(t *testing.T)
 		t.Fatal(err)
 	}
 	state := team.BoardState{Version: 2, Board: team.TaskBoard{Version: 2, Tasks: []team.Task{{
-		ID: "T-1", Title: "work", State: "ready", Assignee: "old", Worker: "old", Reviewer: "old",
+		ID: "T-1", Title: "work", State: "ready", Assignee: "old", Reviewer: "old",
 		Paths: team.Leases{"own/**"}, Criteria: []team.TaskCriterion{{ID: "c1", Text: "works"}},
 	}}}, Policy: team.SchedulingPolicy{Approval: "off"}}
 	if err := board.Save(t.Context(), &state, 0); err != nil {

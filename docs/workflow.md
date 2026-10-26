@@ -37,3 +37,14 @@ retry; do not assume both stores were updated or overwrite newer revisions.
 
 On the board, `m` opens configured move destinations. Selecting a shipped destination
 requests the version and optional URL before the guarded move.
+
+## Board compatibility
+
+Boards use version 2. Version-1 boards are rejected with:
+`board v1 unsupported; open it once with agent-deck v0.3.x`.
+Opening a version-2 board preserves its stored workflow and does not rewrite the file.
+Obsolete task `worker`, `report`, `measured` and `legacy_completion` fields and policy
+`token_budget`/`cost_budget` fields are ignored when decoding older version-2 files.
+Assignments use `assignee`; accepted completion requires a valid review or structured
+report. Planner estimates remain available, while scaling is bounded by worker capacity,
+cooldown and approval policy.

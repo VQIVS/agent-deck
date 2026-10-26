@@ -131,16 +131,7 @@ func taskCategory(task *Task) string {
 	if task.category != "" && task.categoryState == task.State {
 		return task.category
 	}
-	switch task.State {
-	case "pending":
-		return "ready"
-	case "assigned":
-		return "active"
-	case "failed":
-		return "blocked"
-	default:
-		return DefaultWorkflow().Category(task.State)
-	}
+	return DefaultWorkflow().Category(task.State)
 }
 
 func TaskAccepted(task *Task) bool {

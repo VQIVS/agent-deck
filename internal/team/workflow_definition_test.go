@@ -135,16 +135,16 @@ func TestCustomWorkflowNoticeAndReviewRules(t *testing.T) {
 func TestWorkflowCompatibilityAndOccupiedEdits(t *testing.T) {
 	board, mutation := workflowFixture(t)
 	before := cloneTask(&board.Tasks[0])
-	if err := MigrateTaskBoard(board); err != nil {
+	if err := board.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	first, _ := json.Marshal(board)
-	if err := MigrateTaskBoard(board); err != nil {
+	if err := board.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := json.Marshal(board)
 	if !bytes.Equal(first, second) || !reflect.DeepEqual(before.History, board.Tasks[0].History) {
-		t.Fatal("migration changed task history or repeated")
+		t.Fatal("validation changed task history")
 	}
 	if board.Category("released") != "shipped" {
 		t.Fatal("default shipment missing")

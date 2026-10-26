@@ -26,8 +26,8 @@
                         │Worker pane: health                                                                                           │
                         │                                                                                                              │
                         │Report                                                                                                        │
+                        │Completion source: structured                                                                                 │
                         │Focused tests pass                                                                                            │
-                        │Reported tests: go test ./internal/ui/...                                                                     │
                         │                                                                                                              │
                         │History                                                                                                       │
                         │2026-10-24 11:00 Sol · state: ready → in_progress                                                             │

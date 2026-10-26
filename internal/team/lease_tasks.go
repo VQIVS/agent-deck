@@ -12,7 +12,7 @@ import (
 func taskLeasePaths(name string, board *TaskBoard) (owned, active []string) {
 	for i := range board.Tasks {
 		task := &board.Tasks[i]
-		assigned := task.Assignee == name || task.Worker == name
+		assigned := task.Assignee == name
 		historical := assigned
 		for j := range task.History {
 			change := &task.History[j]
@@ -23,7 +23,7 @@ func taskLeasePaths(name string, board *TaskBoard) (owned, active []string) {
 		if historical {
 			owned = append(owned, task.Paths...)
 		}
-		if assigned && (board.Category(task.State) == "active" || board.Version == 1 && task.State == "assigned") {
+		if assigned && board.Category(task.State) == "active" {
 			active = append(active, task.Paths...)
 		}
 	}

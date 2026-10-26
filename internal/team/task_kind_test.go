@@ -22,7 +22,7 @@ func TestReadyEpicDoesNotAssignOrScale(t *testing.T) {
 	if err != nil || len(plan.Assignments) != 0 || len(plan.Proposals) != 0 {
 		t.Fatal("epic scaled pool", plan, err)
 	}
-	if input.Board.Tasks[0].State != "pending" {
+	if input.Board.Tasks[0].State != "ready" {
 		t.Fatal("planning fabricated completion")
 	}
 }
@@ -74,11 +74,11 @@ func TestTaskKindCompatibilityDefaults(t *testing.T) {
 	if !TaskSchedulable(&legacy) {
 		t.Fatal("omitted kind changed old task behavior")
 	}
-	board := TaskBoard{Version: 1, Tasks: []Task{legacy}}
-	if err := MigrateTaskBoard(&board); err != nil {
+	board := TaskBoard{Version: 2, Tasks: []Task{legacy}}
+	if err := board.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	if !TaskSchedulable(&board.Tasks[0]) || board.Tasks[0].State != "ready" {
-		t.Fatal("migration changed default", board)
+		t.Fatal("validation changed default", board)
 	}
 }

@@ -95,7 +95,7 @@ func TestEstimationMasterPromptReadOnlyCoverage(t *testing.T) {
 	}
 }
 
-func TestEstimationHistoryBoundedReadOnlyAndMeasured(t *testing.T) {
+func TestEstimationHistoryBoundedAndReadOnly(t *testing.T) {
 	store := BoardStore{Root: t.TempDir(), Team: "history"}
 	now := time.Now().UTC()
 	board := TaskBoard{Version: 2}
@@ -103,7 +103,6 @@ func TestEstimationHistoryBoundedReadOnlyAndMeasured(t *testing.T) {
 		board.Tasks = append(board.Tasks, Task{
 			ID: fmt.Sprintf("T-%d", i), State: "done", StartedAt: now,
 			CompletedAt: now.Add(time.Duration(i+1) * time.Minute),
-			Measured:    &TaskUsage{Tokens: 10, Cost: 0.1, Source: "server"},
 		})
 	}
 	if err := RecordEstimationHistory(t.Context(), store, &board); err != nil {
@@ -113,8 +112,8 @@ func TestEstimationHistoryBoundedReadOnlyAndMeasured(t *testing.T) {
 	if err != nil || len(history.Samples) != 100 {
 		t.Fatal(len(history.Samples), err)
 	}
-	if history.Samples[0].Tokens == nil || history.Samples[0].Cost == nil {
-		t.Fatal("measured usage lost")
+	if history.Samples[0].Tokens != nil || history.Samples[0].Cost != nil {
+		t.Fatal("unmeasured usage was invented")
 	}
 	summary := EstimationPlanningSummary(t.Context(), store)
 	if len(summary) > 1500 || strings.Count(summary, "\nT-") != 5 {

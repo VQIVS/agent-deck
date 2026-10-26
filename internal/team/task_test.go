@@ -124,63 +124,56 @@ func TestTaskCloneAndDurationJSON(t *testing.T) {
 	}
 }
 
-func TestWorkflowBoardMigrationAndPrivateHistory(t *testing.T) {
-	store := BoardStore{Root: t.TempDir(), Team: "workflow"}
-	legacy := BoardState{
-		Version: 1, Revision: 4, Policy: SchedulingPolicy{MaxWorkers: 2},
-		Board: TaskBoard{Version: 1, Tasks: []Task{
-			{ID: "pending", Title: "Pending", Paths: Leases{"a/**"}, State: "pending"},
-			{ID: "assigned", Title: "Assigned", Paths: Leases{"b/**"}, State: "assigned", Worker: "worker"},
-			{
-				ID: "done", Title: "Done", Paths: Leases{"c/**"}, State: "done", Worker: "worker",
-				Report: &TaskReport{Text: "done"},
-			},
-		}},
+func TestWorkflowBoardRejectsV1WithoutWriting(t *testing.T) {
+	for _, versions := range [][2]int{{1, 1}, {1, 2}, {2, 1}} {
+		for _, readOnly := range []bool{false, true} {
+			store := BoardStore{Root: t.TempDir(), Team: "legacy"}
+			legacy := BoardState{Version: versions[0], Board: TaskBoard{Version: versions[1]}}
+			if err := store.Exclusive(t.Context(), func() error {
+				return store.write(t.Context(), "board.json", &legacy)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(store.Root, store.Team, "board.json")
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store.ReadOnly = readOnly
+			_, err = store.Load(t.Context())
+			if err == nil || err.Error() != "board v1 unsupported; open it once with agent-deck v0.3.x" {
+				t.Fatalf("versions %v read-only %v: %v", versions, readOnly, err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatal("rejected board was modified", err)
+			}
+		}
 	}
-	err := store.Exclusive(t.Context(), func() error { return store.write(t.Context(), "board.json", &legacy) })
-	if err != nil {
-		t.Fatal(err)
-	}
+}
+
+func TestWorkflowV2IgnoresRemovedFieldsWithoutWriting(t *testing.T) {
+	store, _ := boardStoreFixture(t)
 	path := filepath.Join(store.Root, store.Team, "board.json")
-	before, _ := os.ReadFile(path)
-	store.ReadOnly = true
+	data := []byte(`{"version":2,"revision":4,"board":{"version":2,"tasks":[{
+		"id":"task","title":"planned","state":"ready","assignee":"worker","worker":"obsolete",
+		"paths":["src/**"],"criteria":[{"id":"check","text":"Check"}],
+		"report":{"text":"old"},"measured":{"tokens":123},"legacy_completion":true
+	}]},"policy":{"max_workers":2,"token_budget":1,"cost_budget":1}}`)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	state, err := store.Load(t.Context())
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || state.Revision != 4 || state.Board.Tasks[0].Assignee != "worker" {
+		t.Fatal("v2 compatibility lost", state, err)
 	}
-	if state.Version != 2 || state.Board.Tasks[0].State != "ready" || state.Board.Tasks[1].Assignee != "worker" ||
-		state.Board.Tasks[2].State != "done" || !state.Board.Tasks[2].LegacyCompletion {
-		t.Fatal("unsafe migration", state)
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(data, after) {
+		t.Fatal("v2 load rewrote board", err)
 	}
-	after, _ := os.ReadFile(path)
-	if !bytes.Equal(before, after) {
-		t.Fatal("Load wrote migration")
-	}
-	store.ReadOnly = false
-	if _, err := store.Load(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	migrated, _ := os.ReadFile(path)
-	if bytes.Equal(before, migrated) {
-		t.Fatal("writable Load did not persist migration")
-	}
-	if _, err := store.Load(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	again, _ := os.ReadFile(path)
-	if !bytes.Equal(migrated, again) {
-		t.Fatal("migration repeated")
-	}
-	if err := store.Save(t.Context(), &state, 4); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(filepath.Join(store.Root, store.Team, "history", "00000000000000000004.json"))
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatal("missing private history", err)
-	}
-	backup, _ := os.ReadFile(filepath.Join(store.Root, store.Team, "history", "00000000000000000004.json"))
-	if !bytes.Equal(backup, before) {
-		t.Fatal("migration history did not preserve exact legacy bytes")
+	state.Board.Tasks[0].State = "done"
+	if err := state.Validate(); err == nil {
+		t.Fatal("obsolete completion flag bypassed review")
 	}
 }
 

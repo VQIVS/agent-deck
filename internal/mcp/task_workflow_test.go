@@ -72,9 +72,13 @@ func TestCustomWorkflowAuthenticatedReleaseAndDiscovery(t *testing.T) {
 	store := team.BoardStore{Root: t.TempDir(), Team: "custom"}
 	completed := time.Now().UTC().Add(-time.Hour)
 	state := team.BoardState{Version: 2, Board: team.TaskBoard{Version: 2, Workflow: definition, Tasks: []team.Task{{
-		ID: "T-1", Title: "accepted work", State: "Accepted", LegacyCompletion: true, CompletedAt: completed,
+		ID: "T-1", Title: "accepted work", State: "review", Reviewer: "qa", Assignee: "builder", CompletedAt: completed,
 		Criteria: []team.TaskCriterion{{ID: "c1", Text: "works"}}, Paths: team.Leases{"own/**"},
 	}}}, Policy: team.SchedulingPolicy{Approval: "off"}}
+	mutation := team.TaskMutation{Actor: team.TaskActor{User: true}, Now: completed}
+	if err := state.Board.ReviewTask("T-1", "accept", "verified", mutation); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Save(t.Context(), &state, 0); err != nil {
 		t.Fatal(err)
 	}

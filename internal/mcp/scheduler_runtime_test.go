@@ -35,7 +35,7 @@ func TestPoolSchedulerAskAndRevisionGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := team.BoardState{
-		Version: 1, Board: team.TaskBoard{Version: 1},
+		Version: 2, Board: team.TaskBoard{Version: 2},
 		Policy: team.SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
 	}
 	if err := pool.Configure(t.Context(), team.ReconcileActor{User: true}, &state, 0); err != nil {

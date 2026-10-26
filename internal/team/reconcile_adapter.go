@@ -136,15 +136,6 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 }
 
 func recordTaskAssignmentAs(board *TaskBoard, id, worker string, actor TaskActor) error {
-	if board.Version < 2 {
-		for i := range board.Tasks {
-			if board.Tasks[i].ID == id {
-				board.Tasks[i].State, board.Tasks[i].Worker = "assigned", worker
-				return nil
-			}
-		}
-		return fmt.Errorf("unknown assigned task %q", id)
-	}
 	mutation := TaskMutation{Actor: actor, Now: time.Now().UTC()}
 	if err := board.SetAssignee(id, worker, mutation); err != nil {
 		return err

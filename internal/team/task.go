@@ -104,12 +104,9 @@ func (m TaskMutation) manages() bool {
 	return m.Actor.User || m.Actor.Role == "master" || m.Actor.Automation
 }
 
-func validateBoardTask(task *Task, version int) error {
+func validateBoardTask(task *Task) error {
 	if err := validateTaskKind(task); err != nil {
 		return err
-	}
-	if version == 1 {
-		return validateTask(task)
 	}
 	if !reportText(task.ID, 200) || !reportText(task.Title, 1000) || len(task.Description) > 64000 {
 		return fmt.Errorf("task requires bounded nonempty ID and title")
@@ -133,9 +130,6 @@ func validateBoardTask(task *Task, version int) error {
 }
 
 func validateWorkflowDetails(task *Task) error {
-	if task.Worker != task.Assignee {
-		return fmt.Errorf("worker compatibility alias must match assignee")
-	}
 	category := taskCategory(task)
 	if (category == "active" || category == "review") && task.Assignee == "" {
 		return fmt.Errorf("active task requires assignee")
@@ -167,14 +161,6 @@ func validateTaskCriteria(task *Task) error {
 }
 
 func cloneWorkflowFields(task *Task) {
-	if task.Report != nil {
-		report := *task.Report
-		task.Report = &report
-	}
-	if task.Measured != nil {
-		usage := *task.Measured
-		task.Measured = &usage
-	}
 	task.Criteria = slices.Clone(task.Criteria)
 	task.Labels = slices.Clone(task.Labels)
 	task.Commits = slices.Clone(task.Commits)
@@ -193,9 +179,6 @@ func cloneWorkflowFields(task *Task) {
 }
 
 func taskCompletionValid(task *Task) bool {
-	if task.LegacyCompletion {
-		return true
-	}
 	if acceptedTaskReview(task) {
 		return true
 	}

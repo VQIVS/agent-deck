@@ -62,7 +62,7 @@ func TestPoolRuntimeRejectPersistsAndBlocksApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := BoardState{
-		Version: 1, Board: TaskBoard{Version: 1},
+		Version: 2, Board: TaskBoard{Version: 2},
 		Policy: SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
 	}
 	actor := ReconcileActor{User: true}
@@ -113,7 +113,7 @@ func TestAutoReconcileAskModeNeverCreatesOrApproves(t *testing.T) {
 		t.Fatal("unconfigured board reconciled", notices, err)
 	}
 	state := BoardState{
-		Version: 1, Board: TaskBoard{Version: 1},
+		Version: 2, Board: TaskBoard{Version: 2},
 		Policy: SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
 	}
 	if err := pool.Configure(t.Context(), ReconcileActor{User: true}, &state, 0); err != nil {

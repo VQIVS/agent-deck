@@ -1,7 +1,6 @@
 package team
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,49 +16,13 @@ func boardStoreFixture(t *testing.T) (BoardStore, BoardState) {
 	t.Helper()
 	store := BoardStore{Root: filepath.Join(t.TempDir(), "boards"), Team: "pool"}
 	state := BoardState{
-		Version: 1, Board: TaskBoard{Version: 1},
+		Version: 2, Board: TaskBoard{Version: 2},
 		Policy: SchedulingPolicy{MinWorkers: 1, MaxWorkers: 2, Approval: "ask"},
 	}
 	if err := store.Save(t.Context(), &state, 0); err != nil {
 		t.Fatal(err)
 	}
 	return store, state
-}
-
-func TestLegacyApprovalPreservesExactMigrationBackup(t *testing.T) {
-	store := BoardStore{Root: t.TempDir(), Team: "legacy"}
-	legacy := BoardState{Version: 1, Revision: 7, Board: TaskBoard{Version: 1}, Policy: SchedulingPolicy{}}
-	if err := store.Exclusive(t.Context(), func() error {
-		return store.write(t.Context(), "board.json", &legacy)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(store.Root, store.Team, "board.json")
-	before, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	if err := store.Approve(ctx, "action", true); err != nil {
-		t.Fatal("legacy approval failed or nested lock", err)
-	}
-	backupPath := filepath.Join(store.Root, store.Team, "history", "00000000000000000007.json")
-	backup, err := os.ReadFile(backupPath)
-	if err != nil || !bytes.Equal(before, backup) {
-		t.Fatal("legacy approval lost exact original bytes", err)
-	}
-	state, err := store.Load(ctx)
-	if err != nil || state.Version != 2 || !state.Approved["action"] || state.Revision != 7 {
-		t.Fatal("approval migration lost state or revision", state, err)
-	}
-	if err := store.Approve(ctx, "second", true); err != nil {
-		t.Fatal(err)
-	}
-	again, err := os.ReadFile(backupPath)
-	if err != nil || !bytes.Equal(before, again) {
-		t.Fatal("repeated approval overwrote original migration backup", err)
-	}
 }
 
 func TestBoardConcurrentApprovalsMergeInsideLock(t *testing.T) {

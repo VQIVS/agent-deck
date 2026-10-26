@@ -140,7 +140,7 @@ func (t *LifecycleTransport) prepareHandoff(ctx context.Context, manager *Manage
 	tasks.WriteString("\nDurable active task handoff (not completed):\n")
 	for i := range state.Board.Tasks {
 		task := &state.Board.Tasks[i]
-		if TaskActive(task) && task.Worker == member.Name {
+		if TaskActive(task) && task.Assignee == member.Name {
 			fmt.Fprintf(&tasks, "- %s [%s] %s\n", task.ID, task.State, task.Title)
 		}
 	}

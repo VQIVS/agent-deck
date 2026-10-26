@@ -174,7 +174,7 @@ func remapOpenTaskNames(board *TaskBoard, rename memberRename) bool {
 		if category == "done" || category == "shipped" || category == TaskCancelled {
 			continue
 		}
-		for _, field := range []*string{&task.Assignee, &task.Worker, &task.Reviewer} {
+		for _, field := range []*string{&task.Assignee, &task.Reviewer} {
 			if *field == rename.From {
 				*field = rename.To
 				changed = true

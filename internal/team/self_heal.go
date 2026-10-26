@@ -78,11 +78,7 @@ func releaseHealingTasks(board *TaskBoard, request *ReconcileRequest) error {
 	}
 	for i := range board.Tasks {
 		task := &board.Tasks[i]
-		if !TaskActive(task) || task.Worker != request.Member.Name {
-			continue
-		}
-		if board.Version < 2 {
-			task.State, task.Worker = "pending", ""
+		if !TaskActive(task) || task.Assignee != request.Member.Name {
 			continue
 		}
 		mutation := TaskMutation{Actor: request.Actor, Now: time.Now().UTC()}

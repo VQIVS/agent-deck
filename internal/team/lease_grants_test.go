@@ -24,7 +24,7 @@ func TestReconciledGrantRecordsOriginBeforeRestartAndRelease(t *testing.T) {
 	m.Team.Members[1].Leases = nil
 	worker := m.Team.Members[1].Name
 	board := TaskBoard{Version: 2, Tasks: []Task{{
-		ID: "grant", Title: "restored active task", State: "in_progress", Assignee: worker, Worker: worker,
+		ID: "grant", Title: "restored active task", State: "in_progress", Assignee: worker,
 		Paths: Leases{"src/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 	}}}
 	if err := ReconcileTaskLeases(t.Context(), m, &board); err != nil {

@@ -14,9 +14,12 @@ func TestTaskLeaseProjectionReleasesNonExecutionStages(t *testing.T) {
 	for _, state := range []string{"review", "done", "blocked", TaskCancelled} {
 		t.Run(state, func(t *testing.T) {
 			task := Task{
-				ID: "T29", Title: "discovery", State: state, Assignee: "researcher", Worker: "researcher",
-				Reviewer: "qa", Paths: Leases{"docs/research/session.md"}, LegacyCompletion: state == "done",
+				ID: "T29", Title: "discovery", State: state, Assignee: "researcher",
+				Reviewer: "qa", Paths: Leases{"docs/research/session.md"},
 				Criteria: []TaskCriterion{{ID: "c1", Text: "check"}},
+			}
+			if state == "done" {
+				acceptSchedulerTask(&task)
 			}
 			board := TaskBoard{Version: 2, Tasks: []Task{task}}
 			members := []Member{{
@@ -39,7 +42,7 @@ func TestTaskLeaseProjectionReleasesNonExecutionStages(t *testing.T) {
 func TestTaskLeaseProjectionPreservesActiveAndReassignment(t *testing.T) {
 	board := TaskBoard{Version: 2, Tasks: []Task{{
 		ID: "active", Title: "active", State: "in_progress",
-		Assignee: "new", Worker: "new", Paths: Leases{"src/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "test"}},
+		Assignee: "new", Paths: Leases{"src/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "test"}},
 		History: []TaskChange{{Actor: "lead", Field: "assignee", From: "old", To: "new"}},
 	}}}
 	// Validation requires event timestamps; the migration actor represents retained legacy provenance.
@@ -76,7 +79,7 @@ func TestReconcileTaskLeasesRefreshesResetAndRestart(t *testing.T) {
 	worker := manager.Team.Members[1].Name
 	board := TaskBoard{Version: 2, Tasks: []Task{{
 		ID: "T29", Title: "old discovery", State: "blocked",
-		Assignee: worker, Worker: worker, Paths: Leases{"internal/tests/**"},
+		Assignee: worker, Paths: Leases{"internal/tests/**"},
 		Criteria: []TaskCriterion{{ID: "c", Text: "test"}},
 	}}}
 	if err := ReconcileTaskLeases(t.Context(), manager, &board); err != nil {
@@ -106,11 +109,11 @@ func TestReconcileTaskLeasesRefreshesResetAndRestart(t *testing.T) {
 func TestTaskLeaseProjectionPreservesOtherActiveTask(t *testing.T) {
 	board := TaskBoard{Version: 2, Tasks: []Task{
 		{
-			ID: "old", Title: "old", State: "blocked", Assignee: "worker", Worker: "worker",
+			ID: "old", Title: "old", State: "blocked", Assignee: "worker",
 			Paths: Leases{"old/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 		},
 		{
-			ID: "new", Title: "new", State: "in_progress", Assignee: "worker", Worker: "worker",
+			ID: "new", Title: "new", State: "in_progress", Assignee: "worker",
 			Paths: Leases{"new/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 		},
 	}}
@@ -143,7 +146,7 @@ func TestReconcileTaskLeasesRetryFailedNativeReset(t *testing.T) {
 	worker := manager.Team.Members[1].Name
 	board := TaskBoard{Version: 2, Tasks: []Task{{
 		ID: "old", Title: "old", State: "blocked",
-		Assignee: worker, Worker: worker, Paths: Leases{"internal/tests/**"},
+		Assignee: worker, Paths: Leases{"internal/tests/**"},
 		Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 	}}}
 	if err := ReconcileTaskLeases(t.Context(), manager, &board); err == nil {
@@ -179,7 +182,7 @@ func recordDerivedFixture(t *testing.T, manager *Manager) {
 func TestTaskLeaseOriginsPreserveIdenticalManualAndLegacyPaths(t *testing.T) {
 	board := TaskBoard{Version: 2, Tasks: []Task{{
 		ID: "old", Title: "old", State: "blocked",
-		Assignee: "worker", Worker: "worker", Paths: Leases{"same/**"},
+		Assignee: "worker", Paths: Leases{"same/**"},
 		Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 	}}}
 	members := []Member{{ID: "w", Name: "worker", Role: "worker", Leases: []string{"same/**"}}}
@@ -214,7 +217,7 @@ func TestLeaseOriginPersistsManualOverlapAcrossRestart(t *testing.T) {
 	}
 	board := TaskBoard{Version: 2, Tasks: []Task{{
 		ID: "old", Title: "old", State: "blocked",
-		Assignee: configured.Members[1].Name, Worker: configured.Members[1].Name, Paths: paths,
+		Assignee: configured.Members[1].Name, Paths: paths,
 		Criteria: []TaskCriterion{{ID: "c", Text: "check"}},
 	}}}
 	projected, err := projectOriginLeases(configured.Members, &board, origins)
@@ -229,7 +232,7 @@ func TestCustomActiveAndShippedLeaseCategories(t *testing.T) {
 	w.Transitions = nil
 	board := TaskBoard{Version: 2, Workflow: w, Tasks: []Task{{
 		ID: "work", Title: "work", State: "Building",
-		Assignee: "worker", Worker: "worker", Paths: Leases{"src/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "test"}},
+		Assignee: "worker", Paths: Leases{"src/**"}, Criteria: []TaskCriterion{{ID: "c", Text: "test"}},
 	}}}
 	members := []Member{{ID: "w", Name: "worker", Role: "worker", Leases: []string{"src/**"}}}
 	origins := map[string]taskLeaseOrigin{"w": {Derived: []string{"src/**"}}}
@@ -237,8 +240,9 @@ func TestCustomActiveAndShippedLeaseCategories(t *testing.T) {
 	if err != nil || len(projected[0].Leases) != 1 {
 		t.Fatal(projected, err)
 	}
+	acceptSchedulerTask(&board.Tasks[0])
 	board.Tasks[0].State = "Delivered"
-	board.Tasks[0].LegacyCompletion, board.Tasks[0].ReleaseVersion = true, "v1"
+	board.Tasks[0].ReleaseVersion = "v1"
 	projected, err = projectOriginLeases(members, &board, origins)
 	if err != nil || len(projected[0].Leases) != 0 {
 		t.Fatal(projected, err)

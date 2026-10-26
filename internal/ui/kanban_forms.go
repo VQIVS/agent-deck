@@ -113,7 +113,6 @@ func (f *KanbanForm) Build() (*KanbanEdit, error) {
 	task.Paths = team.Leases(kanbanCSV(values["Paths"]))
 	task.Dependencies, task.Labels = kanbanCSV(values["Dependencies"]), kanbanCSV(values["Labels"])
 	task.Priority, task.Assignee, task.Reviewer = values["Priority"], values["Assignee"], values["Reviewer"]
-	task.Worker = task.Assignee
 	criteria, err := kanbanFormCriteria(values["Criteria (id: text per line)"], f.Original.Criteria)
 	if err != nil {
 		return nil, err

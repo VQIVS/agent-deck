@@ -29,9 +29,14 @@ func TestConfiguredWorkflowFlags(t *testing.T) {
 
 func TestCLIReleaseMetadataUsesEngineGuards(t *testing.T) {
 	board := team.TaskBoard{Version: 2, Workflow: team.DefaultWorkflow(), Tasks: []team.Task{{
-		ID: "T-1", Title: "accepted", State: "done", LegacyCompletion: true, CompletedAt: time.Now().Add(-time.Hour),
-		Criteria: []team.TaskCriterion{{ID: "c1", Text: "works"}}, Paths: team.Leases{"own/**"},
+		ID: "T-1", Title: "accepted", State: "review", Reviewer: "qa", Assignee: "worker",
+		CompletedAt: time.Now().Add(-time.Hour),
+		Criteria:    []team.TaskCriterion{{ID: "c1", Text: "works"}}, Paths: team.Leases{"own/**"},
 	}}}
+	mutation := team.TaskMutation{Actor: team.TaskActor{User: true}, Now: time.Now().Add(-time.Hour)}
+	if err := board.ReviewTask("T-1", "accept", "verified", mutation); err != nil {
+		t.Fatal(err)
+	}
 	store := team.BoardStore{Root: t.TempDir(), Team: "release"}
 	state := team.BoardState{Version: 2, Board: board, Policy: team.SchedulingPolicy{Approval: "off"}}
 	if err := store.Save(t.Context(), &state, 0); err != nil {

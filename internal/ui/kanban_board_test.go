@@ -82,7 +82,7 @@ func saveKanbanBoardCommand(t *testing.T, m *Model, cmd tea.Cmd) kanbanResult {
 func TestKanbanBoardWrapperOpensAndMouseTargetsCurrentWorker(t *testing.T) {
 	m, _, _ := kanbanBoardModel(t)
 	tasks, _ := kanbanFixture()
-	tasks[2].Assignee, tasks[2].Worker = "Worker", "Worker"
+	tasks[2].Assignee = "Worker"
 	m.board.State.Board.Tasks = tasks
 	m.board.Kanban.Selected = "W3"
 	m.Update(key("b"))
@@ -166,7 +166,7 @@ func TestKanbanBoardOneActiveErrorAppearsWithoutSaving(t *testing.T) {
 		func(board *team.TaskBoard, mutation team.TaskMutation) error {
 			for _, id := range []string{"A", "B"} {
 				task := team.Task{
-					ID: id, Title: id, Assignee: "Worker", Worker: "Worker",
+					ID: id, Title: id, Assignee: "Worker",
 					Paths: team.Leases{id + "/**"}, Criteria: []team.TaskCriterion{{ID: "test", Text: "Pass"}},
 				}
 				if err := board.CreateTask(&task, mutation); err != nil {

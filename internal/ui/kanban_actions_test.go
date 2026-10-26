@@ -16,7 +16,7 @@ func kanbanExecutorFixture(t *testing.T) (*KanbanExecutor, team.BoardState, time
 	tasks := make([]team.Task, 0, 2)
 	for _, id := range []string{"A", "B"} {
 		tasks = append(tasks, team.Task{
-			ID: id, Title: id, State: "ready", Assignee: "worker", Worker: "worker",
+			ID: id, Title: id, State: "ready", Assignee: "worker",
 			Paths: team.Leases{id + "/**"}, Criteria: []team.TaskCriterion{{ID: "test", Text: "Tests pass"}},
 			CreatedAt: now, UpdatedAt: now,
 		})

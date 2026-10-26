@@ -84,9 +84,6 @@ func kanbanDetailLines(task *team.Task) []string {
 		lines = append(lines, "Commit: "+commit)
 	}
 	lines = append(lines, "Worker pane: "+kanbanOwner(kanbanAssignee(task)), "", "Report")
-	if task.Report != nil {
-		lines = append(lines, task.Report.Text, "Reported tests: "+task.Report.Tests)
-	}
 	if task.Completion != nil {
 		lines = append(lines, "Completion source: "+task.Completion.Source)
 		if task.Completion.Reported != nil {

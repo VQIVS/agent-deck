@@ -65,10 +65,11 @@ func TestFailedDependencyAllowsScaleDown(t *testing.T) {
 	}
 	snapshot.Input.Board.Tasks = []Task{
 		{
-			ID: "failed", Title: "failed", Paths: Leases{"a/**"}, State: "failed", Worker: "worker",
-			Report: &TaskReport{Text: "failed"}, Estimate: TaskEstimate{Parallel: true},
+			ID: "failed", Title: "failed", Paths: Leases{"a/**"}, State: "blocked", Assignee: "worker",
+			Criteria: []TaskCriterion{{ID: "check", Text: "Check"}},
+			Estimate: TaskEstimate{Parallel: true},
 		},
-		{ID: "blocked", Title: "blocked", Paths: Leases{"b/**"}, State: "pending", Dependencies: []string{"failed"}},
+		{ID: "blocked", Title: "blocked", Paths: Leases{"b/**"}, State: "backlog", Dependencies: []string{"failed"}},
 	}
 	plan, err := PlanSchedule(&snapshot.Input)
 	if err != nil || len(plan.Retire) != 1 {

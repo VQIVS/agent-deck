@@ -58,7 +58,7 @@ func TestLegacyManualLeasesDoNotBlockRuntimeRegistration(t *testing.T) {
 	}
 	board := team.BoardStore{Root: t.TempDir(), Team: manager.Team.Name}
 	state := team.BoardState{Version: 2, Board: team.TaskBoard{Version: 2, Tasks: []team.Task{{
-		ID: "old", Title: "old", State: "blocked", Assignee: worker.Name, Worker: worker.Name,
+		ID: "old", Title: "old", State: "blocked", Assignee: worker.Name,
 		Paths: team.Leases{"legacy/**"}, Criteria: []team.TaskCriterion{{ID: "c", Text: "check"}},
 	}}}, Policy: team.SchedulingPolicy{Approval: "off"}}
 	if err := board.Save(t.Context(), &state, 0); err != nil {

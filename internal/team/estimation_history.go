@@ -112,17 +112,7 @@ func estimationSample(task *Task, estimate TaskEstimate) EstimationSample {
 		elapsed := task.CompletedAt.Sub(task.StartedAt)
 		s.Elapsed = &elapsed
 	}
-	if task.Measured != nil && task.Measured.Source != "" {
-		s.UsageSource = task.Measured.Source
-		if task.Measured.Tokens > 0 {
-			tokens := task.Measured.Tokens
-			s.Tokens = &tokens
-		}
-		if task.Measured.Cost > 0 {
-			cost := task.Measured.Cost
-			s.Cost = &cost
-		}
-	}
+
 	return s
 }
 

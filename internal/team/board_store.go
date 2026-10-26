@@ -62,53 +62,18 @@ func (s BoardStore) Exclusive(ctx context.Context, fn func() error) error {
 }
 
 func (s BoardStore) Load(ctx context.Context) (BoardState, error) {
-	var raw BoardState
-	if err := s.read(ctx, "board.json", &raw); err != nil {
-		return raw, err
-	}
-	if s.ReadOnly || (raw.Version == 2 && raw.Board.Version == 2 && len(raw.Board.Workflow.Stages) > 0) {
-		return s.loadBoard(ctx)
-	}
-	var result BoardState
-	err := s.Exclusive(ctx, func() error {
-		var err error
-		result, err = s.LoadMigratedUnlocked(ctx)
-		return err
-	})
-	return result, err
+	return s.LoadUnlocked(ctx)
 }
 
-// LoadMigratedUnlocked persists migration and its exact backup without acquiring a lock.
-// Writable callers must already hold Exclusive; read-only callers receive only an in-memory migration.
+// LoadMigratedUnlocked reads a v2 board without acquiring a lock or writing.
 func (s BoardStore) LoadMigratedUnlocked(ctx context.Context) (BoardState, error) {
-	var current BoardState
-	if err := s.read(ctx, "board.json", &current); err != nil {
-		return current, err
-	}
-	legacy := current.Version != 2 || current.Board.Version != 2 || len(current.Board.Workflow.Stages) == 0
-	if err := migrateBoardState(&current); err != nil {
-		return current, err
-	}
-	if !legacy || s.ReadOnly {
-		return current, nil
-	}
-	if err := s.backupBoard(ctx, &current); err != nil {
-		return current, err
-	}
-	if err := s.write(ctx, "board.json", &current); err != nil {
-		return current, err
-	}
-	return current, s.pruneBoardHistory()
+	return s.LoadUnlocked(ctx)
 }
 
-// LoadUnlocked reads and migrates in memory without acquiring a lock or writing.
-// Use inside Exclusive callbacks; public Load performs durable migration when writable.
+// LoadUnlocked reads a v2 board without acquiring a lock or writing.
 func (s BoardStore) LoadUnlocked(ctx context.Context) (BoardState, error) {
 	var state BoardState
 	if err := s.read(ctx, "board.json", &state); err != nil {
-		return state, err
-	}
-	if err := migrateBoardState(&state); err != nil {
 		return state, err
 	}
 	err := state.Validate()
@@ -118,8 +83,11 @@ func (s BoardStore) LoadUnlocked(ctx context.Context) (BoardState, error) {
 func (s BoardStore) loadBoard(ctx context.Context) (BoardState, error) { return s.LoadUnlocked(ctx) }
 
 func (s *BoardState) Validate() error {
-	if s.Version != 1 && s.Version != 2 {
-		return fmt.Errorf("board state requires version 1 or 2")
+	if s.Version == 1 || s.Board.Version == 1 {
+		return fmt.Errorf("board v1 unsupported; open it once with agent-deck v0.3.x")
+	}
+	if s.Version != 2 {
+		return fmt.Errorf("board state requires version 2")
 	}
 	if err := s.Board.Validate(); err != nil {
 		return err
@@ -146,9 +114,6 @@ func (s BoardStore) Save(ctx context.Context, state *BoardState, expected uint64
 		}
 		for i := range state.Board.Tasks {
 			next.Board.Tasks[i] = cloneTask(&state.Board.Tasks[i])
-		}
-		if err := migrateBoardState(&next); err != nil {
-			return err
 		}
 		next.Revision = expected + 1
 		if err := next.Validate(); err != nil {

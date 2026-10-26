@@ -20,16 +20,20 @@ func renameFixture(t *testing.T) (*Manager, BoardStore) {
 	state := BoardState{Version: 2, Policy: SchedulingPolicy{Approval: "off"}, Board: TaskBoard{Version: 2}}
 	for _, stage := range []string{"ready", "in_progress", "review", "done"} {
 		task := Task{
-			ID: stage, Title: stage, State: stage, Assignee: old, Worker: old, Reviewer: old,
+			ID: stage, Title: stage, State: stage, Assignee: old, Reviewer: old,
 			Paths: Leases{stage + "/**"}, Criteria: []TaskCriterion{{ID: "c1", Text: "works"}},
 			History: []TaskChange{{Actor: old, At: time.Now(), Field: "comment", To: "history"}},
 		}
 		if stage == "done" {
-			task.LegacyCompletion = true
+			acceptSchedulerTask(&task)
+			task.Reviewer = old
+			task.Review.Reviewer = old
+			task.History[len(task.History)-1].Actor = old
+			task.Review.Digest = taskContentDigest(&task)
 		}
 		// Distinct assignees are required for simultaneously active tasks.
 		if stage == "review" {
-			task.Assignee, task.Worker = "another", "another"
+			task.Assignee = "another"
 		}
 		state.Board.Tasks = append(state.Board.Tasks, task)
 	}
@@ -100,7 +104,7 @@ func TestMemberRenameOpenTasksAndHistory(t *testing.T) {
 			if task.Reviewer != "renamed" {
 				t.Fatal("reviewer not renamed", task)
 			}
-			if task.State != "review" && (task.Assignee != "renamed" || task.Worker != "renamed") {
+			if task.State != "review" && task.Assignee != "renamed" {
 				t.Fatal("owner lost", task)
 			}
 		}

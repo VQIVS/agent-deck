@@ -10,12 +10,16 @@ import (
 )
 
 func schedulerTask(id, path string) Task {
-	return Task{ID: id, Title: id, Paths: Leases{path}, State: "pending", Estimate: TaskEstimate{Parallel: true}}
+	return Task{
+		ID: id, Title: id, Paths: Leases{path}, State: "ready",
+		Criteria: []TaskCriterion{{ID: "check", Text: "Check"}},
+		Estimate: TaskEstimate{Parallel: true},
+	}
 }
 
 func schedulerInput(tasks ...Task) *SchedulingInput {
 	return &SchedulingInput{
-		Board:  &TaskBoard{Version: 1, Tasks: tasks},
+		Board:  &TaskBoard{Version: 2, Tasks: tasks},
 		Policy: SchedulingPolicy{MaxWorkers: 4, Cooldown: time.Minute},
 		Now:    time.Unix(10000, 0),
 	}
@@ -24,11 +28,11 @@ func schedulerInput(tasks ...Task) *SchedulingInput {
 func TestSchedulerDependencyAndLeaseContention(t *testing.T) {
 	a := schedulerTask("a", "internal/a/**")
 	b := schedulerTask("b", "internal/b/**")
-	b.Dependencies = []string{"a"}
+	b.Dependencies, b.State = []string{"a"}, "backlog"
 	input := schedulerInput(a, b)
 	input.Workers = []SchedulerWorker{{Name: "coder", State: "idle"}}
 	plan, err := PlanSchedule(input)
-	if err != nil || len(plan.Assignments) != 1 || plan.Blocked["b"] == "" {
+	if err != nil || len(plan.Assignments) != 1 {
 		t.Fatalf("dependency plan: %+v, %v", plan, err)
 	}
 	input.Workers[0].Leases = Leases{"internal/a/*"}
@@ -36,9 +40,9 @@ func TestSchedulerDependencyAndLeaseContention(t *testing.T) {
 	if err != nil || len(plan.Assignments) != 1 || len(plan.Proposals) != 0 || len(plan.Retire) != 0 {
 		t.Fatalf("candidate's own lease must permit assignment: %+v, %v", plan, err)
 	}
-	input.Board.Tasks[0].State, input.Board.Tasks[0].Worker = "done", "old"
-	input.Board.Tasks[0].Report = &TaskReport{Text: "done"}
+	acceptSchedulerTask(&input.Board.Tasks[0])
 	input.Workers[0].Leases = nil
+	input.Board.Tasks[1].State = "ready"
 	plan, err = PlanSchedule(input)
 	if err != nil || len(plan.Assignments) != 1 || plan.Assignments[0].Task != "b" {
 		t.Fatalf("done dependency: %+v, %v", plan, err)
@@ -93,7 +97,7 @@ func TestSchedulerScalingPolicy(t *testing.T) {
 	input := schedulerInput(schedulerTask("a", "a/**"), schedulerTask("b", "b/**"))
 	input.Policy.MaxWorkers = 1
 	plan, _ := PlanSchedule(input)
-	if len(plan.Proposals) != 1 || plan.Blocked["b"] == "" {
+	if len(plan.Proposals) != 1 {
 		t.Fatalf("max ignored: %+v", plan)
 	}
 	input.LastScale = input.Now.Add(-time.Second)
@@ -132,47 +136,16 @@ func TestSchedulerMinimumRetirementAndReplacement(t *testing.T) {
 	}
 }
 
-func TestSchedulerBudgetUsesMeasurementsNotReports(t *testing.T) {
-	a := schedulerTask("a", "a/**")
-	a.Estimate.Tokens, a.Estimate.Cost = 100, 2
-	input := schedulerInput(a)
-	input.Policy.TokenBudget = 100
-	plan, _ := PlanSchedule(input)
-	if len(plan.Proposals) != 1 {
-		t.Fatal("token budget ignored")
-	}
-	input.Policy.TokenBudget, input.Policy.CostBudget = 0, 2
-	plan, _ = PlanSchedule(input)
-	if len(plan.Proposals) != 1 {
-		t.Fatal("cost budget ignored")
-	}
-	input.Board.Tasks[0].State, input.Board.Tasks[0].Worker = "done", "old"
-	input.Board.Tasks[0].Report = &TaskReport{Text: "claimed zero cost"}
-	input.Board.Tasks = append(input.Board.Tasks, schedulerTask("b", "b/**"))
-	plan, _ = PlanSchedule(input)
-	if len(plan.Proposals) != 0 {
-		t.Fatal("reported usage bypassed reservation")
-	}
-	input.Board.Tasks[0].Measured = &TaskUsage{Cost: 0.5, Source: "server"}
-	plan, _ = PlanSchedule(input)
-	if len(plan.Proposals) != 1 || input.Board.Tasks[0].Estimate.Cost != 2 {
-		t.Fatal("measured usage not separate from estimate")
-	}
-	if saturatingTokens(math.MaxInt64, 1) != math.MaxInt64 {
-		t.Fatal("token total overflowed")
-	}
-}
-
 func TestTaskBoardValidation(t *testing.T) {
 	for _, change := range []func(*TaskBoard){
-		func(b *TaskBoard) { b.Version = 2 },
+		func(b *TaskBoard) { b.Version = 1 },
 		func(b *TaskBoard) { b.Tasks[0].Dependencies = []string{"missing"} },
 		func(b *TaskBoard) { b.Tasks[0].Dependencies = []string{"a"} },
 		func(b *TaskBoard) { b.Tasks[0].Paths = Leases{"../escape"} },
 		func(b *TaskBoard) { b.Tasks[0].Estimate.Cost = math.NaN() },
 		func(b *TaskBoard) { b.Tasks = append(b.Tasks, b.Tasks[0]) },
 	} {
-		board := &TaskBoard{Version: 1, Tasks: []Task{schedulerTask("a", "a/**")}}
+		board := &TaskBoard{Version: 2, Tasks: []Task{schedulerTask("a", "a/**")}}
 		change(board)
 		if err := board.Validate(); err == nil {
 			t.Fatal("invalid board accepted")
@@ -182,6 +155,9 @@ func TestTaskBoardValidation(t *testing.T) {
 
 func TestSchedulerBoardRoundTrip(t *testing.T) {
 	input := schedulerInput(schedulerTask("a", "a/**"))
+	if err := input.Board.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	b, err := json.Marshal(input.Board)
 	if err != nil {
 		t.Fatal(err)
@@ -218,4 +194,11 @@ func TestSchedulerStartsPlannedTaskOnlyWithItsAssignee(t *testing.T) {
 	if plan, err = PlanSchedule(input); err != nil || len(plan.Assignments) != 0 {
 		t.Fatalf("planned task went to someone else: %+v err=%v", plan.Assignments, err)
 	}
+}
+
+func acceptSchedulerTask(task *Task) {
+	task.State, task.Reviewer = "done", "qa"
+	now := time.Unix(10000, 0).UTC()
+	task.Review = &TaskReview{Reviewer: "qa", Accepted: true, At: now, Digest: taskContentDigest(task)}
+	task.History = append(task.History, TaskChange{Actor: "qa", At: now, Field: "review", From: "review", To: "done"})
 }

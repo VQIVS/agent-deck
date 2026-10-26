@@ -76,7 +76,7 @@ func testActiveTaskPathMutation(t *testing.T, capCheck func(*testing.T, *Runtime
 	}
 	store := team.BoardStore{Root: filepath.Join(t.TempDir(), "boards"), Team: manager.Team.Name}
 	state := team.BoardState{Version: 2, Board: team.TaskBoard{Version: 2, Tasks: []team.Task{{
-		ID: "T-1", Title: "active paths", State: "in_progress", Assignee: worker.Name, Worker: worker.Name,
+		ID: "T-1", Title: "active paths", State: "in_progress", Assignee: worker.Name,
 		Paths: team.Leases{"old/**", "shared/**"}, Criteria: []team.TaskCriterion{{ID: "c1", Text: "works"}},
 	}}}}
 	if err := store.Save(t.Context(), &state, 0); err != nil {

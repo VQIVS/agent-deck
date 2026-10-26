@@ -3,6 +3,73 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-26
+
+### Added
+
+- Structured Summary evidence and coverage panels with member search, filtering and refresh.
+- Clear source status and coverage limits for persisted board, channel and loaded session evidence.
+- Integrated Summary workspace navigation with keyboard and mouse routing and visible active-tab markers.
+
+## [0.6.1] - 2026-10-26
+
+### Fixed
+
+- Avoid repeatedly appending an unchanged native permission policy when it already matches the session's trailing rules.
+- Bound native permission-history growth, leaving policy application pending without appending rules when the limit would be exceeded.
+
+## [0.6.0] - 2026-10-26
+
+### Added
+
+- Visible message composer pinned to its recipient, with per-recipient drafts and reachable identity details.
+- Clear message-delivery states that preserve failed or uncertain drafts and prevent duplicate sends.
+- Transcript turns with role labels and literal tool states, plus loaded-history navigation with anchors
+  preserved across resize and reflow.
+
+## [0.5.0] - 2026-10-26
+
+### Added
+
+- Explicit launch of an installed Git TUI from the Git view, with the built-in diff available as a fallback.
+- Checkout context and scrollable full details that remain usable on narrow and short terminals.
+- Terminal handoff to the Git client and dashboard/keyboard restoration after the client exits.
+
+## [0.4.1] - 2026-10-26
+
+### Fixed
+
+- Release task-derived leases when work leaves active ownership, preserving manually granted paths
+  and reconciling path edits across runtime mutation and restart.
+- Exclude epics from automatic worker assignment and preserve worker capabilities when checking
+  task compatibility.
+- Update open task assignee and reviewer references when members are renamed, including UI saves.
+- Preserve task parallel settings on partial CLI, MCP and UI edits.
+- Expose full authenticated task details through show_task.
+- Allow workers to commit their own task files, verifying the staged tree in an isolated checkout.
+
+## [0.4.0] - 2026-10-25
+
+### Added
+
+- Configurable workflow stages with names, colors and lifecycle categories, reflected in the Kanban board.
+- Team Workflow editor with stage reorder and occupied-stage rename, validation and stale-save protection.
+- CLI and MCP workflow discovery and a pending-release queue for accepted tasks.
+- Role-restricted, versioned shipment that preserves accepted review evidence and completion history,
+  with category-based delivery notices.
+
+### Changed
+
+- Existing boards retain default workflow behavior while workflow definitions and shipment metadata
+  persist across migration and reopen.
+
+## [0.3.1] - 2026-10-25
+
+### Fixed
+
+- Assigning tasks to user-configured workers skips automatic pool identity setup, preserving
+  their configured sessions and avoiding uncertain assignment effects.
+
 ## [0.3.0] - 2026-10-24
 
 ### Added

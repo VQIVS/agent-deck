@@ -234,8 +234,8 @@ func TestGitTUIMouseSelectsWithoutLaunching(t *testing.T) {
 func TestGitTUIRendersFramedAtAnchorSizes(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {160, 48}} {
 		m := gitTUIModel(t, map[string]string{"lazygit": "/usr/local/bin/lazygit", "tig": "/usr/bin/tig"}, Options{})
-		m.panes[0].Agent.Dir = "/Users/dev/agent-deck"
-		m.changes.Root, m.changes.Directory = "/Users/dev/agent-deck", "/Users/dev/agent-deck"
+		m.panes[0].Agent.Dir = "/work/example/agent-deck"
+		m.changes.Root, m.changes.Directory = "/work/example/agent-deck", "/work/example/agent-deck"
 		m.w, m.h = size[0], size[1]
 		openLauncher(t, m)
 		view := m.View()

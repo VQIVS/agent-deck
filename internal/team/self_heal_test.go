@@ -90,7 +90,7 @@ func healingFixture(t *testing.T, kind string) (*LifecycleTransport, *Manager, *
 		t.Fatal(err)
 	}
 	member := &manager.Team.Members[1]
-	member.PoolCreated, member.Mode, member.Owned, member.Model = true, "shared", false, "provider/model"
+	member.PoolCreated, member.Mode, member.Model = true, "shared", "provider/model"
 	member.Dir, member.Leases = manager.Team.Repo, nil
 	if err := manager.Save(t.Context()); err != nil {
 		t.Fatal(err)

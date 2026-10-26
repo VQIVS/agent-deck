@@ -29,7 +29,7 @@ func TestTransferRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	source.Members[0].System = "Coordinate carefully"
-	source.Members[1].Owned = true
+	source.Members[1].Branch = "example/worker"
 	for _, format := range []string{"yaml", "json"} {
 		b, err := Export(&source, format, false)
 		if err != nil {
@@ -65,7 +65,7 @@ func TestTransferRoundTrip(t *testing.T) {
 			len(got.Members[1].Permissions) != 0 {
 			t.Fatal(got)
 		}
-		if source.Members[0].Session != "session-lead" || !source.Members[1].Owned {
+		if source.Members[0].Session != "session-lead" || source.Members[1].Branch != "example/worker" {
 			t.Fatal("export mutated source")
 		}
 	}

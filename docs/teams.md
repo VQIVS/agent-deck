@@ -187,7 +187,7 @@ Workers default to a new session in the team's shared repository directory with 
 coder creation policy. Leave the session ID empty and click **Create worker** (`Ctrl+S`).
 Agent-deck saves the member, creates the session, and persists its returned ID and directory
 in the managed team file. If creation fails, the member remains saved for retry using **Start**.
-Choose `worktree` when you want an isolated branch instead. To adopt a session, enter its
+Every member works in the team's checkout. To adopt a session, enter its
 ID and directory; live permission rules stay unchanged. An empty adopt ID creates a new
 shared session instead. **Advanced** (`Ctrl+A`) reveals the remaining member settings.
 
@@ -248,9 +248,9 @@ Models are `provider/model`; providers/models and agents are fetched from the
 server. Form fields are reachable by Tab and mouse; multiline text editors are
 used for prompts, rules, briefs, and roster templates. No hand editing is needed.
 
-Workspace modes: `worktree` creates a separate worktree from base with branch
-template `{team}/{member}`; `shared` uses the chosen directory; `adopt` records an
-existing session without creating a worktree. The UI permits adoption explicitly;
+Workspace modes: `shared` uses the chosen directory; `adopt` records an existing
+session. Worktree members are no longer supported: a team file with `mode: worktree`
+fails to load with a message asking for `mode: shared`. The UI permits adoption explicitly;
 adopted sessions are subject to the same read-only guard as other members.
 Permission profiles enumerate read/edit/bash/webfetch/external_directory with
 allow/ask/deny. Presets: reviewer (read-only), coder (edits allowed, shell asks),
@@ -352,8 +352,8 @@ idle; successful delivery is journaled and retries carry stable IDs. The user vi
 see DMs; member reads remain identity-filtered. Shared/adopted members cannot receive
 authenticated tools: directory credentials cannot isolate sessions sharing a directory.
 
-For an isolated worktree, **Team → Team tools** confirms installation of a private MCP
-entry into its `opencode.json`. The file must already be Git-ignored; JSON is merged
+For a member with a workflow identity, **Team → Team tools** confirms installation of a
+private MCP entry into its control directory's `opencode.json`. The file must already be Git-ignored; JSON is merged
 atomically, preserving unrelated configuration. Tokens rotate/revoke on binding/role
 changes and owner shutdown. This is local credential separation, not a filesystem sandbox.
 Roster changes broadcast through the guarded queue. Delivery is at-least-once across crashes.
@@ -480,19 +480,15 @@ fields produce an explicit error; there is no silent fallback to weaker rules.
 
 The dashboard offers Team settings, + Worker, Remove, and Change master.
 An unstarted member can be started through the member UI. Creating a worker is
-an explicit action: validate capacity and configuration; create its worktree if
-requested; create the session with permissions; persist the session ID; send its
+an explicit action: validate capacity and configuration; create the session with permissions; persist the session ID; send its
 brief with system/rules; send the master an updated roster. Failures preserve
 recorded resource IDs so recovery does not require guessing what was created.
 Capacity counts recorded, started workers; the master does not consume a slot.
 Capacity overflow is blocked rather than queued.
 
 Remove always confirms. It aborts only the selected session and sends the master
-a removal roster. App-owned worktrees are removed only when their branch is an
-ancestor of base, unless the user explicitly selects “delete worktree anyway.”
-Dirty worktrees require that same force opt-in. Branch refs are retained. Shared
-and adopted directories are never deleted. Removing a team file does not abort
-its sessions or remove its worktrees. Change master selects a recorded member,
+a removal roster. Shared and adopted directories are never deleted. Removing a team
+file does not abort its sessions. Change master selects a recorded member,
 demotes the previous master, persists the roles, and sends the new master a roster.
 All mutations, including saves, creation, adoption, removal, and roster sends,
 are disabled by `--read-only`.
@@ -568,8 +564,7 @@ Templates are editable in Team settings and validated before saving.
 ## Verification
 
 Unit tests cover round-trip validation, atomic saves/conflict/history behavior,
-roster rendering, capacity, and safe branch/path generation. Temporary git repos
-exercise worktree creation and merged/unmerged/dirty removal. Fake servers cover
+roster rendering and capacity. Fake servers cover
 session creation, prompt system/permissions, abort, roster delivery, and read-only
 blocking. Mouse/form tests cover zone routing and disabled mutation controls.
 Live sessions not created by the test remain read-only.

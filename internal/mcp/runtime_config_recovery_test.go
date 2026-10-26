@@ -48,19 +48,14 @@ esac
 	os.WriteFile(filepath.Join(bin, "git"), []byte(git), 0o700)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.manager.Team.Repo = root
-	f.manager.Team.Members[0].Mode = "worktree"
-	f.manager.Team.Members[0].Dir = worktree
 	r := startTestRuntime(t, f)
 	connection, err := OpenRuntime(t.Context(), &RuntimeOptions{Provider: f.provider, JournalPath: r.options.JournalPath})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer connection.Close()
-	if err := connection.InstallCredential(t.Context(), "bob"); err != nil {
-		t.Fatal("authenticated owner install", err)
-	}
-	if _, err := os.Stat(filepath.Join(worktree, "opencode.json")); err != nil {
-		t.Fatal(err)
+	if err := connection.InstallCredential(t.Context(), "bob"); err == nil {
+		t.Fatal("install without a workflow identity accepted", err)
 	}
 	memberToken, _ := r.Tokens.Issue(Identity{Team: f.manager.Team.Name, Member: "bob"}, true)
 	for _, token := range []string{"forged", memberToken} {

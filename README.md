@@ -69,14 +69,14 @@ an OS sandbox; agent-deck does not provide one yet.
 - Markdown transcripts, expandable tool cards, raw details, search and optional reasoning.
 - Waiting permission/question indicators, permission replies and optional desktop notifications.
 - Model context gauges and confirmed compaction.
-- Persistent teams, member forms, model/agent selection and owned Git worktrees.
+- Persistent teams, member forms and model/agent selection.
 - YAML/JSON imports and exports, portable templates, previews and revision backups.
 - Auto/dark/light themes, read-only mode and optional Git metadata.
 
 ## Install
 
-Requires macOS/Linux, **OpenCode ≥1.19.0** (tested with 1.19.0), and Git for worktrees
-and repository footers. Go is only needed for source installs.
+Requires macOS/Linux, **OpenCode ≥1.19.0** (tested with 1.19.0), and Git for repository
+footers. Go is only needed for source installs.
 
 ```sh
 brew install opencode
@@ -155,7 +155,7 @@ settings. See [headless command details](docs/teams.md#headless-commands) for wa
 ## Teams
 
 Choose **New team** to set a repository, base branch, shared rules and worker capacity.
-Members use an existing session, a shared directory, or a managed worktree. One member
+Members use an existing session or the shared checkout. One member
 coordinates as master; workers can receive individual briefs and prompts.
 Advanced **Leases** assign non-overlapping repository-relative paths to workers. New
 sessions enforce edit ownership and deny worker Git writes; **Team → Apply leases**
@@ -165,8 +165,7 @@ See [lease behavior](docs/teams.md#shared-checkout-leases).
 Click **+ Worker**, enter a name and brief, and use **Select model** to choose from the
 server's models. New workers default to the team's directory. Leave the session field
 empty and click **Create worker**: agent-deck creates the session and saves its ID in
-the team configuration. Choose `worktree` for an isolated branch, or provide an existing
-session ID to adopt it. **Advanced** reveals prompts, agents, roles and permission settings.
+the team configuration, or provide an existing session ID to adopt it. **Advanced** reveals prompts, agents, roles and permission settings.
 `Enter` advances a field or opens its choices; `Ctrl+P` selects a model and `Ctrl+S` saves.
 The model picker lists only models from configured OpenCode providers. Type to search,
 use ↑/↓ to move, and press Enter to select; `Ctrl+U` clears the search.
@@ -190,7 +189,7 @@ agent-deck export example --portable --format json --out template.json
 Imports accept team files, full team exports and portable templates. Legacy deck files
 are no longer supported. The UI can also
 import selected live sessions. Preview before saving; replacement requires confirmation.
-Portable exports remove session IDs, local paths and worktree ownership, while retaining
+Portable exports remove session IDs and local paths, while retaining
 team instructions and explicit creation policies. Review prompt text before sharing.
 
 ## Permissions

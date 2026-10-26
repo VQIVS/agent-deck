@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/vqivs/agent-deck/internal/gitinfo"
 	"github.com/vqivs/agent-deck/internal/team"
@@ -78,69 +77,6 @@ func (r *Runtime) installCredential(ctx context.Context, manager *team.Manager, 
 	return nil
 }
 
-func isolatedMember(ctx context.Context, manager *team.Manager, member *team.Member) error {
-	if member.Mode != "worktree" || member.Dir == "" || !filepath.IsAbs(member.Dir) {
-		return fmt.Errorf("credentials require an isolated worktree; shared/adopt members are unsupported")
-	}
-	if member.Session == "" {
-		return fmt.Errorf("credentials require a current member session")
-	}
-	if member.Muted {
-		return fmt.Errorf("muted member cannot receive credentials")
-	}
-	dir, err := filepath.EvalSymlinks(member.Dir)
-	if err != nil {
-		return fmt.Errorf("resolve credential directory: %w", err)
-	}
-	repo, err := filepath.EvalSymlinks(manager.Team.Repo)
-	if err != nil || dir == repo {
-		return fmt.Errorf("credential worktree must differ from the team checkout")
-	}
-	if err := distinctRuntimeDirectories(manager, member, dir); err != nil {
-		return err
-	}
-	return verifyRuntimeWorktree(ctx, dir, repo)
-}
-
-func distinctRuntimeDirectories(manager *team.Manager, member *team.Member, dir string) error {
-	for i := range manager.Team.Members {
-		other := &manager.Team.Members[i]
-		if other.Name == member.Name || other.Dir == "" {
-			continue
-		}
-		otherDir, err := filepath.EvalSymlinks(other.Dir)
-		if err != nil {
-			return fmt.Errorf("resolve peer credential directory: %w", err)
-		}
-		if dir == otherDir || strings.HasPrefix(dir, otherDir+string(filepath.Separator)) ||
-			strings.HasPrefix(otherDir, dir+string(filepath.Separator)) {
-			return fmt.Errorf("credential directory overlaps another member directory")
-		}
-	}
-	return nil
-}
-
-func verifyRuntimeWorktree(ctx context.Context, dir, repo string) error {
-	top, err := runtimeGit(ctx, dir, "rev-parse", "--show-toplevel").Output()
-	if err != nil || strings.TrimSpace(string(top)) != dir {
-		return fmt.Errorf("credential directory must be a git worktree root")
-	}
-	common, err := runtimeGit(ctx, dir,
-		"rev-parse", "--path-format=absolute", "--git-common-dir").Output()
-	if err != nil {
-		return fmt.Errorf("inspect credential worktree: %w", err)
-	}
-	repoCommon, err := runtimeGit(ctx, repo,
-		"rev-parse", "--path-format=absolute", "--git-common-dir").Output()
-	if err != nil || strings.TrimSpace(string(common)) != strings.TrimSpace(string(repoCommon)) {
-		return fmt.Errorf("credential worktree must belong to the team repository")
-	}
-	if err := runtimeGit(ctx, dir, "check-ignore", "-q", "--", "opencode.json").Run(); err != nil {
-		return fmt.Errorf("credential config must be ignored by git before installation")
-	}
-	return nil
-}
-
 func runtimeGit(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	command := exec.CommandContext(ctx, "git", append([]string{"--no-optional-locks", "-C", dir}, args...)...)
 	command.Env = append(gitinfo.Environment(), "GIT_OPTIONAL_LOCKS=0")
@@ -182,7 +118,7 @@ func (r *Runtime) revokeChanged(manager *team.Manager) error {
 		credential := r.credentials[name]
 		member := credentialMember(manager, &credential, name)
 		if member != nil {
-			if (member.Mode == "worktree" || member.ControlDir != "") && member.SessionDir() == credential.dir &&
+			if member.ControlDir != "" && member.SessionDir() == credential.dir &&
 				member.Session == credential.session && member.Role == credential.role &&
 				member.Name == credential.identity.Member && !manager.ReadOnly {
 				continue

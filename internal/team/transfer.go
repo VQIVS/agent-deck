@@ -113,7 +113,7 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 		t.Repo = ""
 		for i := range t.Members {
 			m := &t.Members[i]
-			m.Session, m.Dir, m.Branch, m.Owned = "", "", "", false
+			m.Session, m.Dir, m.Branch = "", "", ""
 			m.LeasePolicy = ""
 			m.ID = ""
 			m.ControlDir, m.PreviousSession, m.PreviousDir = "", "", ""
@@ -123,9 +123,6 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 			}
 			if filepath.IsAbs(m.SystemFile) {
 				m.SystemFile = ""
-			}
-			if filepath.IsAbs(m.BranchTemplate) {
-				m.BranchTemplate = ""
 			}
 		}
 	}

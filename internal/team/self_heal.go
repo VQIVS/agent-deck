@@ -44,7 +44,7 @@ func selfHealActions(snapshot *ReconcileSnapshot, plan *SchedulingPlan) []Reconc
 			continue
 		}
 		member := &snapshot.Team.Members[index]
-		if !member.PoolCreated || member.Mode != "shared" || member.Owned || member.Muted {
+		if !member.PoolCreated || member.Mode != "shared" || member.Muted {
 			continue
 		}
 		kind := healingKind(worker, &snapshot.Input.Policy, plan)
@@ -137,7 +137,7 @@ func (t *LifecycleTransport) heal(ctx context.Context, manager *Manager,
 	if err := validateHealingBinding(member, effect); err != nil {
 		return ReconcileResult{}, err
 	}
-	if !member.PoolCreated || member.Mode != "shared" || member.Owned || member.Muted {
+	if !member.PoolCreated || member.Mode != "shared" || member.Muted {
 		return ReconcileResult{}, fmt.Errorf("self healing requires a managed shared pool worker")
 	}
 	if request.Action.Kind == "compact" {

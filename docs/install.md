@@ -8,7 +8,7 @@
   and question endpoints, creation-time rules, and provider/model catalog used here.
   Earlier versions may work but are not claimed as supported. OpenCode 2 compatibility
   has not been established; check `agent-deck doctor` after upgrades.
-- Git for managed worktrees and repository footers.
+- Git for repository footers.
 - Go only when installing from source (see the required version in `go.mod`).
 
 ## Install OpenCode

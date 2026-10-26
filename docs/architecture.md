@@ -27,7 +27,7 @@ OpenCode server → opencode (HTTP + SSE) → state → ui (Bubble Tea)
                              └────────────────────┘
 cli → config / team → ui
                ↓
-          Git worktrees + local team files
+          Git checkout + local team files
 ```
 
 | Package | Responsibility |
@@ -36,7 +36,7 @@ cli → config / team → ui
 | `opencode` | Directory-scoped requests, discovery and reconnecting SSE |
 | `server` | Detached loopback supervisor, ownership lock, health and bounded crash restart |
 | `config` | Legacy deck parsing and validation |
-| `team` | Managed configuration, atomic persistence, backups and member/worktree lifecycle |
+| `team` | Managed configuration, atomic persistence, backups and member lifecycle |
 | `state` | Session snapshots, incremental events and waiting-request state |
 | `transcript` | Sanitized Markdown and tool-card rendering |
 | `gitinfo` | Read-only local Git metadata |
@@ -47,8 +47,7 @@ its mutable display state. I/O runs in commands and streams; results return as m
 Every session request and SSE stream is scoped to its directory. Reconnection refreshes
 snapshots, and pending events are replayed after a snapshot to avoid losing updates.
 
-The team manager validates configuration, checks read-only policy and capacity, manages
-owned worktrees, and creates sessions with explicit creation permissions. Adopted sessions
+The team manager validates configuration, checks read-only policy and capacity, and creates sessions with explicit creation permissions. Adopted sessions
 retain their live permissions. Persistence compares the expected file revision before an
 atomic rename and keeps prior revisions in backups. These checks detect stale local edits;
 they are not a cross-process database transaction.

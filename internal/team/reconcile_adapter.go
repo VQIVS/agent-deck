@@ -191,7 +191,7 @@ func retireLifecycle(ctx context.Context, manager *Manager, request *ReconcileRe
 		return ReconcileResult{}, err
 	}
 	member := &manager.Team.Members[index]
-	if member.Role != "worker" || member.Session != request.Member.Session || member.Owned ||
+	if member.Role != "worker" || member.Session != request.Member.Session ||
 		!member.PoolCreated || member.Mode != "shared" {
 		return ReconcileResult{}, fmt.Errorf("retirement requires unchanged shared worker binding")
 	}

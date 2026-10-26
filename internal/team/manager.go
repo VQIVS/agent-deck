@@ -136,16 +136,6 @@ func (m *Manager) Start(ctx context.Context, index int) error {
 	if _, e := Options(ctx, &m.Team, member, member.Brief); e != nil {
 		return e
 	}
-	if member.Mode == "worktree" && !member.Owned {
-		dir, branch, e := CreateWorktree(ctx, &m.Team, member)
-		if e != nil {
-			return e
-		}
-		member.Dir, member.Branch, member.Owned = dir, branch, true
-		if e := m.Save(ctx); e != nil {
-			return e
-		}
-	}
 	rules, err := m.creationRules(ctx, member)
 	if err != nil {
 		return err
@@ -165,7 +155,7 @@ func (m *Manager) Start(ctx context.Context, index int) error {
 	return m.Roster(ctx, "member started: "+member.Name)
 }
 
-func (m *Manager) Remove(ctx context.Context, index int, force bool) error {
+func (m *Manager) Remove(ctx context.Context, index int) error {
 	if m.ReadOnly {
 		return fmt.Errorf("read-only")
 	}
@@ -185,9 +175,6 @@ func (m *Manager) Remove(ctx context.Context, index int, force bool) error {
 				return fmt.Errorf("delete removed control session: %w", err)
 			}
 		}
-	}
-	if e := RemoveWorktree(ctx, &m.Team, &member, force); e != nil {
-		return e
 	}
 	m.Team.Members = append(m.Team.Members[:index], m.Team.Members[index+1:]...)
 	if e := m.Save(ctx); e != nil {

@@ -77,15 +77,8 @@ func TestWorkflowSetupPreservesOldBindingAndScopedLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	before.Members[0].Mode = "worktree"
-	if _, err := manager.Store.Save(t.Context(), &before, version); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.SetupWorkflow(t.Context(), "bob"); err == nil {
-		t.Fatal("worktree setup accepted")
-	}
-	before, version, err = manager.Store.Load(t.Context(), manager.Team.Name)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := manager.Store.Save(t.Context(), &before, version); err == nil {
+		t.Fatal("worktree member saved")
 	}
 	before.Members[0].Mode = "shared"
 	before.Members[0].SystemFile = filepath.Join(t.TempDir(), "missing-system")

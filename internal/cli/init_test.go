@@ -55,7 +55,7 @@ func TestInitPrivateTeamWithoutLiveResources(t *testing.T) {
 	}
 	for i := range tm.Members {
 		member := &tm.Members[i]
-		if member.Session != "" || member.Owned || member.Mode != "shared" || member.Dir != tm.Repo {
+		if member.Session != "" || member.Mode != "shared" || member.Dir != tm.Repo {
 			t.Fatal("unexpected implicit resources", member)
 		}
 	}

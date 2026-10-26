@@ -75,9 +75,6 @@ func (m *Manager) creationRules(ctx context.Context, member *Member) ([]api.Rule
 		return nil, fmt.Errorf("resolve lease worktree root: %w", err)
 	}
 	want := m.Team.Repo
-	if member.Mode == "worktree" {
-		want = member.Dir
-	}
 	root, rootErr := filepath.EvalSymlinks(root)
 	want, wantErr := filepath.EvalSymlinks(want)
 	if err := errors.Join(rootErr, wantErr); err != nil {

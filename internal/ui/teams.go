@@ -213,7 +213,7 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 		case "start":
 			e = manager.Start(m.context(), index)
 		case "remove":
-			e = manager.Remove(m.context(), index, force)
+			e = manager.Remove(m.context(), index)
 		case "master":
 			e = manager.ChangeMaster(m.context(), index)
 		case "roster":
@@ -655,7 +655,6 @@ func (m *Model) duplicateTeam() {
 		u.Draft.Members[i].ID = ""
 		u.Draft.Members[i].ID = ""
 		u.Draft.Members[i].Session = ""
-		u.Draft.Members[i].Owned = false
 		u.Draft.Members[i].Branch = ""
 	}
 	u.Manager = nil

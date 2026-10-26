@@ -38,11 +38,11 @@ type Member struct {
 	Brief           string            `yaml:"brief,omitempty"`
 	Permissions     map[string]string `yaml:"permissions,omitempty"`
 	Mode            string            `yaml:"mode"`
-	BranchTemplate  string            `yaml:"branch_template,omitempty"`
+	BranchTemplate  yaml.Node         `yaml:"branch_template,omitempty" json:"-"`
 	Dir             string            `yaml:"dir,omitempty"`
 	Branch          string            `yaml:"branch,omitempty"`
 	Session         string            `yaml:"session,omitempty"`
-	Owned           bool              `yaml:"owned_worktree,omitempty"`
+	Owned           yaml.Node         `yaml:"owned_worktree,omitempty" json:"-"`
 }
 
 // Team is a versioned local configuration with exactly one coordinating master.
@@ -174,10 +174,14 @@ func (m *Member) validate() error {
 	if m.Role != "master" && m.Role != "worker" {
 		return fmt.Errorf("member role must be master or worker")
 	}
-	if m.Mode != "worktree" && m.Mode != "shared" && m.Mode != "adopt" {
-		return fmt.Errorf("workspace must be worktree, shared or adopt")
+	if m.Mode == "worktree" {
+		return fmt.Errorf("member %q: worktree members are no longer supported; use mode shared "+
+			"(every member works in the team checkout)", m.Name)
 	}
-	if m.Mode != "worktree" && !filepath.IsAbs(m.Dir) {
+	if m.Mode != "shared" && m.Mode != "adopt" {
+		return fmt.Errorf("workspace must be shared or adopt")
+	}
+	if !filepath.IsAbs(m.Dir) {
 		return fmt.Errorf("shared/adopt directory must be absolute")
 	}
 	if m.Mode == "adopt" && m.Session == "" {

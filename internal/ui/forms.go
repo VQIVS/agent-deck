@@ -57,14 +57,13 @@ func (m *Model) memberForm() {
 		{Label: "Member name", Value: member.Name},
 		{Label: "Model", Value: member.Model, Choices: u.Models},
 		{Label: "Brief", Value: member.Brief},
-		{Label: "Workspace mode", Value: member.Mode, Choices: []string{"shared", "worktree", "adopt"}},
+		{Label: "Workspace mode", Value: member.Mode, Choices: []string{"shared", "adopt"}},
 		{Label: "Directory", Value: member.Dir},
 		{Label: "Existing session ID (adopt)", Value: member.Session},
 		{Label: "Role", Value: member.Role, Choices: []string{"master", "worker"}},
 		{Label: "OpenCode agent", Value: member.Agent, Choices: u.Agents},
 		{Label: "System prompt", Value: member.System},
 		{Label: "System prompt file", Value: member.SystemFile},
-		{Label: "Branch template", Value: member.BranchTemplate},
 		{Label: "Permission preset", Value: preset, Choices: []string{"inherited", "reviewer", "coder", "release", "full"}},
 		{Label: "Leases (one repository-relative glob per line)", Value: strings.Join(member.Leases, "\n")},
 		{Label: "Role template", Choices: m.roleTemplateNames()},
@@ -212,7 +211,6 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 	member.Leases = parseLeases(values["Leases (one repository-relative glob per line)"])
 	member.Mode = values["Workspace mode"]
 	member.Dir = values["Directory"]
-	member.BranchTemplate = values["Branch template"]
 	member.Session = values["Existing session ID (adopt)"]
 	normalizeSession(member, u.Draft.Repo, oldSession)
 	if u.Manager != nil && u.MemberIndex < len(u.Manager.Team.Members) {
@@ -231,7 +229,7 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 }
 
 func normalizeSession(member *team.Member, repo, oldSession string) {
-	if member.Dir == "" && member.Mode != "worktree" {
+	if member.Dir == "" {
 		member.Dir = repo
 	}
 	if member.Mode == "adopt" && member.Session == "" {

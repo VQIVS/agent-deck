@@ -60,7 +60,7 @@ func (r *Runtime) validateControl(id, control string) error {
 
 func (r *Runtime) credentialDirectory(ctx context.Context, manager *team.Manager, member *team.Member) error {
 	if member.ControlDir == "" {
-		return isolatedMember(ctx, manager, member)
+		return fmt.Errorf("member %q has no workflow identity; set it up before installing credentials", member.Name)
 	}
 	if member.ID == "" || member.Session == "" || member.Muted {
 		return fmt.Errorf("workflow control directory does not match current membership")

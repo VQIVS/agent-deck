@@ -225,16 +225,22 @@ func (m *Model) gitTUIDetails(f *gitFrame) {
 		if changed {
 			lines = append(lines, "", gitTargetChanged)
 		}
-		f.box("Checkout details", lines)
-		return
 	}
 	// Short terminals drop the frame, show a changed target first and keep the footer on screen.
 	if changed {
 		lines = append([]string{lipgloss.NewStyle().Foreground(m.theme.Warning).Render(gitTargetChanged)}, lines...)
 	}
-	for _, line := range lines[:min(len(lines), max(1, m.h-3))] {
-		f.line(fit(line, f.width))
+	wrapped := make([]string, 0, len(lines))
+	for _, line := range lines {
+		wrapped = append(wrapped, strings.Split(ansi.Hardwrap(line, max(1, f.width), true), "\n")...)
 	}
+	g.DetailsTotal, g.DetailsPage = len(wrapped), max(1, m.h-len(f.rows)-4)
+	g.DetailsOffset = max(0, min(g.DetailsOffset, max(0, len(wrapped)-g.DetailsPage)))
+	end := min(len(wrapped), g.DetailsOffset+g.DetailsPage)
+	for _, line := range wrapped[g.DetailsOffset:end] {
+		f.line(line)
+	}
+	f.line(fmt.Sprintf("Lines %d-%d/%d · j/k scroll · PgUp/PgDn · Esc back", g.DetailsOffset+1, end, len(wrapped)))
 }
 
 const gitTargetChanged = "Checkout changed since the launcher opened; reopen it."
@@ -255,6 +261,7 @@ func (m *Model) gitTUIClick(z zone, ok bool) (bool, tea.Cmd) {
 		g.Remember = !g.Remember
 	case action == "details":
 		g.Details = true
+		g.DetailsOffset = 0
 	case strings.HasPrefix(action, "client:"):
 		if i, err := strconv.Atoi(strings.TrimPrefix(action, "client:")); err == nil && i < len(g.Clients) {
 			g.Index = i

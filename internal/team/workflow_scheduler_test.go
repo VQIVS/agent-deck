@@ -19,7 +19,7 @@ func TestWorkflowSchedulerAssignsReadyButNotBacklog(t *testing.T) {
 	if err != nil || len(plan.Assignments) != 1 {
 		t.Fatal("ready task not schedulable", plan, err)
 	}
-	if err := recordTaskAssignment(board, "task", "worker"); err != nil {
+	if err := recordTaskAssignmentAs(board, "task", "worker", TaskActor{User: true}); err != nil {
 		t.Fatal(err)
 	}
 	if board.Tasks[0].State != "in_progress" || board.Tasks[0].Assignee != "worker" || len(board.Tasks[0].History) < 3 {

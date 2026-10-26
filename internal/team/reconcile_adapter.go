@@ -135,10 +135,6 @@ func (t *LifecycleTransport) commitBoard(ctx context.Context, request *Reconcile
 	return nil
 }
 
-func recordTaskAssignment(board *TaskBoard, id, worker string) error {
-	return recordTaskAssignmentAs(board, id, worker, TaskActor{User: true})
-}
-
 func recordTaskAssignmentAs(board *TaskBoard, id, worker string, actor TaskActor) error {
 	if board.Version < 2 {
 		for i := range board.Tasks {

@@ -184,6 +184,10 @@ func TestWorkflowSaveCASPreservesDefinition(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := bytes.Clone(current.Version)
+	boardBefore, err := json.Marshal(loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := SaveWorkflowRenamed(t.Context(), manager, boardStore, DefaultWorkflow(), nil,
 		loaded.Revision, mutation); err == nil {
 		t.Fatal("stale team revision accepted with current board revision")
@@ -195,6 +199,10 @@ func TestWorkflowSaveCASPreservesDefinition(t *testing.T) {
 	after, err := boardStore.Load(t.Context())
 	if err != nil || after.Revision != loaded.Revision || after.Board.Category("custom-active") != "active" {
 		t.Fatal("stale editor changed board", after, err)
+	}
+	boardAfter, err := json.Marshal(after)
+	if err != nil || !bytes.Equal(boardBefore, boardAfter) {
+		t.Fatal("stale team write changed board evidence", err)
 	}
 }
 

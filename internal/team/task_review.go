@@ -69,42 +69,7 @@ func TaskReviewDefinition(current *Team, task *Task) (DefinitionOfDone, error) {
 	return definition, nil
 }
 
-// TaskEvidence keeps worker claims separate from independently collected Git metadata.
-// Git must be supplied by trusted observation code; it does not verify reported test outcomes.
-type TaskEvidence struct {
-	Report *ReportRecord   `json:"report"`
-	Git    *ReportMetadata `json:"independently_observed_git,omitempty"`
-}
-
-func ValidateTaskEvidence(current *Team, task *Task, evidence *TaskEvidence) error {
-	if current == nil || task == nil || evidence == nil || evidence.Report == nil {
-		return fmt.Errorf("task evidence requires current team, task and structured report")
-	}
-	record := evidence.Report
-	if record.Team != current.Name || !record.CurrentBinding(current) || !validTaskReportIdentity(task, record) {
-		return fmt.Errorf("task evidence report identity or binding is stale")
-	}
-	definition, err := TaskReviewDefinition(current, task)
-	if err != nil {
-		return err
-	}
-	if !slices.Equal(record.Definition, definition) {
-		return fmt.Errorf("task evidence does not match merged current definition of done")
-	}
-	if err := record.Reported.Validate(definition); err != nil {
-		return err
-	}
-	if !record.Reported.complete(definition) {
-		return fmt.Errorf("task evidence does not report passing required criteria")
-	}
-	if evidence.Git != nil && evidence.Git.ObservedAt.IsZero() {
-		return fmt.Errorf("independent Git evidence requires observation timestamp")
-	}
-	return nil
-}
-
 // ValidateTaskCompletionDefinition verifies stored report requirements without needing mutable team state.
-// Integration must also call ValidateTaskEvidence against the current team before accepting completion.
 func ValidateTaskCompletionDefinition(task *Task, record *ReportRecord) error {
 	if task == nil || !validTaskReportIdentity(task, record) {
 		return fmt.Errorf("task completion report identity is invalid")

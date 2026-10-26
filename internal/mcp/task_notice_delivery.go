@@ -35,6 +35,7 @@ func (s *Service) notifyWorkflowEvent(ctx context.Context, notice *team.TaskNoti
 		return err
 	}
 	record.ID, record.Time, record.Hops, record.SenderID = id, s.options.Now().UTC(), 0, systemSender
+	record.Thread = id
 	s.bindAudience(&record)
 	if err := s.options.Journal.Append(ctx, &record); err != nil {
 		return fmt.Errorf("append workflow notice: %w", err)

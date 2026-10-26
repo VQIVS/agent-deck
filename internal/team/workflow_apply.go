@@ -227,12 +227,40 @@ func taskNotices(old, task *Task, master string) []TaskNotice {
 	if task.State != oldState {
 		stateNotices(task, oldCategory, master, notify)
 	}
-	if old != nil && len(task.Comments) > len(old.Comments) && commentsSinceStateChange(task) <= maxCommentWakes {
+	return append(notices, discussionNotices(old, task, master)...)
+}
+
+func discussionNotices(old, task *Task, master string) []TaskNotice {
+	if task.Review != nil && (old == nil || old.Review == nil || !old.Review.At.Equal(task.Review.At)) {
+		return reviewNotices(task, master)
+	}
+	var notices []TaskNotice
+	if old != nil && len(task.Comments) > len(old.Comments) {
 		comment := task.Comments[len(task.Comments)-1]
 		for _, to := range []string{task.Assignee, master} {
 			if to != comment.Actor {
-				notify(to, commentNotice(task, &comment))
+				notices = append(notices, TaskNotice{
+					To: to, Task: task.ID, Text: commentNotice(task, &comment),
+					Event: "comment:" + task.ID + ":" + comment.ID + ":" + to,
+				})
 			}
+		}
+	}
+	return notices
+}
+
+func reviewNotices(task *Task, master string) []TaskNotice {
+	var notices []TaskNotice
+	comment := strings.ReplaceAll(truncateNotice(task.Review.Comment), "\r", "")
+	for _, to := range []string{task.Assignee, master} {
+		if to != task.Review.Reviewer {
+			notices = append(notices, TaskNotice{
+				To: to, Task: task.ID,
+				Event: fmt.Sprintf("review:%s:%d:%s", task.ID, task.Review.At.UnixNano(), to),
+				Text: fmt.Sprintf("Task %s %q reviewed by %s (accepted=%t). Member-written review:\n> %s",
+					task.ID, task.Title, task.Review.Reviewer, task.Review.Accepted,
+					strings.ReplaceAll(comment, "\n", "\n> ")),
+			})
 		}
 	}
 	return notices
@@ -246,10 +274,6 @@ func previousCategory(task *Task) string {
 	}
 	return taskCategory(task)
 }
-
-// maxCommentWakes bounds agent-to-agent wakeups through comments, like the channel hop limit;
-// later comments are still stored and visible through my_tasks and list_tasks.
-const maxCommentWakes = 3
 
 func stateNotices(task *Task, oldState, master string, notify func(to, text string)) {
 	switch taskCategory(task) {
@@ -269,19 +293,6 @@ func stateNotices(task *Task, oldState, master string, notify func(to, text stri
 
 func categoryBriefed(category string) bool {
 	return category == "active" || category == "review" || category == "blocked"
-}
-
-func commentsSinceStateChange(task *Task) int {
-	count := 0
-	for i := len(task.History) - 1; i >= 0; i-- {
-		switch task.History[i].Field {
-		case "state", "review", "assignee":
-			return count
-		case "comment":
-			count++
-		}
-	}
-	return count
 }
 
 func commentNotice(task *Task, comment *TaskComment) string {

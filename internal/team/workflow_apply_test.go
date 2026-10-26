@@ -254,7 +254,7 @@ func TestAutomationActorAssignsButNeverReviews(t *testing.T) {
 	}
 }
 
-func TestCommentWakesAreBounded(t *testing.T) {
+func TestCommentWakesHaveDistinctStableEvents(t *testing.T) {
 	ctx := context.Background()
 	team := workflowTeam()
 	store := BoardStore{Root: t.TempDir(), Team: team.Name}
@@ -279,6 +279,7 @@ func TestCommentWakesAreBounded(t *testing.T) {
 		}
 	}
 	woken := 0
+	events := map[string]bool{}
 	for i := range 6 {
 		actor := []TaskActor{ana, lead}[i%2]
 		_, notices, err := ChangeTasks(ctx, store, team, actor, time.Now(), func(b *TaskBoard, m TaskMutation) error {
@@ -288,9 +289,15 @@ func TestCommentWakesAreBounded(t *testing.T) {
 			t.Fatal(err)
 		}
 		woken += len(notices)
+		for _, notice := range notices {
+			if notice.Event == "" || events[notice.Event] {
+				t.Fatal("comment event missing or reused", notice)
+			}
+			events[notice.Event] = true
+		}
 	}
-	if woken != maxCommentWakes {
-		t.Fatalf("comment wakes=%d, want %d", woken, maxCommentWakes)
+	if woken != 6 {
+		t.Fatalf("comment wakes=%d, want 6", woken)
 	}
 }
 

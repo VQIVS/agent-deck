@@ -135,8 +135,8 @@ func (m *Model) teamPickerView() string {
 	start := max(0, u.Index-rows+1)
 	if len(u.Teams) == 0 {
 		b.WriteString("  " + m.theme.title("Your next team starts here") + "\n")
-		b.WriteString("  " + m.theme.dim("Create a team, import a deck, or adopt live sessions.") + "\n")
-		b.WriteString("  " + m.theme.dim("Already have a deck file? Choose Import to bring it in.") + "\n")
+		b.WriteString("  " + m.theme.dim("Create a team or view all live sessions.") + "\n")
+		b.WriteString("  " + m.theme.dim("Use agent-deck import/export in the terminal to transfer teams.") + "\n")
 		y += 3
 	}
 	for i := start; i < min(len(u.Teams), start+rows); i++ {
@@ -149,7 +149,7 @@ func (m *Model) teamPickerView() string {
 	if m.note != "" {
 		b.WriteString("\n  " + m.theme.dim(fit(m.note, width-4)))
 	}
-	footer := "  ↑↓ select  ·  Enter open  ·  n new  ·  i import  ·  e export  ·  Click actions  ·  q quit"
+	footer := "  ↑↓ select  ·  Enter open  ·  n new  ·  c duplicate  ·  a all sessions  ·  q quit"
 	if m.opts.ReadOnly {
 		footer = "  READ ONLY  ·  ↑↓ select  ·  Enter open  ·  a all sessions  ·  q quit"
 	}
@@ -206,9 +206,7 @@ func (m *Model) teamPickerActions(width, y int) string {
 		"  " + m.buttonRow(
 			[]button{
 				{"New team", "team-new", m.opts.ReadOnly},
-				{"Import", "team-import", m.opts.ReadOnly},
 				{"Open", "team-open", len(u.Teams) == 0},
-				{"Export", "team-export", len(u.Teams) == 0 || m.opts.ReadOnly},
 			},
 			2,
 			y,

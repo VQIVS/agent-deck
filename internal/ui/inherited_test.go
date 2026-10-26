@@ -8,7 +8,7 @@ import (
 )
 
 func TestAdoptedFormPreservesInheritedAndExplicitPreset(t *testing.T) {
-	m := transferModel(t)
+	m := teamPickerModel(t)
 	v := team.Team{
 		Version: 1, Name: "Example", Server: "http://localhost:4096", Repo: "/work/agent-deck",
 		Base: "main", Capacity: 1, Members: []team.Member{{

@@ -22,7 +22,6 @@ type teamUI struct {
 	Teams                     []team.Team
 	Summary                   map[string]string
 	Status                    map[string]teamStatus
-	Transfer                  transferUI
 	RootContext               func() context.Context
 	Screen                    string
 	Index, MemberIndex, Field int
@@ -246,9 +245,6 @@ func (m *Model) teamOperation(operation string, index int, force bool) tea.Cmd {
 func (m *Model) teamContent() string {
 	u := m.teams
 	m.zones = nil
-	if u.Confirm == "" && (strings.HasPrefix(u.Screen, "import") || u.Screen == "export") {
-		return m.transferView()
-	}
 	if u.Confirm != "" {
 		return m.teamConfirmation()
 	}
@@ -274,9 +270,6 @@ func (m *Model) teamConfirmation() string {
 	}
 	if text == "delete" {
 		text = "Delete team file? Sessions and worktrees are retained."
-	}
-	if text == "export-replace" {
-		text = "Replace export file " + u.Transfer.Path + "?"
 	}
 	if text == "start" {
 		text = "Start member and create its configured resources?"
@@ -416,9 +409,6 @@ func (m *Model) teamAction(action string) tea.Cmd {
 	u := m.teams
 	if u == nil {
 		return nil
-	}
-	if handled, cmd := m.transferAction(action); handled {
-		return cmd
 	}
 	if u.Busy {
 		m.note = "Team operation in progress"
@@ -703,9 +693,6 @@ func (m *Model) teamKey(v tea.KeyMsg) tea.Cmd {
 		m.openWorkflowEditor()
 		return nil
 	}
-	if handled, cmd := m.transferKey(v); handled {
-		return cmd
-	}
 	if k == "q" && u.Screen == "picker" {
 		return tea.Quit
 	}
@@ -827,7 +814,7 @@ func (m *Model) teamShortcut(k string) tea.Cmd {
 	}
 	if u.Screen == "picker" {
 		action := map[string]string{
-			"i": "team-import", "e": "team-export", "r": "team-list", "d": "team-delete",
+			"r": "team-list", "d": "team-delete",
 			"c": "team-duplicate", "ctrl+e": "team-edit", "a": "team-all",
 		}[k]
 		return m.teamAction(action)
@@ -859,16 +846,6 @@ func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
 func (m *Model) handleTeamMessage(msg tea.Msg) (bool, tea.Cmd) {
 	u := m.teams
 	switch v := msg.(type) {
-	case liveImportMsg:
-		u.Busy = false
-		if v.Err != nil {
-			m.note = v.Err.Error()
-			return true, nil
-		}
-		u.Transfer.Live = v.Sessions
-		u.Screen = "import-live"
-		u.Index = 0
-		return true, nil
 	case tea.KeyMsg:
 		if v.String() == "ctrl+c" {
 			return true, tea.Quit

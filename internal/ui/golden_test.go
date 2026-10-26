@@ -19,7 +19,7 @@ import (
 
 func TestScreenGoldens(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {160, 48}} {
-		for _, screen := range []string{"dashboard", "team", "inbox"} {
+		for _, screen := range []string{"dashboard", "team", "inbox", "team_picker"} {
 			name := fmt.Sprintf("%s_%dx%d", screen, size[0], size[1])
 			t.Run(name, func(t *testing.T) {
 				m := goldenScreenModel(t, size[0], size[1])
@@ -96,6 +96,9 @@ func goldenScreenModel(t *testing.T, width, height int) *Model {
 
 func goldenScreenView(m *Model, screen string) string {
 	switch screen {
+	case "team_picker":
+		m.teams.Screen = "picker"
+		m.teams.Teams = []team.Team{m.teams.Manager.Team}
 	case "team":
 		m.teams.Screen = "members"
 	case "inbox":

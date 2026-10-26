@@ -195,8 +195,8 @@ shared session instead. **Advanced** (`Ctrl+A`) reveals the remaining member set
 
 Default startup opens a team picker backed by
 `~/.config/agent-deck/teams/*.yaml` (`XDG_CONFIG_HOME` is honored).
-`--team NAME` opens a saved team; `--all` opens ad-hoc discovery. Explicit
-`--config` and `--snapshot` retain their existing behavior. The picker exposes
+`--team NAME` opens a saved team; `--all` opens ad-hoc discovery. Legacy deck-file
+flags `--config` and `--snapshot` have been removed. The picker exposes
 New, Open, Edit, Duplicate, Delete (confirmed), and All sessions. Opening a team
 only observes its recorded sessions; it never silently starts or aborts anything.
 Status summaries use directory-scoped HTTP status/permission/question reads.
@@ -528,7 +528,8 @@ are plain text; do not put secrets in prompts or rules.
 
 ## Import/export and presentation
 
-The picker exposes Import and per-team Export. The equivalent commands are
+Team transfers are available through the CLI; import/export and live-import screens
+have been removed from the picker. Use
 `agent-deck import FILE [--name NAME] [--repo DIR]` and
 `agent-deck export TEAM [--out FILE] [--format yaml|json] [--portable]`.
 Both YAML and JSON exports use a versioned team inside an `agent-deck/team`
@@ -550,13 +551,12 @@ The local OpenCode `/doc` also advertises `PATCH /session/{sessionID}` with a
 that endpoint for preset edits or import: all policy edits remain creation-only,
 and live permission rules are left untouched.
 
-Live import uses read-only HTTP discovery, lets the user select individual
-sessions, choose the master, and name the team. File/live imports show the entire
-proposed configuration before saving; replacement previews include before/after.
-The confirmation uses the previewed disk version, so intervening changes fail
-with a conflict. Import never calls Start, Send, Roster, or worktree operations.
-CLI `--yes` can accept a new team's preview; existing teams always confirm.
-Existing export files require confirmation too. Read-only UI mode blocks writes.
+Use **All sessions** or `--all` to monitor live sessions without importing them.
+Team creation and explicit adoption remain available through member forms.
+CLI imports preview the proposed configuration before saving; replacement previews
+include before/after and reject intervening changes. Import never starts sessions or
+sends messages. CLI `--yes` can accept a new team's preview; existing teams always
+confirm. Existing export files require confirmation too.
 
 Portable export removes repo, directory, session, bound branch, ownership and
 absolute system-file/branch-template bindings. Adopt becomes shared with no

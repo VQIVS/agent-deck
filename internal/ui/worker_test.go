@@ -32,7 +32,7 @@ func TestCreateWorkerWithModelAndNewSession(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	m := transferModel(t)
+	m := teamPickerModel(t)
 	saved := team.Team{
 		Version: 1, Name: "Example", Repo: "/tmp/project", Base: "main", Server: server.URL, Capacity: 2,
 		Members: []team.Member{{

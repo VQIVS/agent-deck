@@ -75,7 +75,9 @@ def main():
             terminal.send(b"q\r")
             terminal.wait(lambda: "Open Git TUI" in plain(terminal.output), "dashboard restored after child exit")
             terminal.send(b"3")
-            terminal.wait(lambda: "Summary /" in plain(terminal.output), "post-return keyboard routing")
+            terminal.wait(lambda: any(title in plain(terminal.output) for title in
+                                     ("Summary /", "Summaries · evidence from available records")),
+                          "post-return keyboard routing")
             if terminal.process.poll() is not None:
                 raise RuntimeError("dashboard did not survive handoff")
             print("Git TUI PTY PASS: explicit fake-child handoff, exit, terminal restore, keyboard routing")

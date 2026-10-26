@@ -100,7 +100,6 @@ type Model struct {
 	permissionTarget             permissionTarget
 	permissionConfirm, rejecting bool
 	compactConfirm               bool
-	safeReplies                  map[string]bool
 	inbox                        InboxScreen
 	zones                        []zone
 	mouseX, mouseY               int
@@ -126,7 +125,6 @@ func New(ctx context.Context, d *Deck, opts Options) *Model {
 		h:           40,
 	}
 	m.requestEvents = map[string][]api.Event{}
-	m.safeReplies = map[string]bool{}
 	m.theme, _ = ResolveTheme(opts.Theme)
 	m.transcript = transcript.New()
 	m.input = textarea.New()
@@ -339,7 +337,6 @@ func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 	if m.shouldReadBoard() {
 		cmds = append(cmds, m.readBoard())
 	}
-	cmds = append(cmds, m.safeCommandReplies()...)
 	second := time.Time(v).Unix()
 	if m.teams != nil && second%3 == 0 {
 		cmds = append(cmds, m.watchTeam())

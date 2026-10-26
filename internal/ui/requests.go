@@ -185,7 +185,6 @@ func (m *Model) replyPermissionTarget(target permissionTarget, reply, message st
 
 func (m *Model) replied(v permissionReplyMsg) tea.Cmd {
 	if v.Err != nil {
-		delete(m.safeReplies, v.ID)
 		for i := range m.panes {
 			p := &m.panes[i]
 			if p.Agent.Dir == v.Dir || v.Dir == "" {

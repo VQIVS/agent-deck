@@ -322,26 +322,21 @@ otherwise a root `agent-deck.yaml` is used when present. Existing teams are neve
 
 `agent-deck doctor --team NAME [--project FILE] [--dir DIR]` adds repository/base,
 project schema, prompt-file and unapplied-lease checks to server/model diagnostics.
-With private team `approval: allowlist`, the dashboard approves bash requests once only when it can
-match a complete tool command by call ID against `safe_commands`. Missing tool input,
-abbreviated patterns, shell syntax, other permission types and read-only mode never auto-approve.
-Members with editing enabled or unknown inherited edit permissions never auto-approve commands:
-build/test commands execute repository code. Only explicitly edit-denied members qualify.
-Tool input permits only command/description/timeout; workdir and unknown fields are refused.
-Approval attempts are audited with time/session/command under the XDG state directory;
-failed replies clear their retry marker.
+The dashboard no longer automatically approves exact-command allowlists. Permission requests
+remain available for explicit approval or rejection in the selected pane and Inbox.
+Read-only dashboards cannot answer requests.
 
 ## Portable project policy and templates
 
 `internal/team` provides strict version-1 `agent-deck.yaml` project policy and role
-templates. Project policy accepts portable roles, prompts, model, base, capacity and an
-exact-command allowlist; it rejects session IDs and workspace bindings. Merging requires
+templates. Project policy accepts portable roles, prompts, model, base and capacity;
+it rejects session IDs and workspace bindings. Merging requires
 explicit private local bindings. Opening a saved team merges root `agent-deck.yaml` with
 its private bindings case-insensitively and keeps unmentioned members and local overrides.
 The overlay remains in memory for prompts/display. Forms edit private values; saves and
 session lifecycle operations use the private team, then re-merge repository policy.
-Repository approval/command lists are suggestions only: approval settings come exclusively
-from private configuration. Repository capabilities can only tighten explicit local tool
+Repository approval/command lists do not enable dashboard auto-approval.
+Repository capabilities can only tighten explicit local tool
 permissions; inherited sessions stay inherited. Repository prompt text is labeled and
 subordinate to private policy. Repository rules/system text still enters prompts; opening
 a repository therefore trusts its instructional content, even though it cannot raise permissions.
@@ -352,11 +347,6 @@ Built-in templates are `upgrade-team`, `review-pair`,
 entire built-in by name. Advanced worker forms offer **Role template** choices; selecting
 one applies its system prompt and creation capability on save, plus agent/model when set.
 An existing brief is retained. Unknown fields and multiple documents are rejected.
-
-Safe-command matching compares complete parsed argument lists, rejecting shell operators,
-substitutions, expansions and executable paths. Permission patterns alone are insufficient
-evidence for automatic approval; full tool commands must be verified first. Runtime setup
-and UI integration are described as they become available below.
 
 ## Structured report core
 

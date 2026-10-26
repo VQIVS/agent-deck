@@ -11,9 +11,12 @@ import subprocess
 import tempfile
 import threading
 import time
+import re
 
 from smoke_ui import FakeServer, Terminal
-from smoke_summary import plain
+
+def plain(output):
+    return re.sub(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x1b]*(?:\x1b\\|\a))", "", output.decode(errors="replace"))
 
 
 class GitTerminal(Terminal):

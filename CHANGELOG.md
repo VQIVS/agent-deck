@@ -3,6 +3,26 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-10-26
+
+A smaller agent-deck: about 3,800 fewer lines of Go (4,662 removed, 869 added since 0.8.0).
+
+### Removed
+
+- Legacy deck files and the `discover`, `new`, `--config` and `--snapshot` commands; teams and `--all` cover them.
+- Board v1 files (open them once with 0.3.x to migrate) and the unused scheduling budget fields.
+- Estimation history and its sizing summary in the lead's prompt; task estimates remain.
+- The command palette, automatic member nudges, per-member stall settings and the exact-command allowlist.
+  Manual nudge (`n`) and the stall badge remain.
+- Team import/export screens in the dashboard; `agent-deck import` and `agent-deck export` remain.
+- The repository `agent-deck.yaml` project overlay and `init --project`; `init` uses built-in role templates.
+- Worktree members; every member works in the team checkout. Team files with `mode: worktree` fail with a clear message.
+
+### Changed
+
+- Old team files keep loading: removed keys (`nudge`, `nudge_status`, `stall_after`, `approval`,
+  `safe_commands`, `branch_template`, `owned_worktree`) are accepted and ignored.
+
 ## [0.8.0] - 2026-10-26
 
 ### Changed

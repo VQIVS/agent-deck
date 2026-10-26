@@ -140,43 +140,6 @@ func (j *Journal) stopWrites(err error) {
 	j.fatal = err
 }
 
-func (j *Journal) Read(ctx context.Context, member, since string) ([]Record, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	result := []Record{}
-	found := since == ""
-	start := 0
-	if since != "" {
-		position, exists := j.positions[since]
-		if !exists {
-			return nil, fmt.Errorf("unknown channel cursor")
-		}
-		start = position
-	}
-	for i := start; i < len(j.records); i++ {
-		r := &j.records[i]
-		visible := !r.Private || r.Sender == member || slices.Contains(r.Recipients, member)
-		if !visible {
-			continue
-		}
-		if found {
-			copyRecord := *r
-			copyRecord.Recipients = slices.Clone(r.Recipients)
-			copyRecord.Audience = cloneAudience(r.Audience)
-			result = append(result, copyRecord)
-		} else if r.ID == since {
-			found = true
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("unknown channel cursor")
-	}
-	return result, nil
-}
-
 // Snapshot is a privileged infrastructure view, never a member-facing read.
 func (j *Journal) Snapshot(ctx context.Context) ([]Record, error) {
 	j.mu.Lock()

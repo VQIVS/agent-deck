@@ -93,18 +93,3 @@ func TestSchedulerBudgetsIncrementallyReserve(t *testing.T) {
 		t.Fatalf("measured usage did not replace estimate: %+v %v", plan, err)
 	}
 }
-
-func TestFinishRequiresAuthenticatedAssignedWorker(t *testing.T) {
-	task := schedulerTask("task", "task/**")
-	task.State, task.Worker = "assigned", "owner"
-	b := TaskBoard{Version: 1, Tasks: []Task{task}}
-	for _, worker := range []string{"", "forged"} {
-		if err := b.Finish("task", worker, TaskReport{Text: "done"}, false, false); err == nil ||
-			b.Tasks[0].State != "assigned" {
-			t.Fatal("unauthorized worker finished task")
-		}
-	}
-	if err := b.Finish("task", "owner", TaskReport{Text: "done"}, false, false); err != nil {
-		t.Fatal(err)
-	}
-}

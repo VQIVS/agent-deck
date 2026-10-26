@@ -9,18 +9,6 @@ import (
 	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
-// TaskLeaseMembers projects live edit ownership without changing task provenance.
-// Explicit non-task leases are retained; only execution-category work owns task edit paths.
-func TaskLeaseMembers(members []Member, board *TaskBoard) ([]Member, error) {
-	if board == nil {
-		return nil, fmt.Errorf("task lease reconciliation requires board")
-	}
-	if err := board.Validate(); err != nil {
-		return nil, err
-	}
-	return projectOriginLeases(members, board, nil)
-}
-
 func taskLeasePaths(name string, board *TaskBoard) (owned, active []string) {
 	for i := range board.Tasks {
 		task := &board.Tasks[i]

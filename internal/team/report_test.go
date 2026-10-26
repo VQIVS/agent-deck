@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func reportFixture() (Team, DefinitionOfDone, DoneReport) {
@@ -138,28 +136,6 @@ func TestReportStrictDecodeAndCompletion(t *testing.T) {
 	report.OpenIssues = []string{"still broken"}
 	if report.complete(definition) {
 		t.Fatal("open issues marked done")
-	}
-}
-
-func TestInferredReportNeverClaimsDone(t *testing.T) {
-	tm, _, _ := reportFixture()
-	var message api.Message
-	message.Info.ID, message.Info.Role = "msg_report", "assistant"
-	message.Parts = []api.Part{{Type: "text", Text: "All tests pass, everything done", SessionID: "ses_worker"}}
-	record, err := InferDoneReport(&tm, "worker", "idle", []api.Message{message})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if record.Source != "inferred" || record.ReportedDone || record.Reported != nil ||
-		record.Observed != nil || len(record.Definition) != 0 || record.MessageID != "msg_report" {
-		t.Fatalf("inferred report manufactured claims: %+v", record)
-	}
-	if _, err := InferDoneReport(&tm, "worker", "busy", []api.Message{message}); err == nil {
-		t.Fatal("busy report inferred")
-	}
-	message.Parts[0].SessionID = "ses_other"
-	if _, err := InferDoneReport(&tm, "worker", "idle", []api.Message{message}); err == nil {
-		t.Fatal("foreign message inferred")
 	}
 }
 

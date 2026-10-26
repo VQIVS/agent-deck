@@ -28,7 +28,7 @@ func TestWaitingEvents(t *testing.T) {
 		"session-a",
 		now.Add(time.Second),
 	)
-	if s.DisplayStatus() != "WAITING" || !s.DisplaySince().Equal(now) {
+	if s.DisplayStatus() != "WAITING" || !s.WaitingSince.Equal(now) {
 		t.Fatal("busy hid waiting")
 	}
 	s.Apply(event("permission.replied", `{"sessionID":"session-other","requestID":"per_a"}`), "session-a", now)

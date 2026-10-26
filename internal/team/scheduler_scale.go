@@ -1,7 +1,5 @@
 package team
 
-import "slices"
-
 func (input *SchedulingInput) scale(plan *SchedulingPlan, reserved map[string]bool, tokens int64, cost float64) {
 	for i := range input.Workers {
 		worker := &input.Workers[i]
@@ -135,26 +133,6 @@ func saturatingTokens(total, addition int64) int64 {
 func (input *SchedulingInput) withinBudget(tokens int64, cost float64) bool {
 	return (input.Policy.TokenBudget == 0 || tokens < input.Policy.TokenBudget) &&
 		(input.Policy.CostBudget == 0 || cost < input.Policy.CostBudget)
-}
-
-// ScalingApproved checks the current policy gate for a proposed capacity increase.
-// Call again immediately before session creation; approval does not bypass other limits.
-func ScalingApproved(input *SchedulingInput, proposal *WorkerProposal, approved bool) bool {
-	if proposal == nil {
-		return false
-	}
-	plan, err := PlanSchedule(input)
-	if err != nil || input.ReadOnly || input.Policy.Approval == "off" {
-		return false
-	}
-	for i := range plan.Proposals {
-		current := &plan.Proposals[i]
-		if current.Task == proposal.Task && current.Role == proposal.Role && current.Model == proposal.Model &&
-			slices.Equal(current.Paths, proposal.Paths) && slices.Equal(current.Skills, proposal.Skills) {
-			return input.Policy.Approval == "auto" || approved
-		}
-	}
-	return false
 }
 
 // RetirementApproved revalidates idle age and current capacity before a retirement.

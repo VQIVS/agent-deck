@@ -45,16 +45,16 @@ func TestJournalRecoveryAndPrivacy(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer j.Close()
-	for member, count := range map[string]int{"alice": 3, "bob": 3, "eve": 1, "user": 1} {
-		records, err := j.Read(ctx, member, "")
+	for member, count := range map[string]int{"alice": 2, "bob": 2, "eve": 1, "user": 1} {
+		records, err := j.ReadMessages(ctx, member, "", "", 100)
 		if err != nil || len(records) != count {
 			t.Fatalf("%s: got %v, %v", member, records, err)
 		}
 	}
-	if _, err := j.Read(ctx, "eve", "2"); err == nil {
+	if _, err := j.ReadMessages(ctx, "eve", "", "2", 100); err == nil {
 		t.Fatal("private cursor exposed")
 	}
-	if records, err := j.Read(ctx, "bob", "2"); err != nil || len(records) != 1 {
+	if records, err := j.ReadMessages(ctx, "bob", "", "2", 100); err != nil || len(records) != 0 {
 		t.Fatalf("cursor result: %v, %v", records, err)
 	}
 	if err := j.Append(ctx, &Record{ID: "4", Kind: "message", Sender: "bob"}); err != nil {
@@ -108,12 +108,12 @@ func TestJournalConcurrentWritesAndCopies(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	records, err := j.Read(context.Background(), "bob", "")
+	records, err := j.ReadMessages(context.Background(), "bob", "", "", 100)
 	if err != nil || len(records) != 20 {
 		t.Fatalf("records: %v, %v", records, err)
 	}
 	records[0].Recipients[0] = "eve"
-	if records, _ := j.Read(context.Background(), "eve", ""); len(records) != 0 {
+	if records, _ := j.ReadMessages(context.Background(), "eve", "", "", 100); len(records) != 0 {
 		t.Fatal("read mutated stored recipients")
 	}
 	ctx, cancel := context.WithCancel(context.Background())

@@ -8,8 +8,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 // DoneCriterion defines one stable checklist identity and its completion requirement.
@@ -197,30 +195,4 @@ func reportWorker(t *Team, authenticatedMember string) (*Member, error) {
 		}
 	}
 	return nil, fmt.Errorf("report identity must be a current worker with a bound session")
-}
-
-// InferDoneReport projects an idle assistant message without manufacturing checklist or test outcomes.
-func InferDoneReport(t *Team, authenticatedMember, state string, messages []api.Message) (ReportRecord, error) {
-	member, err := reportWorker(t, authenticatedMember)
-	if err != nil {
-		return ReportRecord{}, err
-	}
-	if state != "idle" {
-		return ReportRecord{}, fmt.Errorf("inferred report requires idle worker")
-	}
-	latest := LatestAssistant(messages)
-	if latest == nil || strings.TrimSpace(AssistantText(messages)) == "" {
-		return ReportRecord{}, fmt.Errorf("no assistant text to infer a report from")
-	}
-	for i := range latest.Parts {
-		part := &latest.Parts[i]
-		if part.SessionID != "" && part.SessionID != member.Session {
-			return ReportRecord{}, fmt.Errorf("assistant message belongs to a different session")
-		}
-	}
-	return ReportRecord{
-		Version: 1, Team: t.Name, Member: member.Name, Session: member.Session,
-		Source: "inferred", RecordedAt: time.Now().UTC(),
-		InferredText: AssistantText(messages), MessageID: latest.Info.ID,
-	}, nil
 }

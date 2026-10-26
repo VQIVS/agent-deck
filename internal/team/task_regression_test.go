@@ -3,7 +3,6 @@ package team
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -106,7 +105,7 @@ func TestReviewReassignmentAndCompactCommentHistory(t *testing.T) {
 	}
 }
 
-func TestTaskActorResolvedAndTaskReportLink(t *testing.T) {
+func TestTaskActorResolved(t *testing.T) {
 	tm := Team{Members: []Member{{Name: "worker", Role: "worker", Session: "ses_worker"}}}
 	actor, err := tm.ResolveTaskActor("worker")
 	if err != nil || actor.Role != "worker" {
@@ -118,20 +117,6 @@ func TestTaskActorResolvedAndTaskReportLink(t *testing.T) {
 	tm.Members[0].Muted = true
 	if _, err := tm.ResolveTaskActor("worker"); err == nil {
 		t.Fatal("muted actor authorized")
-	}
-	tm.Members[0].Muted = false
-	board, m := workflowFixture(t)
-	if err := board.SetAssignee("task", "worker", m); err != nil {
-		t.Fatal(err)
-	}
-	for _, state := range []string{"ready", "in_progress"} {
-		if err := board.MoveTask("task", state, m); err != nil {
-			t.Fatal(err)
-		}
-	}
-	report := &DoneReport{TaskID: "other", Member: "worker", Session: "ses_worker", Summary: "done"}
-	if _, err := TaskReportDefinition(&tm, board, "worker", report); err == nil {
-		t.Fatal("cross-task report accepted")
 	}
 }
 
@@ -150,74 +135,5 @@ func TestLegacyDoneAndPendingDependencies(t *testing.T) {
 	if board.Tasks[0].State != "done" || !board.Tasks[0].LegacyCompletion || board.Tasks[1].State != "ready" ||
 		board.Tasks[2].State != "backlog" {
 		t.Fatal("migration lost legacy planning", board)
-	}
-}
-
-func TestTaskReportStoreRoundTripAndTaskMismatch(t *testing.T) {
-	board, m := workflowFixture(t)
-	if err := board.SetAssignee("task", "worker", m); err != nil {
-		t.Fatal(err)
-	}
-	for _, state := range []string{"ready", "in_progress"} {
-		if err := board.MoveTask("task", state, m); err != nil {
-			t.Fatal(err)
-		}
-	}
-	tm := Team{Name: "team", Members: []Member{{Name: "worker", Role: "worker", Session: "session"}}}
-	report := &DoneReport{
-		TaskID: "task", Member: "worker", Session: "session", Summary: "done",
-		Checklist: []ReportItem{{ID: "tests", Complete: true}},
-		Tests:     []ReportTest{{CriterionID: "tests", Command: "go test", Outcome: "pass"}},
-	}
-	store := ReportStore{Root: filepath.Join(t.TempDir(), "reports")}
-	if _, err := store.SubmitTask(t.Context(), &tm, board, "worker", report, nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.LoadTask(t.Context(), &tm, board, "worker", "task"); err != nil {
-		t.Fatal(err)
-	}
-	tm.Members[0].Session = "new-session"
-	if _, err := store.LoadTask(t.Context(), &tm, board, "worker", "task"); err == nil {
-		t.Fatal("stale task session report loaded")
-	}
-}
-
-func TestCompleteTaskForTeamRejectsWrongTeamAndStaleBinding(t *testing.T) {
-	board, mutation := workflowFixture(t)
-	if err := board.SetAssignee("task", "worker", mutation); err != nil {
-		t.Fatal(err)
-	}
-	for _, state := range []string{"ready", "in_progress"} {
-		if err := board.MoveTask("task", state, mutation); err != nil {
-			t.Fatal(err)
-		}
-	}
-	current := &Team{Name: "team", Members: []Member{
-		{Name: "lead", Role: "master", Session: "ses_lead"},
-		{Name: "worker", Role: "worker", Session: "ses_worker"},
-	}}
-	record := &ReportRecord{
-		Team: "other", Member: "worker", Session: "ses_worker", Source: "structured",
-		RecordedAt: mutation.Now, ReportedDone: true, Definition: taskDefinition(&board.Tasks[0]),
-		Reported: &DoneReport{
-			TaskID: "task", Member: "worker", Session: "ses_worker", Summary: "done",
-			Checklist: []ReportItem{{ID: "tests", Complete: true}},
-			Tests:     []ReportTest{{CriterionID: "tests", Command: "go test", Outcome: "pass"}},
-		},
-	}
-	if err := board.CompleteTaskForTeam("task", record, current, mutation); err == nil {
-		t.Fatal("wrong-team report completed task")
-	}
-	record.Team = current.Name
-	current.Members[1].Session = "ses_replacement"
-	if err := board.CompleteTaskForTeam("task", record, current, mutation); err == nil {
-		t.Fatal("stale-binding report completed task")
-	}
-	if board.Tasks[0].State != "in_progress" {
-		t.Fatal("rejected completion mutated task")
-	}
-	current.Members[1].Session = "ses_worker"
-	if err := board.CompleteTaskForTeam("task", record, current, mutation); err != nil {
-		t.Fatal("current report rejected", err)
 	}
 }

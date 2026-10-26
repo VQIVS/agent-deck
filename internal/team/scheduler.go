@@ -286,28 +286,3 @@ func (input *SchedulingInput) assigned(worker string) bool {
 		return TaskActive(&task) && task.Worker == worker
 	})
 }
-
-func (b *TaskBoard) Assign(id, worker string, input *SchedulingInput) error {
-	if input == nil || input.Board != b {
-		return fmt.Errorf("assignment requires the current board snapshot")
-	}
-	plan, err := PlanSchedule(input)
-	if err != nil {
-		return err
-	}
-	if !slices.Contains(plan.Assignments, TaskAssignment{Task: id, Worker: worker}) {
-		return fmt.Errorf("assignment is not currently schedulable")
-	}
-	for i := range b.Tasks {
-		if b.Tasks[i].ID == id {
-			b.Tasks[i].State, b.Tasks[i].Worker = "assigned", worker
-			if b.Version >= 2 {
-				b.Tasks[i].State = b.Destination("active")
-				bindTaskCategory(b, &b.Tasks[i])
-				b.Tasks[i].Assignee = worker
-			}
-			return nil
-		}
-	}
-	return fmt.Errorf("unknown task %q", id)
-}

@@ -72,8 +72,6 @@ func (t *Team) ResolveTaskActor(name string) (TaskActor, error) {
 	return TaskActor{}, fmt.Errorf("task actor is not a current team member")
 }
 
-func (t *Team) TaskActor(name string) (TaskActor, error) { return t.ResolveTaskActor(name) }
-
 // TaskMutation supplies explicit authority, time and read-only policy for every mutation.
 type TaskMutation struct {
 	Actor    TaskActor

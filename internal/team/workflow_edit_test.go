@@ -160,19 +160,41 @@ func TestWorkflowSaveCASPreservesDefinition(t *testing.T) {
 	}
 	mutation := TaskMutation{Actor: TaskActor{User: true}, Now: time.Now().UTC()}
 	w := customWorkflow()
-	if err := SaveWorkflow(t.Context(), manager, boardStore, w, state.Revision, mutation); err != nil {
+	if err := SaveWorkflowRenamed(t.Context(), manager, boardStore, w, nil, state.Revision, mutation); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := boardStore.Load(t.Context())
 	if err != nil || loaded.Board.Category("custom-active") != "active" {
 		t.Fatal(loaded, err)
 	}
-	if err := SaveWorkflow(t.Context(), manager, boardStore, DefaultWorkflow(), state.Revision, mutation); err == nil {
+	if err := SaveWorkflowRenamed(t.Context(), manager, boardStore, DefaultWorkflow(), nil,
+		state.Revision, mutation); err == nil {
 		t.Fatal("stale board revision accepted")
 	}
 	configured, _, err := store.Load(t.Context(), "pool")
 	if err != nil || configured.Workflow.Category("custom-active") != "active" {
 		t.Fatal(configured, err)
+	}
+	current, err := pool.manager(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	current.Team.Members[0].Brief = "concurrent policy update"
+	if err := current.Save(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	before := bytes.Clone(current.Version)
+	if err := SaveWorkflowRenamed(t.Context(), manager, boardStore, DefaultWorkflow(), nil,
+		loaded.Revision, mutation); err == nil {
+		t.Fatal("stale team revision accepted with current board revision")
+	}
+	_, version, err := store.Load(t.Context(), "pool")
+	if err != nil || !bytes.Equal(version, before) {
+		t.Fatal("stale editor overwrote concurrent team change", err)
+	}
+	after, err := boardStore.Load(t.Context())
+	if err != nil || after.Revision != loaded.Revision || after.Board.Category("custom-active") != "active" {
+		t.Fatal("stale editor changed board", after, err)
 	}
 }
 

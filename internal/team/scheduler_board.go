@@ -189,59 +189,6 @@ func (b *TaskBoard) visit(id string, index, marks map[string]int) error {
 	return nil
 }
 
-func (b *TaskBoard) Finish(id, authenticatedWorker string, report TaskReport, failed, readOnly bool) error {
-	if b.Version == 2 {
-		return fmt.Errorf("workflow completion requires ReviewTask or CompleteTask; failures use MoveTask blocked")
-	}
-	if readOnly {
-		return fmt.Errorf("read-only: task changes disabled")
-	}
-	if err := b.Validate(); err != nil {
-		return err
-	}
-	for i := range b.Tasks {
-		task := &b.Tasks[i]
-		if task.ID != id {
-			continue
-		}
-		if authenticatedWorker == "" || task.Worker != authenticatedWorker {
-			return fmt.Errorf("finishing requires the authenticated assigned worker")
-		}
-		if task.State != "assigned" || report.Text == "" {
-			return fmt.Errorf("finishing requires an assigned task and a report")
-		}
-		task.State, task.Report = "done", &report
-		if failed {
-			task.State = "failed"
-		}
-		return nil
-	}
-	return fmt.Errorf("unknown task %q", id)
-}
-
-func (b *TaskBoard) RecordUsage(id string, usage TaskUsage, readOnly bool) error {
-	if readOnly {
-		return fmt.Errorf("read-only: task changes disabled")
-	}
-	if err := b.Validate(); err != nil {
-		return err
-	}
-	if err := validateUsage(&usage); err != nil {
-		return err
-	}
-	for i := range b.Tasks {
-		task := &b.Tasks[i]
-		if task.ID == id {
-			if task.State != "done" && task.State != "failed" {
-				return fmt.Errorf("measured usage requires a finished task")
-			}
-			task.Measured = &usage
-			return nil
-		}
-	}
-	return fmt.Errorf("unknown task %q", id)
-}
-
 func cloneTask(task *Task) Task {
 	result := *task
 	result.Paths = slices.Clone(task.Paths)
@@ -249,23 +196,4 @@ func cloneTask(task *Task) Task {
 	result.Skills = slices.Clone(task.Skills)
 	cloneWorkflowFields(&result)
 	return result
-}
-
-func (b *TaskBoard) Add(task *Task, readOnly bool) error {
-	if readOnly {
-		return fmt.Errorf("read-only: task changes disabled")
-	}
-	if err := b.Validate(); err != nil {
-		return err
-	}
-	if task == nil || task.State != "pending" {
-		return fmt.Errorf("new task must be pending")
-	}
-	candidate := TaskBoard{Version: b.Version, Tasks: slices.Clone(b.Tasks)}
-	candidate.Tasks = append(candidate.Tasks, cloneTask(task))
-	if err := candidate.Validate(); err != nil {
-		return err
-	}
-	b.Tasks = candidate.Tasks
-	return nil
 }

@@ -30,9 +30,6 @@ func TestReduce(t *testing.T) {
 	e.ID = "evt_once"
 	s.Apply(e, "session-a", now)
 	s.Apply(e, "session-a", now)
-	if s.Tail() != "hello world\n" {
-		t.Fatal(s.Tail())
-	}
 	s.Apply(event("session.status", `{"sessionID":"session-other","status":{"type":"idle"}}`), "session-a", now)
 	if s.Status != "BUSY" {
 		t.Fatal("cross-session leak")
@@ -55,7 +52,7 @@ func TestReduce(t *testing.T) {
 func TestBoundedAndTool(t *testing.T) {
 	s := New()
 	for i := 0; i < MaxParts+20; i++ {
-		s.Upsert(&api.Part{ID: fmt.Sprint(i), Type: "text", Text: strings.Repeat("a", 30000)})
+		s.upsert(&api.Part{ID: fmt.Sprint(i), Type: "text", Text: strings.Repeat("a", 30000)})
 	}
 	if len(s.Parts) != MaxParts || len(s.Parts[0].Text) != 24000 {
 		t.Fatal("unbounded")

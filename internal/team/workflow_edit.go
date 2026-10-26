@@ -73,14 +73,6 @@ func (b *TaskBoard) ValidMoves(id string, mutation TaskMutation) []WorkflowStage
 	return stages
 }
 
-// SaveWorkflow validates a coordinated team/board update under the board lock.
-// A board-save failure after the team save is explicit; retry with refreshed revisions repairs it.
-func SaveWorkflow(ctx context.Context, manager *Manager, store BoardStore, definition WorkflowDefinition,
-	expected uint64, mutation TaskMutation,
-) error {
-	return SaveWorkflowRenamed(ctx, manager, store, definition, nil, expected, mutation)
-}
-
 // SaveWorkflowRenamed includes explicit old-name to new-name remaps in the coordinated save.
 func SaveWorkflowRenamed(ctx context.Context, manager *Manager, store BoardStore, definition WorkflowDefinition,
 	renames map[string]string, expected uint64, mutation TaskMutation,

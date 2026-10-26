@@ -63,16 +63,6 @@ func migrateBoardState(state *BoardState) error {
 	return nil
 }
 
-// TaskProgress counts claimed checklist progress without implying independent verification.
-func TaskProgress(task *Task) (checked, total int) {
-	for _, criterion := range task.Criteria {
-		if criterion.Checked {
-			checked++
-		}
-	}
-	return checked, len(task.Criteria)
-}
-
 // UpdateTaskProgress lets an assigned worker record checklist claims without changing acceptance text.
 func (b *TaskBoard) UpdateTaskProgress(id string, checked map[string]bool, m TaskMutation) error {
 	return b.mutate(id, m, func(board *TaskBoard, task *Task) error {
@@ -132,39 +122,4 @@ func validateTaskDiscussion(task *Task, total int) error {
 		return fmt.Errorf("task discussion/history exceeds 1 MiB")
 	}
 	return nil
-}
-
-// TaskReportDefinition validates task linkage and current authenticated binding before report persistence.
-func TaskReportDefinition(t *Team, board *TaskBoard, memberName string, report *DoneReport) (DefinitionOfDone, error) {
-	if report == nil || report.TaskID == "" {
-		return nil, fmt.Errorf("task report requires task_id")
-	}
-	member, err := reportWorker(t, memberName)
-	if err != nil {
-		return nil, err
-	}
-	task, err := taskByID(board, report.TaskID)
-	if err != nil {
-		return nil, err
-	}
-	if task.Assignee != memberName || !TaskActive(task) ||
-		report.Member != memberName || report.Session != member.Session {
-		return nil, fmt.Errorf("report requires current active task assignee and session")
-	}
-	definition, err := TaskReviewDefinition(t, task)
-	if err != nil {
-		return nil, err
-	}
-	if err := report.Validate(definition); err != nil {
-		return nil, err
-	}
-	return definition, nil
-}
-
-// TaskStateAfterAssignment preserves legacy board callers while writing the canonical workflow state.
-func TaskStateAfterAssignment(version int) string {
-	if version == 1 {
-		return "assigned"
-	}
-	return "in_progress"
 }

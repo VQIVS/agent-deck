@@ -13,10 +13,6 @@ type BoardController struct {
 	Snapshot   func(context.Context) (ReconcileSnapshot, error)
 }
 
-func (c *BoardController) Status(ctx context.Context) (BoardState, error) {
-	return c.Store.Load(ctx)
-}
-
 func (c *BoardController) Propose(ctx context.Context, actor ReconcileActor) ([]ReconcileAction, error) {
 	if c.Snapshot == nil {
 		return nil, fmt.Errorf("board controller requires current snapshot callback")

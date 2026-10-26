@@ -246,28 +246,6 @@ func (b *TaskBoard) CompleteTask(id string, record *ReportRecord, m TaskMutation
 	})
 }
 
-// CompleteTaskForTeam checks report provenance against current trusted team bindings before completion.
-func (b *TaskBoard) CompleteTaskForTeam(id string, record *ReportRecord, current *Team, m TaskMutation) error {
-	if current == nil || record == nil || record.Team != current.Name || !record.CurrentBinding(current) {
-		return fmt.Errorf("task completion report must match current team and worker session binding")
-	}
-	if !m.Actor.User {
-		actor, err := current.ResolveTaskActor(m.Actor.Member)
-		if err != nil {
-			return err
-		}
-		m.Actor = actor
-	}
-	task, err := taskByID(b, id)
-	if err != nil {
-		return err
-	}
-	if err := ValidateTaskEvidence(current, task, &TaskEvidence{Report: record}); err != nil {
-		return err
-	}
-	return b.CompleteTask(id, record, m)
-}
-
 func TaskPending(task *Task) bool { return taskCategory(task) == "ready" }
 func TaskActive(task *Task) bool {
 	return taskCategory(task) == "active" || taskCategory(task) == "review"

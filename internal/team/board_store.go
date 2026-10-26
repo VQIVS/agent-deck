@@ -362,19 +362,3 @@ func compactBoardActions(entries []ReconcileEntry, revision string) []ReconcileE
 	}
 	return result
 }
-
-func (s BoardStore) Snapshot(ctx context.Context, manager *Manager, workers []SchedulerWorker,
-	now time.Time,
-) (ReconcileSnapshot, error) {
-	state, err := s.Load(ctx)
-	if err != nil {
-		return ReconcileSnapshot{}, err
-	}
-	return ReconcileSnapshot{
-		Team: manager.Team, Revision: fmt.Sprintf("%d", state.Revision), Approved: state.Approved,
-		Input: SchedulingInput{
-			Board: &state.Board, Policy: state.Policy, Workers: slices.Clone(workers), Now: now,
-			LastScale: state.LastScale, ReadOnly: s.ReadOnly || manager.ReadOnly,
-		},
-	}, nil
-}

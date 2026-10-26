@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
@@ -207,37 +206,4 @@ func (identity *WorkflowIdentity) Instructions() string {
 		"Do not create source files in the control directory. Previous transcript: session=%q directory=%q. "+
 		"Team credentials provide cooperative same-user identity, not filesystem isolation.",
 		identity.ControlDir, identity.Repo, identity.PreviousSession, identity.PreviousDir)
-}
-
-func (identity *WorkflowIdentity) Permissions() []opencode.Rule {
-	return []opencode.Rule{
-		{Permission: "external_directory", Pattern: identity.Repo, Action: "allow"},
-		{Permission: "external_directory", Pattern: filepath.Join(identity.Repo, "*"), Action: "allow"},
-	}
-}
-
-// InstallWorkflowCredential writes only the member's private control config, never the shared checkout.
-func InstallWorkflowCredential(
-	ctx context.Context, identity *WorkflowIdentity, stateDir, teamName, endpoint, token string,
-) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if identity == nil || identity.MemberID == "" || identity.ControlDir == "" ||
-		token == "" || !validOwnedEndpoint(endpoint) {
-		return fmt.Errorf("workflow credential requires prepared identity, loopback endpoint and token")
-	}
-	if err := privateControlDirectory(identity.ControlDir); err != nil {
-		return err
-	}
-	options := RuntimeOptions{StateDir: stateDir}
-	if err := runtimeStateDirectory(&options); err != nil {
-		return err
-	}
-	config := filepath.Join(identity.ControlDir, "opencode.json")
-	credential := runtimeCredential{
-		dir: identity.ControlDir, config: config, entry: "agent_deck_" + teamName, token: token,
-		lockPath: runtimeStatePath(options.StateDir, config, "config.lock"),
-	}
-	return installRuntimeConfig(&credential, endpoint)
 }

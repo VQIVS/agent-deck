@@ -20,16 +20,6 @@ func (s *State) DisplayStatus() string {
 	return s.Status
 }
 
-func (s *State) DisplaySince() time.Time {
-	if s.Waiting() {
-		return s.WaitingSince
-	}
-	if s.Stalled(s.now()) {
-		return s.ActivitySince().Add(s.StallAfter)
-	}
-	return s.Since
-}
-
 func (s *State) UpdateRequests(permissions []api.Permission, questions []api.Question, now time.Time) bool {
 	was := s.Waiting()
 	s.Permissions = permissions

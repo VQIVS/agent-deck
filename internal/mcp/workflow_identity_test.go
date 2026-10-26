@@ -36,26 +36,10 @@ func TestWorkflowControlDirectoriesKeepSharedCheckoutSeparate(t *testing.T) {
 	if !strings.Contains(master.Instructions(), "prior-session") || !strings.Contains(master.Instructions(), master.Repo) {
 		t.Fatal("missing source/transcript instructions")
 	}
-	state := t.TempDir()
 	for _, identity := range []*WorkflowIdentity{&master, &worker} {
-		err := InstallWorkflowCredential(t.Context(), identity, state, "test", "http://127.0.0.1:1234/mcp", identity.MemberID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		config, _, err := loadRuntimeConfig(filepath.Join(identity.ControlDir, "opencode.json"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		servers, _ := configServers(config)
-		if !ownedRuntimeEntry(servers["agent_deck_test"], identity.MemberID) {
-			t.Fatal("shared member token")
-		}
 		info, _ := os.Stat(identity.ControlDir)
 		if info.Mode().Perm() != 0o700 {
 			t.Fatal("public control dir")
-		}
-		if len(identity.Permissions()) != 2 {
-			t.Fatal("missing explicit repo permissions")
 		}
 	}
 	entries, _ := os.ReadDir(repo)

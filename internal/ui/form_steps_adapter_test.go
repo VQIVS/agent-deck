@@ -5,12 +5,10 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/vqivs/agent-deck/internal/config"
 )
 
 func TestFormStepsAdapterInputAndButtonZones(t *testing.T) {
-	m := New(t.Context(), &config.Deck{}, Options{NoGit: true})
+	m := New(t.Context(), &Deck{}, Options{NoGit: true})
 	m.EnableTeams(t.TempDir())
 	m.teamAction("team-new")
 	m.w, m.h = 160, 48

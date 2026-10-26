@@ -1,15 +1,37 @@
 package ui
 
-import (
-	"github.com/vqivs/agent-deck/internal/config"
-	"github.com/vqivs/agent-deck/internal/team"
-)
+import "github.com/vqivs/agent-deck/internal/team"
 
 // Agent binds a dashboard pane to a session and its code directory.
-type Agent = config.Agent
+type Agent struct {
+	CodeDir string
+	Name    string
+	Session string
+	Dir     string
+	Branch  string
+	Base    string
+	Role    string
+	Parent  string
+}
 
 // Deck is the in-memory dashboard input, not a file format.
-type Deck = config.Deck
+type Deck struct {
+	Server   string
+	Master   Agent
+	Workers  []Agent
+	Sessions []Agent
+}
+
+func (d *Deck) Agents() []Agent {
+	var out []Agent
+	if d.Master.Session != "" {
+		a := d.Master
+		a.Role = "lead"
+		out = append(out, a)
+	}
+	out = append(out, d.Workers...)
+	return append(out, d.Sessions...)
+}
 
 func TeamDeck(current *team.Team) Deck {
 	d := Deck{Server: current.Server}

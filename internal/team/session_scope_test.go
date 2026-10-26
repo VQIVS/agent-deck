@@ -37,10 +37,6 @@ func TestControlSessionUsesAPIScopeAndKeepsCodeCheckout(t *testing.T) {
 	if status := manager.Observe(t.Context(), 0); status.State != "idle" || status.Directory != "/private/control" {
 		t.Fatal(status)
 	}
-	deck := tm.Deck()
-	if deck.Sessions[0].Dir != "/private/control" || deck.Sessions[0].CodeDir != "/tmp/project" {
-		t.Fatal(deck)
-	}
 	options, err := Options(t.Context(), &tm, member, "hello")
 	if err != nil || !strings.Contains(options.System, "Code checkout: \"/tmp/project\"") {
 		t.Fatal(options, err)

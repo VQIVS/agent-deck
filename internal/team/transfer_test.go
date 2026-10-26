@@ -12,13 +12,23 @@ sessions:
   - {name: Worker, session: session-worker, dir: /tmp/worker}
 `
 
+const adoptedTeam = `version: 1
+name: Example
+server: http://localhost:4096
+repo: /work/agent-deck
+base: develop
+capacity: 1
+members:
+  - {name: Lead, role: master, session: session-lead, dir: /work/agent-deck, mode: adopt, capability: inherited}
+  - {name: Worker, role: worker, session: session-worker, dir: /work/worker, mode: adopt, capability: inherited}
+`
+
 func TestTransferRoundTrip(t *testing.T) {
-	source, err := Import([]byte(legacySessions), ImportOptions{Name: "Example"})
+	source, err := Import([]byte(adoptedTeam), ImportOptions{Name: "Example"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	source.Members[0].System = "Coordinate carefully"
-	source.Members[0].Model = "provider/model"
 	source.Members[1].Owned = true
 	for _, format := range []string{"yaml", "json"} {
 		b, err := Export(&source, format, false)
@@ -36,7 +46,7 @@ func TestTransferRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		bindings := []string{"session-lead", "session-worker", "/tmp/project", "/tmp/worker", "owned_worktree"}
+		bindings := []string{"session-lead", "session-worker", "/work/agent-deck", "/work/worker", "owned_worktree"}
 		for _, forbidden := range bindings {
 			if strings.Contains(string(b), forbidden) {
 				t.Fatalf("portable leaked %s", forbidden)
@@ -49,7 +59,7 @@ func TestTransferRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.Members[0].Model != "provider/model" || got.Members[0].System != "Coordinate carefully" ||
+		if got.Members[0].System != "Coordinate carefully" ||
 			got.Members[0].Role != "master" ||
 			got.Members[1].Capability != "inherited" ||
 			len(got.Members[1].Permissions) != 0 {
@@ -66,17 +76,9 @@ func TestLegacyFormatsAndValidation(t *testing.T) {
 "master":{"name":"Lead","session":"session-lead","dir":"/tmp/project"},
 "workers":[{"name":"Worker","session":"session-worker","dir":"/tmp/worker"}]}`
 	for _, source := range []string{legacySessions, masterWorkers} {
-		v, err := Import([]byte(source), ImportOptions{Name: "Example"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(v.Members) != 2 || v.Members[0].Mode != "adopt" || v.Members[0].Role != "master" || v.Members[0].Owned {
-			t.Fatal(v)
-		}
-		for _, member := range v.Members {
-			if member.Capability != "inherited" || len(member.Permissions) != 0 {
-				t.Fatal("adoption invented rules", member)
-			}
+		if _, err := Import([]byte(source), ImportOptions{Name: "Example"}); err == nil ||
+			!strings.Contains(err.Error(), "legacy deck files are no longer supported") {
+			t.Fatal("legacy deck did not fail clearly", err)
 		}
 	}
 	for _, source := range []string{
@@ -89,7 +91,7 @@ func TestLegacyFormatsAndValidation(t *testing.T) {
 			t.Fatalf("accepted invalid input %s", source)
 		}
 	}
-	v, _ := Import([]byte(legacySessions), ImportOptions{Name: "Example"})
+	v, _ := Import([]byte(adoptedTeam), ImportOptions{Name: "Example"})
 	v.Members[0].Capability = "typo"
 	if err := v.Validate(); err == nil {
 		t.Fatal("unknown capability accepted")
@@ -104,7 +106,7 @@ func TestLegacyFormatsAndValidation(t *testing.T) {
 }
 
 func TestImportConflictAndExportOverwrite(t *testing.T) {
-	v, _ := Import([]byte(legacySessions), ImportOptions{Name: "Example"})
+	v, _ := Import([]byte(adoptedTeam), ImportOptions{Name: "Example"})
 	s := Store{Root: t.TempDir()}
 	old, err := s.Save(t.Context(), &v, nil)
 	if err != nil {

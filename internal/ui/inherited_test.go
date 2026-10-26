@@ -4,19 +4,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestAdoptedFormPreservesInheritedAndExplicitPreset(t *testing.T) {
 	m := transferModel(t)
-	v := team.FromDeck(
-		&config.Deck{
-			Server:   "http://localhost:4096",
-			Sessions: []config.Agent{{Name: "Lead", Role: "lead", Session: "session-lead", Dir: "/tmp/project"}},
-		},
-		"Example",
-	)
+	v := team.Team{
+		Version: 1, Name: "Example", Server: "http://localhost:4096", Repo: "/work/agent-deck",
+		Base: "main", Capacity: 1, Members: []team.Member{{
+			Name: "Lead", Role: "master", Mode: "adopt",
+			Session: "session-lead", Dir: "/work/agent-deck", Capability: "inherited",
+		}},
+	}
 	version, err := m.teams.Store.Save(t.Context(), &v, nil)
 	if err != nil {
 		t.Fatal(err)

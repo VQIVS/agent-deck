@@ -14,16 +14,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
 func requestModel(server string, ro bool) *Model {
 	return New(
 		context.Background(),
-		&config.Deck{
+		&Deck{
 			Server:   server,
-			Sessions: []config.Agent{{Name: "Worker", Session: "session-a", Dir: "/tmp/team"}},
+			Sessions: []Agent{{Name: "Worker", Session: "session-a", Dir: "/tmp/team"}},
 		},
 		Options{NoGit: true, ReadOnly: ro},
 	)

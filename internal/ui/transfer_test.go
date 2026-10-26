@@ -12,14 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func transferModel(t *testing.T) *Model {
 	t.Helper()
-	m := New(context.Background(), &config.Deck{Server: "http://localhost:4096"}, Options{NoGit: true, Theme: "dark"})
+	m := New(context.Background(), &Deck{Server: "http://localhost:4096"}, Options{NoGit: true, Theme: "dark"})
 	m.EnableTeams(t.TempDir())
 	return m
 }
@@ -27,7 +26,9 @@ func transferModel(t *testing.T) *Model {
 func TestUIImportPreviewAndConflict(t *testing.T) {
 	m := transferModel(t)
 	path := filepath.Join(t.TempDir(), "example.yaml")
-	deck := []byte("sessions:\n  - {name: Lead, role: lead, session: session-lead, dir: /tmp/project}\n")
+	deck := []byte("version: 1\nname: example\nserver: http://127.0.0.1:4096\nrepo: /work/agent-deck\n" +
+		"base: main\ncapacity: 1\nmembers:\n  - {name: Lead, role: master, session: session-lead, " +
+		"dir: /work/agent-deck, mode: adopt, capability: inherited}\n")
 	if err := os.WriteFile(path, deck, 0o600); err != nil {
 		t.Fatal(err)
 	}

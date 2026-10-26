@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/vqivs/agent-deck/internal/config"
 )
 
 // Member binds a team role to workspace, session, and creation-time policy.
@@ -225,25 +223,6 @@ func Parse(b []byte) (Team, error) {
 	}
 	err := t.Validate()
 	return t, err
-}
-
-func (t *Team) Deck() config.Deck {
-	d := config.Deck{Server: t.Server}
-	for i := range t.Members {
-		m := &t.Members[i]
-		if m.Session == "" {
-			continue
-		}
-		a := config.Agent{
-			Name: m.Name, Session: m.Session, Dir: m.SessionDir(), CodeDir: m.Dir,
-			Branch: m.Branch, Base: t.Base,
-		}
-		if m.Role == "master" {
-			a.Role = "lead"
-		}
-		d.Sessions = append(d.Sessions, a)
-	}
-	return d
 }
 
 func (t *Team) CanStart(index int) error {

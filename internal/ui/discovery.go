@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/state"
 )
@@ -48,15 +47,15 @@ func (m *Model) startStream(dir string) {
 	)
 }
 
-func agent(s api.Session) config.Agent {
+func agent(s api.Session) Agent {
 	name := s.Title
 	if name == "" {
 		name = s.ID
 	}
-	return config.Agent{Name: name, Session: s.ID, Dir: s.Directory, Parent: s.ParentID}
+	return Agent{Name: name, Session: s.ID, Dir: s.Directory, Parent: s.ParentID}
 }
 
-func activeAgents(v *api.Inventory) []config.Agent {
+func activeAgents(v *api.Inventory) []Agent {
 	byID := map[string]api.Session{}
 	selected := map[string]bool{}
 	for _, s := range v.Sessions {
@@ -72,7 +71,7 @@ func activeAgents(v *api.Inventory) []config.Agent {
 			selected[p] = true
 		}
 	}
-	var out []config.Agent
+	var out []Agent
 	for _, s := range v.Sessions {
 		if selected[s.ID] {
 			out = append(out, agent(s))
@@ -82,16 +81,16 @@ func activeAgents(v *api.Inventory) []config.Agent {
 }
 
 // Stable preorder keeps children next to parents, tolerates missing parents/cycles.
-func grouped(in []config.Agent) []config.Agent {
-	var out []config.Agent
+func grouped(in []Agent) []Agent {
+	var out []Agent
 	seen := map[string]bool{}
 	present := map[string]bool{}
 	for i := range in {
 		a := &in[i]
 		present[a.Session] = true
 	}
-	var walk func(config.Agent)
-	walk = func(a config.Agent) {
+	var walk func(Agent)
+	walk = func(a Agent) {
 		if seen[a.Session] {
 			return
 		}
@@ -116,7 +115,7 @@ func grouped(in []config.Agent) []config.Agent {
 	return out
 }
 
-func (m *Model) add(a *config.Agent) []tea.Cmd {
+func (m *Model) add(a *Agent) []tea.Cmd {
 	if m.hidden[a.Session] {
 		return nil
 	}
@@ -140,7 +139,7 @@ func (m *Model) add(a *config.Agent) []tea.Cmd {
 }
 
 func (m *Model) page(h int) (visible []int, rectangles []Rect, pageIndex, pageCount int) {
-	var agents []config.Agent
+	var agents []Agent
 	for i := range m.panes {
 		p := &m.panes[i]
 		if !m.hidden[p.Agent.Session] {
@@ -242,7 +241,7 @@ func (m *Model) updatePicker(v tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) cycle(delta int) {
-	var agents []config.Agent
+	var agents []Agent
 	for i := range m.panes {
 		p := &m.panes[i]
 		if !m.hidden[p.Agent.Session] {

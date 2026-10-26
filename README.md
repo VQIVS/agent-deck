@@ -64,11 +64,11 @@ and runaway loops. A session with unrestricted bash runs as your OS user and can
 these controls, including by calling APIs or changing files directly. Real isolation needs
 an OS sandbox; agent-deck does not provide one yet.
 
-- Directory-scoped discovery, HTTP snapshots and automatically reconnecting SSE streams.
+- Directory-scoped session discovery and automatically reconnecting SSE streams.
 - Paged panes, focus and zoom, fuzzy session selection, keyboard navigation and mouse controls.
 - Markdown transcripts, expandable tool cards, raw details, search and optional reasoning.
 - Waiting permission/question indicators, permission replies and optional desktop notifications.
-- Stalled-session badges, model context gauges, confirmed compaction and opt-in bounded idle nudges.
+- Model context gauges and confirmed compaction.
 - Persistent teams, member forms, model/agent selection and owned Git worktrees.
 - YAML/JSON imports and exports, portable templates, previews and revision backups.
 - Auto/dark/light themes, read-only mode and optional Git metadata.
@@ -116,11 +116,6 @@ Check project bindings with `agent-deck doctor --team NAME`.
 agent-deck run --all                  # discover active sessions
 agent-deck --read-only --all          # observe without mutations
 agent-deck --theme light
-agent-deck --snapshot                 # read-only HTTP snapshot
-agent-deck --team example --snapshot  # snapshot of one team
-agent-deck discover --out deck.yaml
-agent-deck --config deck.yaml
-agent-deck new --dir /path/to/project --title 'Review changes'
 agent-deck --version
 ```
 
@@ -192,7 +187,8 @@ agent-deck export example --out example.yaml
 agent-deck export example --portable --format json --out template.json
 ```
 
-Imports accept legacy decks, full team exports and portable templates. The UI can also
+Imports accept team files, full team exports and portable templates. Legacy deck files
+are no longer supported. The UI can also
 import selected live sessions. Preview before saving; replacement requires confirmation.
 Portable exports remove session IDs, local paths and worktree ownership, while retaining
 team instructions and explicit creation policies. Review prompt text before sharing.
@@ -218,7 +214,7 @@ Press `?` for in-app help. Forms and dialogs show their own shortcuts.
 | `Enter`, `Esc` | Zoom / return |
 | `p` | Fuzzy session picker; Space toggles a session |
 | `m`, `Enter` | Compose / send a message (`Ctrl+J` newline; `Ctrl+S` also sends) |
-| `n`, `s`, `a` | Nudge, confirm abort, attach |
+| `s`, `a` | Confirm abort, attach |
 | `y`, `Y`, `x` | Approve once, confirm always, reject |
 | `/`, `j`, `k`, `v`, `R` | Search, select tool cards, raw details, reasoning |
 | `PgUp`, `PgDn`, `End` | Scroll / follow tail |
@@ -229,10 +225,10 @@ hover highlights clickable controls. Picker rows, forms and confirmation dialogs
 
 ## Configuration
 
-Server precedence: `--server`, `AGENT_DECK_SERVER`, deck file, then `http://127.0.0.1:4096`.
+Server precedence: `--server`, `AGENT_DECK_SERVER`, saved team, then `http://127.0.0.1:4096`.
 Use `--no-git` to skip repository inspection and `--notify=false` to disable macOS notifications.
-`--theme` accepts `auto`, `dark`, or `light`. `--config` accepts YAML or JSON legacy decks;
-managed teams use `--team`. See [`examples/team.yaml`](examples/team.yaml).
+`--theme` accepts `auto`, `dark`, or `light`; managed teams use `--team`.
+See [`examples/team.yaml`](examples/team.yaml).
 
 ## Security model
 
@@ -257,7 +253,7 @@ idle sessions. OpenCode status, requests and streams are scoped to each session 
 
 **Does it work offline?** The UI reconnects after server outages; live operations require OpenCode.
 
-**Can I run it without a team?** Yes: `agent-deck --all` or a legacy `--config` file.
+**Can I run it without a team?** Yes: `agent-deck --all` shows active sessions.
 
 ## Development
 

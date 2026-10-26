@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
@@ -46,11 +45,11 @@ func TestGrid(t *testing.T) {
 }
 
 func TestPagingAndView(t *testing.T) {
-	d := config.Deck{Server: "http://localhost"}
+	d := Deck{Server: "http://localhost"}
 	for i := 0; i < 31; i++ {
 		d.Sessions = append(
 			d.Sessions,
-			config.Agent{Name: fmt.Sprint(i), Session: fmt.Sprintf("session-%d", i), Dir: "/tmp/project"},
+			Agent{Name: fmt.Sprint(i), Session: fmt.Sprintf("session-%d", i), Dir: "/tmp/project"},
 		)
 	}
 	m := New(context.Background(), &d, Options{NoGit: true})
@@ -89,7 +88,7 @@ func TestPagingAndView(t *testing.T) {
 }
 
 func TestGroupingAndFuzzy(t *testing.T) {
-	in := []config.Agent{
+	in := []Agent{
 		{Session: "session-c", Parent: "session-p"},
 		{Session: "session-p"},
 		{Session: "session-other"},
@@ -102,15 +101,15 @@ func TestGroupingAndFuzzy(t *testing.T) {
 		t.Fatal("filter")
 	}
 	// Malformed parent cycles must not recurse forever.
-	if len(grouped([]config.Agent{{Session: "a", Parent: "b"}, {Session: "b", Parent: "a"}})) != 2 {
+	if len(grouped([]Agent{{Session: "a", Parent: "b"}, {Session: "b", Parent: "a"}})) != 2 {
 		t.Fatal("cycle lost")
 	}
 }
 
 func TestHiddenNavigationAndReadOnly(t *testing.T) {
-	d := config.Deck{
+	d := Deck{
 		Server: "http://localhost",
-		Sessions: []config.Agent{
+		Sessions: []Agent{
 			{Name: "Parent", Session: "session-p", Dir: "/tmp"},
 			{Name: "Child", Session: "session-c", Dir: "/tmp", Parent: "session-p"},
 			{Name: "Other", Session: "session-o", Dir: "/tmp"},

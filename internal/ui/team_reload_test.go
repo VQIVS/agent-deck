@@ -6,7 +6,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 )
 
@@ -21,7 +20,7 @@ func TestTeamReloadPreservesSessionDisplay(t *testing.T) {
 	old.panes[0].Selected, old.panes[0].Content = "part", "cached transcript"
 	old.panes[0].Loading = true
 	old.panes[0].Pending = []api.Event{{Type: "old"}}
-	deck := config.Deck{Server: old.deck.Server, Sessions: []config.Agent{
+	deck := Deck{Server: old.deck.Server, Sessions: []Agent{
 		{Name: "new", Dir: "/other", Session: "other"},
 		{Name: "renamed", Dir: "/tmp/team", Session: "session-a"},
 	}}
@@ -47,7 +46,7 @@ func TestTeamReloadNeverCrossesBinding(t *testing.T) {
 	old.panes[0].Content, old.panes[0].Selected = "old content", "old"
 	for _, change := range []string{"server", "directory", "session", "removed"} {
 		deck := old.deck
-		deck.Sessions = append([]config.Agent(nil), deck.Sessions...)
+		deck.Sessions = append([]Agent(nil), deck.Sessions...)
 		switch change {
 		case "server":
 			deck.Server = "http://different"

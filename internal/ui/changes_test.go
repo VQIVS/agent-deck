@@ -12,14 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/gitinfo"
 )
 
 func changesModel(t *testing.T) *Model {
 	t.Helper()
-	m := New(t.Context(), &config.Deck{}, Options{Theme: "dark"})
-	m.panes = []pane{{Agent: config.Agent{Dir: t.TempDir()}}}
+	m := New(t.Context(), &Deck{}, Options{Theme: "dark"})
+	m.panes = []pane{{Agent: Agent{Dir: t.TempDir()}}}
 	m.changes = changesUI{
 		Root: m.panes[0].Agent.Dir, Directory: m.panes[0].Agent.Dir,
 		Files: []gitinfo.ChangedFile{{Path: "a"}, {Path: "b"}, {Path: "c"}}, Generation: 1,

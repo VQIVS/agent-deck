@@ -14,7 +14,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/gitinfo"
 )
 
@@ -30,9 +29,9 @@ func fakeLookPath(installed map[string]string) func(string) (string, error) {
 func gitTUIModel(t *testing.T, installed map[string]string, opts Options) *Model {
 	t.Helper()
 	opts.Theme = "dark"
-	m := New(t.Context(), &config.Deck{}, opts)
+	m := New(t.Context(), &Deck{}, opts)
 	dir := filepath.Join(t.TempDir(), "my repo")
-	m.panes = []pane{{Agent: config.Agent{Name: "core-dev", Dir: dir}}}
+	m.panes = []pane{{Agent: Agent{Name: "core-dev", Dir: dir}}}
 	files := []gitinfo.ChangedFile{{Path: "a.go", Status: "M"}}
 	m.changes = changesUI{Root: dir, Directory: dir, Files: files, Generation: 1}
 	m.workspace.View = "git"

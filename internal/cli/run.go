@@ -6,28 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/team"
 	"github.com/vqivs/agent-deck/internal/ui"
 )
-
-type dirs []string
-
-func (d *dirs) String() string { return fmt.Sprint([]string(*d)) }
-
-func (d *dirs) Set(s string) error {
-	p, err := filepath.Abs(s)
-	if err != nil {
-		return fmt.Errorf("resolve directory %q: %w", s, err)
-	}
-	*d = append(*d, p)
-	return nil
-}
 
 func Run(args []string, build Build) int {
 	if len(args) == 2 && args[1] == "--version" {
@@ -64,10 +49,6 @@ func run(args []string) error {
 			return importTeam(args[1:])
 		case "export":
 			return exportTeam(args[1:])
-		case "discover":
-			return discover(args[1:])
-		case "new":
-			return newSession(args[1:])
 		case "doctor":
 			return doctor(args[1:])
 		case "up", "down", "status", "supervise":
@@ -80,9 +61,9 @@ func run(args []string) error {
 }
 
 type dashboardFlags struct {
-	teamName, path, server string
-	all, snapshot          bool
-	options                ui.Options
+	teamName, server string
+	all              bool
+	options          ui.Options
 }
 
 func parseDashboard(args []string) (dashboardFlags, error) {
@@ -91,12 +72,10 @@ func parseDashboard(args []string) (dashboardFlags, error) {
 	f.StringVar(&flags.teamName, "team", "", "open a saved team")
 	f.BoolVar(&flags.all, "all", false, "skip team picker and discover all active sessions")
 	f.StringVar(&flags.options.Theme, "theme", "auto", "color theme: auto, dark, light")
-	f.StringVar(&flags.path, "config", "", "optional YAML or JSON deck file")
-	f.StringVar(&flags.server, "server", "", "server URL (overrides deck and AGENT_DECK_SERVER)")
+	f.StringVar(&flags.server, "server", "", "server URL (overrides saved team and AGENT_DECK_SERVER)")
 	f.BoolVar(&flags.options.ReadOnly, "read-only", false, "disable all mutations")
 	f.BoolVar(&flags.options.NoGit, "no-git", false, "do not inspect local worktrees")
 	f.BoolVar(&flags.options.Notify, "notify", true, "macOS desktop notifications")
-	f.BoolVar(&flags.snapshot, "snapshot", false, "print a read-only HTTP snapshot and exit")
 	if err := f.Parse(args); err != nil {
 		return flags, fmt.Errorf("parse dashboard flags: %w", err)
 	}
@@ -120,15 +99,12 @@ func dashboard(args []string) error {
 	if err != nil {
 		return err
 	}
-	if flags.snapshot {
-		return printSnapshot(ctx, &deck, flags.path == "" && saved == nil)
-	}
-	flags.options.Auto = flags.path == "" && saved == nil
+	flags.options.Auto = saved == nil
 	model := ui.New(ctx, &deck, flags.options)
 	defer model.CloseChannel()
 	if saved != nil {
 		model.OpenTeam(saved, revision, team.DefaultRoot())
-	} else if flags.path == "" && !flags.all {
+	} else if !flags.all {
 		model.EnableTeams(team.DefaultRoot())
 	}
 	if printFindingsOnFailure(ctx, deck.Server) {
@@ -142,14 +118,13 @@ func dashboard(args []string) error {
 	return nil
 }
 
-func loadDeck(ctx context.Context, flags *dashboardFlags) (config.Deck, *team.Team, []byte, error) {
+func loadDeck(ctx context.Context, flags *dashboardFlags) (ui.Deck, *team.Team, []byte, error) {
 	var (
-		deck     config.Deck
+		deck     ui.Deck
 		saved    *team.Team
 		revision []byte
 	)
-	switch {
-	case flags.teamName != "":
+	if flags.teamName != "" {
 		store := team.Store{Root: team.DefaultRoot(), ReadOnly: flags.options.ReadOnly}
 		loaded, rev, err := store.Load(ctx, flags.teamName)
 		if err != nil {
@@ -158,13 +133,7 @@ func loadDeck(ctx context.Context, flags *dashboardFlags) (config.Deck, *team.Te
 		if err := mergeProject(ctx, &loaded); err != nil {
 			return deck, nil, nil, err
 		}
-		deck, saved, revision = loaded.Deck(), &loaded, rev
-	case flags.path != "":
-		loaded, err := config.Load(ctx, flags.path)
-		if err != nil {
-			return deck, nil, nil, fmt.Errorf("load configuration: %w", err)
-		}
-		deck = loaded
+		deck, saved, revision = ui.TeamDeck(&loaded), &loaded, rev
 	}
 	deck.Server = resolveServer(flags.server, deck.Server)
 	return deck, saved, revision, nil

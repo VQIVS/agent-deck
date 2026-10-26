@@ -12,7 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/team"
 )
@@ -357,7 +356,7 @@ func (m *Model) previewLive() {
 		m.note = "Choose exactly one master with m or Set master."
 		return
 	}
-	d := config.Deck{Server: x.Server}
+	imported := team.Team{Version: 1, Name: x.Name, Server: x.Server, Base: "main"}
 	for i, s := range x.Live {
 		if !x.Selected[i] {
 			continue
@@ -366,13 +365,16 @@ func (m *Model) previewLive() {
 		if name == "" {
 			name = s.ID
 		}
-		a := config.Agent{Name: name, Session: s.ID, Dir: s.Directory}
-		if i == x.Master {
-			a.Role = "lead"
+		member := team.Member{
+			Name: name, Session: s.ID, Dir: s.Directory, Role: "worker",
+			Mode: "adopt", Capability: "inherited",
 		}
-		d.Sessions = append(d.Sessions, a)
+		if i == x.Master {
+			member.Role, imported.Repo = "master", s.Directory
+		}
+		imported.Members = append(imported.Members, member)
 	}
-	imported := team.FromDeck(&d, x.Name)
+	imported.Capacity = max(1, len(imported.Members)-1)
 	m.previewImport(&imported)
 }
 

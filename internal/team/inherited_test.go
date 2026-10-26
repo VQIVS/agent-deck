@@ -7,7 +7,7 @@ import (
 )
 
 func TestInheritedPermissions(t *testing.T) {
-	v, err := Import([]byte(legacySessions), ImportOptions{Name: "Example"})
+	v, err := Import([]byte(adoptedTeam), ImportOptions{Name: "Example"})
 	if err != nil {
 		t.Fatal(err)
 	}

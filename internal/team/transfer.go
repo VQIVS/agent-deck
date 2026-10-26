@@ -12,8 +12,6 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/vqivs/agent-deck/internal/config"
 )
 
 // ImportOptions supplies local bindings for a portable template. Import never
@@ -61,11 +59,8 @@ func Import(b []byte, opts ImportOptions) (Team, error) {
 			return t, err
 		}
 	} else {
-		d, err := config.Parse(b)
-		if err != nil {
-			return t, fmt.Errorf("parse legacy deck: %w", err)
-		}
-		t = FromDeck(&d, opts.Name)
+		return t, fmt.Errorf("unsupported import: use a team file or agent-deck/team export; " +
+			"legacy deck files are no longer supported")
 	}
 	if opts.Name != "" {
 		t.Name = opts.Name
@@ -102,35 +97,6 @@ func bindPortable(t *Team, path string) error {
 		}
 	}
 	return nil
-}
-
-func FromDeck(d *config.Deck, name string) Team {
-	t := Team{Version: 1, Name: name, Server: d.Server, Base: "main", Capacity: max(1, len(d.Agents())-1)}
-	agents := d.Agents()
-	for i := range agents {
-		a := &agents[i]
-		role := "worker"
-		if a.Role == "lead" || a.Role == "master" {
-			role = "master"
-			t.Repo = a.Dir
-			if a.Base != "" {
-				t.Base = a.Base
-			}
-		}
-		t.Members = append(
-			t.Members,
-			Member{
-				Name:       a.Name,
-				Role:       role,
-				Session:    a.Session,
-				Dir:        a.Dir,
-				Branch:     a.Branch,
-				Mode:       "adopt",
-				Capability: "inherited",
-			},
-		)
-	}
-	return t
 }
 
 // Export copies all nested mutable state before stripping machine bindings.

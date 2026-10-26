@@ -11,8 +11,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/vqivs/agent-deck/internal/config"
 )
 
 func messageServer(t *testing.T) (url string, sessions func() []string) {
@@ -37,7 +35,7 @@ func messageServer(t *testing.T) (url string, sessions func() []string) {
 
 func twoSessionModel(t *testing.T, server string, readOnly bool) *Model {
 	t.Helper()
-	m := New(t.Context(), &config.Deck{Server: server, Sessions: []config.Agent{
+	m := New(t.Context(), &Deck{Server: server, Sessions: []Agent{
 		{Name: "core-dev", Session: "ses_a", Dir: "/tmp/team"},
 		{Name: "ui-dev", Session: "ses_b", Dir: "/tmp/team"},
 	}}, Options{NoGit: true, ReadOnly: readOnly, Theme: "dark"})

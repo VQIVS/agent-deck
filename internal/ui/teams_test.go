@@ -7,12 +7,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
 func TestTeamFormSaveAndReadOnly(t *testing.T) {
-	m := New(context.Background(), &config.Deck{}, Options{NoGit: true})
+	m := New(context.Background(), &Deck{}, Options{NoGit: true})
 	m.EnableTeams(t.TempDir())
 	m.teamAction("team-new")
 	values := map[string]string{
@@ -86,7 +85,7 @@ func TestDuplicateTeamCreatesFreshMemberships(t *testing.T) {
 }
 
 func TestTeamDeletionConfirmationAndExternalReload(t *testing.T) {
-	m := New(context.Background(), &config.Deck{}, Options{})
+	m := New(context.Background(), &Deck{}, Options{})
 	m.EnableTeams(t.TempDir())
 	t1 := team.Team{
 		Version:  1,

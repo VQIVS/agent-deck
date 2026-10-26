@@ -97,8 +97,8 @@ agent-deck doctor
 agent-deck
 ```
 
-Create a team from the picker or import a deck. Repository setup (`agent-deck init`)
-is not available yet; use the team forms. `agent-deck status` checks the managed server,
+Create a team from the picker, import a team file, or use `agent-deck init` for repository
+setup. Legacy deck files are no longer supported. `agent-deck status` checks the managed server,
 and `agent-deck down` stops it without deleting OpenCode sessions. The supervisor restarts
 a crashed child with 1–30 second backoff. Logs and PID metadata are under
 `$XDG_STATE_HOME/agent-deck` or `~/.local/state/agent-deck`.

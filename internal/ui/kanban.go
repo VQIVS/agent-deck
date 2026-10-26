@@ -58,10 +58,6 @@ type KanbanTarget struct {
 	TaskID, Action, State string
 }
 
-func KanbanStates() []string {
-	return workflowStageNames(team.DefaultWorkflow())
-}
-
 func workflowStageNames(definition team.WorkflowDefinition) []string {
 	stages := definition.Resolved().Stages
 	names := make([]string, 0, len(stages))

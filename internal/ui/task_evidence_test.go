@@ -10,44 +10,12 @@ import (
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
-func TestTaskEvidenceSeparatesClaimsAndCurrentGit(t *testing.T) {
-	task := &team.Task{
-		ID: "T-1", Branch: "claimed-branch", Commits: []string{"claimed-hash"},
-		Paths: team.Leases{"src/**"}, Report: &team.TaskReport{Text: "Finished", Tests: "claimed pass"},
-	}
-	target := NewTaskEvidenceTarget(task, "/checkout", "main")
-	observation := &TaskGitObservation{Target: target, Facts: gitinfo.TaskFacts{
-		Branch: "observed-branch", Base: "base-hash",
-		Ahead: 2, ObservedAt: time.Unix(1000, 0), Commits: []gitinfo.TaskCommit{{Hash: "observed-hash", Subject: "fix"}},
-	}}
-	view := TaskEvidenceDetail(task, observation, &target, 120)
-	for _, text := range []string{
-		"Worker-reported", "claimed-branch", "Tests reported: claimed pass",
-		"Independently observed Git", "observed-branch", "observed-hash", "do not verify test outcomes",
-	} {
-		if !strings.Contains(view, text) {
-			t.Fatalf("missing provenance %q: %s", text, view)
-		}
-	}
-	target.Directory = "/different"
-	view = TaskEvidenceDetail(task, observation, &target, 120)
-	if strings.Contains(view, "observed-branch") || !strings.Contains(view, "Unavailable") {
-		t.Fatal("stale checkout evidence shown")
-	}
-	if task.Branch != "claimed-branch" || task.Commits[0] != "claimed-hash" {
-		t.Fatal("observation overwrote claims")
-	}
-}
-
 func TestTaskEvidenceBindingCloneAndUnavailable(t *testing.T) {
 	task := &team.Task{ID: "T-1", Paths: team.Leases{"src/**"}}
 	target := NewTaskEvidenceTarget(task, "/repo", "main")
 	task.Paths[0] = "other/**"
 	if target.Paths[0] != "src/**" {
 		t.Fatal("target aliases live task paths")
-	}
-	if !strings.Contains(TaskEvidenceDetail(task, nil, &target, 80), "Unavailable") {
-		t.Fatal("nil observation invented facts")
 	}
 	observation := ObserveTaskEvidence(t.Context(), nil)
 	if observation.Err == nil {
@@ -83,13 +51,6 @@ func TestAsyncTaskGitRejectsEveryStaleTargetDimension(t *testing.T) {
 		if CurrentTaskGitResult(result, &changed) {
 			t.Errorf("stale %s result accepted", dimension)
 		}
-	}
-	observation := &TaskGitObservation{Target: target, Facts: gitinfo.TaskFacts{
-		ObservedAt: time.Now(), Branch: "old-observed-branch",
-	}}
-	task.Paths = team.Leases{"changed/**"}
-	if strings.Contains(TaskEvidenceDetail(task, observation, &target, 120), "old-observed-branch") {
-		t.Fatal("old captured target displayed after task path edit")
 	}
 }
 

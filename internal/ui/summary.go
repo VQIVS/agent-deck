@@ -101,14 +101,10 @@ func summaryBoard(board *team.TaskBoard, add func(SummaryEntry)) {
 				Member: c.Actor, TaskID: task.ID, Kind: "comment", Text: c.Text, At: c.At,
 			})
 		}
-		if record := task.Completion; record != nil {
-			text, inferred := record.InferredText, true
-			if record.Source == "structured" && record.Reported != nil {
-				text, inferred = summaryReport(record.Reported), false
-			}
+		if record := task.Completion; record != nil && record.Source == "structured" && record.Reported != nil {
 			add(SummaryEntry{
 				ID: fmt.Sprintf("report:%s:%d", task.ID, record.RecordedAt.UnixNano()), Member: record.Member, TaskID: task.ID,
-				Kind: "report", Text: text, At: record.RecordedAt, Inferred: inferred, Report: record.Reported,
+				Kind: "report", Text: summaryReport(record.Reported), At: record.RecordedAt, Report: record.Reported,
 			})
 		}
 		if task.Report != nil {

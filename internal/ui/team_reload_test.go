@@ -72,26 +72,6 @@ func TestTeamReloadNeverCrossesBinding(t *testing.T) {
 	}
 }
 
-func TestReloadCommandCapturesOldModelAndContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	m := requestModel("http://old-server", false)
-	m.context = func() context.Context { return ctx }
-	cmd := m.ReloadCommand(func(captured *Model) tea.Cmd {
-		return func() tea.Msg { return captured.deck.Server }
-	})
-	next := requestModel("http://new-server", false)
-	*m = *next
-	result := cmd().(TeamReloadResult)
-	if result.Message != "http://old-server" || !result.Current() {
-		t.Fatal("command followed replacement model")
-	}
-	cancel()
-	if result.Current() || cmd() != nil {
-		t.Fatal("old generation result survived cancellation")
-	}
-}
-
 func TestTeamReloadAsyncGuard(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	called := false
@@ -108,22 +88,5 @@ func TestTeamReloadAsyncGuard(t *testing.T) {
 	cmd = GuardTeamReload(ctx, func() tea.Msg { cancel(); return "late" })
 	if cmd() != nil || GuardTeamReload(ctx, nil) != nil {
 		t.Fatal("late result or nil command mishandled")
-	}
-}
-
-func TestTeamReloadEmitterWaitPreservesSingleGuard(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	events := make(chan tea.Msg, 2)
-	emit := TeamReloadEmitter(ctx, events)
-	emit("event")
-	result := TeamReloadWait(ctx, events)().(TeamReloadResult)
-	if result.Message != "event" || !result.Current() {
-		t.Fatal("stream result double-wrapped or lost")
-	}
-	cancel()
-	emit("late")
-	if result.Current() || len(events) != 0 || TeamReloadWait(ctx, events)() != nil {
-		t.Fatal("old stream survived reload cancellation")
 	}
 }

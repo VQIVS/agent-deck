@@ -30,18 +30,3 @@ func TestReportCardProvenance(t *testing.T) {
 		t.Fatal("stale binding not labeled", card)
 	}
 }
-
-func TestInferredReportCardInventsNoChecklist(t *testing.T) {
-	record := &team.ReportRecord{
-		Source: "inferred", Member: "worker", InferredText: "Finished working",
-		ReportedDone: true, Reported: &team.DoneReport{Tests: []team.ReportTest{{Command: "fake", Outcome: "pass"}}},
-	}
-	card := ReportCard(record, true, 120)
-	if !strings.Contains(card, "INFERRED") || strings.Contains(card, "DONE") ||
-		strings.Contains(card, "[x]") || strings.Contains(card, "Test reported") {
-		t.Fatal("inferred card manufactured outcomes", card)
-	}
-	if ReportCard(nil, true, 80) != "" || ReportCard(record, true, 0) != "" {
-		t.Fatal("empty card handling failed")
-	}
-}

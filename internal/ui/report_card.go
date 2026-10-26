@@ -12,18 +12,10 @@ func ReportCard(record *team.ReportRecord, currentBinding bool, width int) strin
 	if record == nil || width <= 0 {
 		return ""
 	}
-	var lines []string
-	switch {
-	case record.Source == "inferred":
-		lines = []string{
-			"INFERRED · " + record.Member + " · latest idle assistant text",
-			"Completion and test results are not verified or structured.", record.InferredText,
-		}
-	case record.Source == "structured" && record.Reported != nil:
-		lines = structuredReportLines(record)
-	default:
+	if record.Source != "structured" || record.Reported == nil {
 		return fit("Report unavailable: unknown provenance", width)
 	}
+	lines := structuredReportLines(record)
 	if !currentBinding {
 		lines = append([]string{"HISTORICAL · report does not match current binding"}, lines...)
 	}

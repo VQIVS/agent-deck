@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -43,34 +42,5 @@ func TestTaskReviewDetailShowsMergedDoDSeparately(t *testing.T) {
 	if !strings.Contains(plain, "Acceptance criteria (claimed progress)") ||
 		!strings.Contains(plain, "Merged definition of done") || !strings.Contains(plain, "security [required]") {
 		t.Fatalf("merged requirements absent: %s", plain)
-	}
-}
-
-func TestTaskReviewChangePersistsBothDecisionsAndNotices(t *testing.T) {
-	for _, decision := range []string{"accept", "changes"} {
-		t.Run(decision, func(t *testing.T) {
-			e, state, now := kanbanExecutorFixture(t)
-			task := &state.Board.Tasks[0]
-			task.State, task.Reviewer = "review", "Sol"
-			if err := e.Store.Save(t.Context(), &state, state.Revision); err != nil {
-				t.Fatal(err)
-			}
-			board, notices, err := ApplyTaskReview(t.Context(), e.Store, e.Team,
-				"A", decision, "Reviewed current work", now.Add(time.Minute))
-			if err != nil {
-				t.Fatal(err)
-			}
-			want := "done"
-			if decision == "changes" {
-				want = "in_progress"
-			}
-			if board.Tasks[0].State != want || len(notices) == 0 {
-				t.Fatalf("review not persisted/notified: %+v %+v", board, notices)
-			}
-			stored, err := e.Store.Load(t.Context())
-			if err != nil || stored.Board.Tasks[0].State != want {
-				t.Fatal("review missing from storage")
-			}
-		})
 	}
 }

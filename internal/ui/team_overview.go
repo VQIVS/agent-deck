@@ -109,26 +109,3 @@ func TeamOverviewRects(x, y, width, height, first, count int) []Rect {
 	}
 	return rows
 }
-
-// TeamOverviewViewport renders rows and returns hit targets using identical geometry.
-func TeamOverviewViewport(rows []TeamOverviewRow, selected, first int, bounds Rect) (string, []zone) {
-	first = max(0, first)
-	rects := TeamOverviewRects(bounds.X, bounds.Y, bounds.W, bounds.H, first, len(rows))
-	lines := make([]string, 0, len(rects))
-	zones := make([]zone, 0, len(rects))
-	for i, rect := range rects {
-		row := &rows[first+i]
-		lines = append(lines, RenderTeamOverviewRow(row, row.Index == selected, rect.W))
-		zones = append(zones, zone{Rect: rect, Action: fmt.Sprintf("member-row:%d", row.Index), Pane: -1})
-	}
-	return strings.Join(lines, "\n"), zones
-}
-
-// TeamOverviewRequests counts outstanding requests, including off-screen members.
-func TeamOverviewRequests(rows []TeamOverviewRow) (permissions, questions int) {
-	for i := range rows {
-		permissions += rows[i].Permissions
-		questions += rows[i].Questions
-	}
-	return permissions, questions
-}

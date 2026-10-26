@@ -68,26 +68,6 @@ func TestTeamOverviewGeometry(t *testing.T) {
 	}
 }
 
-func TestTeamOverviewViewportGolden(t *testing.T) {
-	rows := []TeamOverviewRow{
-		{Index: 0, Identity: InboxIdentity{Agent: "master"}, Role: "master", Status: "IDLE", Permissions: 2},
-		{
-			Index: 1, Identity: InboxIdentity{Agent: "worker", Directory: "/repo", Session: "s"},
-			Role: "worker", Status: "BUSY", Leases: []string{"src/**"}, Questions: 1,
-		},
-	}
-	body, zones := TeamOverviewViewport(rows, 1, 1, Rect{X: 2, Y: 4, W: 100, H: 4})
-	want := "› ! NEEDS PERMISSION / INPUT · 0 permission · 1 question · worker · worker\n" +
-		"  leases: src/**\n  /repo · s"
-	if body != want || len(zones) != 1 || zones[0].Action != "member-row:1" || zones[0].Y != 4 {
-		t.Fatalf("overview golden mismatch: %q %+v", body, zones)
-	}
-	permissions, questions := TeamOverviewRequests(rows)
-	if permissions != 2 || questions != 1 {
-		t.Fatal("off-screen requests missing from counters")
-	}
-}
-
 func TestTeamOverviewRetainsPermissionSummary(t *testing.T) {
 	m := requestModel("http://server", false)
 	configured := team.Team{Members: []team.Member{{

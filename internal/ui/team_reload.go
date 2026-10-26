@@ -55,12 +55,6 @@ func ReconcileTeamReload(previous, next *Model) {
 	next.showReasoning = previous.showReasoning
 }
 
-// ReloadCommand captures the current model before a replacement can redirect an I/O closure.
-func (m *Model) ReloadCommand(build func(*Model) tea.Cmd) tea.Cmd {
-	snapshot := *m
-	return GuardTeamReload(snapshot.context(), build(&snapshot))
-}
-
 // TeamReloadResult associates asynchronous application results with their originating context.
 type TeamReloadResult struct {
 	Message tea.Msg
@@ -89,28 +83,4 @@ func GuardTeamReload(ctx context.Context, cmd tea.Cmd) tea.Cmd {
 
 func (r TeamReloadResult) Current() bool {
 	return r.active != nil && r.active()
-}
-
-// TeamReloadEmitter captures a generation's event queue without following a replaced model.
-func TeamReloadEmitter(ctx context.Context, events chan<- tea.Msg) func(tea.Msg) {
-	return func(msg tea.Msg) {
-		if ctx.Err() != nil {
-			return
-		}
-		select {
-		case events <- TeamReloadResult{Message: msg, active: func() bool { return ctx.Err() == nil }}:
-		case <-ctx.Done():
-		}
-	}
-}
-
-func TeamReloadWait(ctx context.Context, events <-chan tea.Msg) tea.Cmd {
-	return GuardTeamReload(ctx, func() tea.Msg {
-		select {
-		case msg := <-events:
-			return msg
-		case <-ctx.Done():
-			return nil
-		}
-	})
 }

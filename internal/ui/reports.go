@@ -32,7 +32,7 @@ func (m *Model) readReports() tea.Cmd {
 			identity := InboxIdentity{Agent: member.Name, Directory: member.SessionDir(), Session: member.Session}
 			out[identity] = []InboxReport{{
 				ID:   fmt.Sprintf("%s/%d", member.Session, record.RecordedAt.UnixNano()),
-				Text: ReportCard(&record, true, 120), At: record.RecordedAt, Inferred: record.Source == "inferred",
+				Text: ReportCard(&record, true, 120), At: record.RecordedAt,
 			}}
 		}
 		return out

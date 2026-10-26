@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/vqivs/agent-deck/internal/fsutil"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/server"
 	"github.com/vqivs/agent-deck/internal/team"
@@ -69,17 +70,7 @@ func saveReceipt(path string, receipt sendReceipt) error {
 	if err != nil {
 		return fmt.Errorf("encode send receipt: %w", err)
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".receipt-*")
-	if err != nil {
-		return fmt.Errorf("create send receipt: %w", err)
-	}
-	defer func() { _ = os.Remove(f.Name()) }()
-	_, writeErr := f.Write(b)
-	closeErr := f.Close()
-	if err := errors.Join(writeErr, closeErr); err != nil {
-		return fmt.Errorf("write send receipt: %w", err)
-	}
-	if err := os.Rename(f.Name(), path); err != nil {
+	if err := fsutil.WriteAtomic(context.Background(), path, b, 0o600, ".receipt-*"); err != nil {
 		return fmt.Errorf("save send receipt: %w", err)
 	}
 	return nil

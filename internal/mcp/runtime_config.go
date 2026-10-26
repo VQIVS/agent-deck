@@ -2,12 +2,14 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
+
+	"github.com/vqivs/agent-deck/internal/fsutil"
 )
 
 func loadRuntimeConfig(path string) (values map[string]json.RawMessage, original []byte, failure error) {
@@ -65,15 +67,11 @@ func changeRuntimeConfig(credential *runtimeCredential, endpoint string, remove 
 		}
 		lockPath = runtimeStatePath(options.StateDir, credential.config, "config.lock")
 	}
-	fd, err := syscall.Open(lockPath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	release, err := fsutil.Lock(context.Background(), lockPath, false)
 	if err != nil {
 		return fmt.Errorf("open credential config lock: %w", err)
 	}
-	lock := os.NewFile(uintptr(fd), lockPath)
-	defer func() { _ = lock.Close() }()
-	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("lock credential config: %w", err)
-	}
+	defer release()
 	return mergeRuntimeConfig(credential, endpoint, remove, lockPath+".owner.json")
 }
 

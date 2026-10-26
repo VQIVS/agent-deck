@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/vqivs/agent-deck/internal/fsutil"
 )
 
 func (c Controller) Supervise(ctx context.Context, port int) error {
@@ -19,14 +21,11 @@ func (c Controller) Supervise(ctx context.Context, port int) error {
 	if err := os.MkdirAll(c.Root, 0o700); err != nil {
 		return fmt.Errorf("create supervisor state: %w", err)
 	}
-	lock, err := os.OpenFile(filepath.Join(c.Root, "server.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	release, err := fsutil.Lock(ctx, filepath.Join(c.Root, "server.lock"), false)
 	if err != nil {
 		return fmt.Errorf("open supervisor lock: %w", err)
 	}
-	defer func() { _ = lock.Close() }()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("another supervisor owns server state: %w", err)
-	}
+	defer release()
 	if err := c.writeRecord(ctx, Record{PID: os.Getpid(), Port: port}); err != nil {
 		return err
 	}
@@ -42,11 +41,7 @@ func (c Controller) writeRecord(ctx context.Context, record Record) error {
 	if err != nil {
 		return fmt.Errorf("encode supervisor identity: %w", err)
 	}
-	path := filepath.Join(c.Root, "server.json.tmp")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write supervisor identity: %w", err)
-	}
-	if err := os.Rename(path, filepath.Join(c.Root, "server.json")); err != nil {
+	if err := fsutil.WriteAtomic(ctx, filepath.Join(c.Root, "server.json"), data, 0o600, ".server-*"); err != nil {
 		return fmt.Errorf("publish supervisor identity: %w", err)
 	}
 	return nil

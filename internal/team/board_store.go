@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"syscall"
 	"time"
+
+	"github.com/vqivs/agent-deck/internal/fsutil"
 )
 
 // ErrBoardChanged reports an optimistic-concurrency conflict; reload and retry.
@@ -52,30 +53,11 @@ func (s BoardStore) Exclusive(ctx context.Context, fn func() error) error {
 			return err
 		}
 	}
-	fd, err := syscall.Open(filepath.Join(dir, ".lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	release, err := fsutil.Lock(ctx, filepath.Join(dir, ".lock"), true)
 	if err != nil {
 		return fmt.Errorf("open board lock: %w", err)
 	}
-	file := os.NewFile(uintptr(fd), "board-lock")
-	defer func() { _ = file.Close() }()
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
-		if err == nil {
-			break
-		}
-		if !errors.Is(err, syscall.EWOULDBLOCK) {
-			return fmt.Errorf("lock board: %w", err)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(10 * time.Millisecond):
-		}
-	}
-	defer func() { _ = syscall.Flock(fd, syscall.LOCK_UN) }()
+	defer release()
 	return fn()
 }
 

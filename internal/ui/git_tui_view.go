@@ -43,8 +43,11 @@ func (m *Model) gitView() string {
 	return m.changesView()
 }
 
+// gitTUIFullHeight is the body height the framed launcher needs: header, four boxes and the footer.
+const gitTUIFullHeight = 23
+
 func (m *Model) gitTUIView() string {
-	if m.w < 45 || m.h < 12 {
+	if m.w < 45 || m.h < 11 {
 		return fit("Git TUI launcher · resize to 45×12 · Esc back", m.w)
 	}
 	g := &m.gitTUI
@@ -52,19 +55,21 @@ func (m *Model) gitTUIView() string {
 	header := "Git / " + valueOr(g.Target.Member, "team checkout")
 	f.line(fit(header, m.w-22) + strings.Repeat(" ", max(1, m.w-22-lipgloss.Width(fit(header, m.w-22)))) +
 		m.buttonRow([]button{{Label: "Esc Built-in diff", Action: "gittui:cancel"}}, max(0, m.w-21), 0, 21, -1))
-	if g.Details {
-		m.gitTUIDetails(f)
-	} else {
-		m.gitTUISections(f)
-	}
 	help := []string{
 		"j/k choose  Space remember  Enter open  i checkout  r detect again  Esc cancel",
 		"Dashboard resumes when the client exits; Esc inside a client may only go back.",
 	}
-	if g.Details {
+	switch {
+	case g.Details:
+		m.gitTUIDetails(f)
 		help = []string{"Esc back to launcher", ""}
+	case m.h < gitTUIFullHeight:
+		m.gitTUICompact(f)
+		help = help[:1]
+	default:
+		m.gitTUISections(f)
 	}
-	for len(f.rows) < m.h-3 {
+	for len(f.rows) < m.h-1-len(help) {
 		f.rows = append(f.rows, "")
 	}
 	status := g.Status
@@ -109,11 +114,11 @@ func (m *Model) gitTUISections(f *gitFrame) {
 		notice = []string{warn.Render(g.Blocked[0]), g.Blocked[1], g.Blocked[2]}
 	}
 	f.box("Full-screen handoff", notice)
-	f.box("Installed clients / choose one", m.gitClientLines(f))
+	f.box("Installed clients / choose one", m.gitClientLines(f, 2, len(f.rows)+1))
 	m.gitTUIOptions(f)
 }
 
-func (m *Model) gitClientLines(f *gitFrame) []string {
+func (m *Model) gitClientLines(f *gitFrame, x, start int) []string {
 	g := &m.gitTUI
 	switch {
 	case g.Blocked != nil && m.opts.ReadOnly && !m.opts.NoGit:
@@ -128,7 +133,6 @@ func (m *Model) gitClientLines(f *gitFrame) []string {
 			"Optional clients: lazygit, gitui, tig.", "[r Check again]",
 		}
 	}
-	start := len(f.rows) + 1
 	lines := make([]string, 0, 4)
 	for i := range g.Clients {
 		c := &g.Clients[i]
@@ -139,7 +143,7 @@ func (m *Model) gitClientLines(f *gitFrame) []string {
 		}
 		lines = append(lines, text)
 		m.zones = append(m.zones, zone{
-			Rect:   Rect{2, start + i, f.width - 4, 1},
+			Rect:   Rect{x, start + i, f.width - 2*x, 1},
 			Action: "gittui:client:" + strconv.Itoa(i), Pane: -1,
 		})
 	}
@@ -150,9 +154,14 @@ func (m *Model) gitClientLines(f *gitFrame) []string {
 }
 
 func (m *Model) gitTUIOptions(f *gitFrame) {
+	remember, actions := m.gitLaunchControls(2, len(f.rows)+1, f.width-4)
+	f.box("Launch options", []string{remember, actions})
+}
+
+// gitLaunchControls renders the remember toggle (row y) and the action buttons (row y+1) with their zones.
+func (m *Model) gitLaunchControls(x, y, width int) (remember, actions string) {
 	g := &m.gitTUI
 	canOpen := g.Blocked == nil && !g.Detecting && !g.Starting && len(g.Clients) > 0
-	remember := ""
 	buttons := []button{{Label: "Esc Keep built-in diff", Action: "gittui:cancel"}}
 	if canOpen {
 		mark := "[ ]"
@@ -166,15 +175,38 @@ func (m *Model) gitTUIOptions(f *gitFrame) {
 	if g.Starting {
 		remember = "Starting " + g.Clients[g.Index].Name + "…"
 	}
-	row := len(f.rows) + 2
-	actions := m.buttonRow(buttons, 2, row, f.width-4, -1)
+	actions = m.buttonRow(buttons, x, y+1, width, -1)
 	if canOpen {
 		m.zones = append(m.zones, zone{
-			Rect:   Rect{2, row - 1, lipgloss.Width(remember), 1},
+			Rect:   Rect{x, y, lipgloss.Width(remember), 1},
 			Action: "gittui:remember", Pane: -1,
 		})
 	}
-	f.box("Launch options", []string{remember, actions})
+	return remember, actions
+}
+
+// gitTUICompact keeps the target, pause cue, choices and actions on screen when the framed layout
+// does not fit the terminal height.
+func (m *Model) gitTUICompact(f *gitFrame) {
+	g := &m.gitTUI
+	f.line(fit("Checkout: "+valueOr(g.Target.Root, valueOr(g.Target.Dir, "none"))+" · "+
+		valueOr(g.Target.Member, "team"), f.width))
+	notice := "Dashboard pauses while Git TUI is open."
+	if g.Blocked != nil && m.opts.ReadOnly && !m.opts.NoGit {
+		notice = g.Blocked[0]
+	}
+	f.line(lipgloss.NewStyle().Foreground(m.theme.Warning).Render(fit(notice, f.width)))
+	lines := m.gitClientLines(f, 0, len(f.rows))
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	budget := max(1, m.h-len(f.rows)-4)
+	for _, line := range lines[:min(len(lines), budget)] {
+		f.line(line)
+	}
+	remember, actions := m.gitLaunchControls(0, len(f.rows), f.width)
+	f.line(remember)
+	f.line(actions)
 }
 
 func (m *Model) gitTUIDetails(f *gitFrame) {

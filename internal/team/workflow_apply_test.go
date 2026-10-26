@@ -1,11 +1,111 @@
 package team
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestMasterImplementationAssignmentRejectedBeforePersistence(t *testing.T) {
+	for _, user := range []bool{false, true} {
+		for _, operation := range []string{"create", "set_assignee", "update_task"} {
+			t.Run(fmt.Sprintf("user-%t/%s", user, operation), func(t *testing.T) {
+				current := workflowTeam()
+				actor := TaskActor{Member: "lead", Role: "master", User: user}
+				store := BoardStore{Root: t.TempDir(), Team: current.Name}
+				mutation := TaskMutation{Actor: actor, Now: time.Now().UTC()}
+				board := TaskBoard{Version: 2}
+				spec := TaskSpec{
+					Title: "work", Criteria: []string{"check"}, Paths: []string{"src/**"},
+					Assignee: "ana", Reviewer: "lead", Ready: true,
+				}
+				if operation == "update_task" {
+					spec.Kind, spec.Assignee, spec.Ready = TaskKindEpic, "lead", false
+				}
+				id, err := board.PlanTask(&spec, mutation)
+				if err != nil {
+					t.Fatal(err)
+				}
+				state := BoardState{Version: 2, Board: board, Policy: SchedulingPolicy{Approval: "off"}}
+				if err := store.Save(t.Context(), &state, 0); err != nil {
+					t.Fatal(err)
+				}
+				path := filepath.Join(store.Root, store.Team, "board.json")
+				before, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				call := WorkflowCall{TaskSpec: TaskSpec{ID: id, Assignee: "lead"}}
+				name := operation
+				if operation == "create" {
+					name = "create_task"
+					call.TaskSpec = TaskSpec{
+						Title: "new work", Criteria: []string{"check"},
+						Paths: []string{"other/**"}, Assignee: "lead", Ready: true,
+					}
+				}
+				if operation == "update_task" {
+					call.Kind = TaskKindTask
+				}
+				change, err := WorkflowChange(name, &call)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, notices, err := ChangeTasks(t.Context(), store, current, actor, mutation.Now, change)
+				if err == nil || !strings.Contains(err.Error(), "assigned to a worker, not master") || len(notices) != 0 {
+					t.Fatal("master assignment accepted or unclear", err, notices)
+				}
+				after, err := os.ReadFile(path)
+				if err != nil || !bytes.Equal(before, after) {
+					t.Fatal("rejected assignment changed persisted board", err)
+				}
+			})
+		}
+	}
+}
+
+func TestMasterHistoricalAndPlanningAssignmentsRemainEditable(t *testing.T) {
+	current := workflowTeam()
+	actor := TaskActor{Member: "lead", Role: "master"}
+	store := BoardStore{Root: t.TempDir(), Team: current.Name}
+	mutation := TaskMutation{Actor: actor, Now: time.Now().UTC()}
+	board := TaskBoard{Version: 2}
+	id, err := board.PlanTask(&TaskSpec{
+		Title: "legacy", Criteria: []string{"check"}, Paths: []string{"src/**"},
+		Assignee: "lead", Ready: true,
+	}, mutation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := BoardState{Version: 2, Board: board, Policy: SchedulingPolicy{Approval: "off"}}
+	if err := store.Save(t.Context(), &state, 0); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = ChangeTasks(t.Context(), store, current, actor, mutation.Now, func(b *TaskBoard, m TaskMutation) error {
+		if err := b.CommentTask(id, "retained historical assignment", m); err != nil {
+			return err
+		}
+		_, err := b.PlanTask(&TaskSpec{
+			Kind: TaskKindEpic, Title: "plan", Criteria: []string{"split"},
+			Paths: []string{"plan/**"}, Assignee: "lead",
+		}, m)
+		return err
+	})
+	if err != nil {
+		t.Fatal("historical or epic planning reference was blocked", err)
+	}
+	_, _, err = ChangeTasks(t.Context(), store, current, actor, mutation.Now, func(b *TaskBoard, m TaskMutation) error {
+		return b.AssignTask(id, "ana", "lead", m)
+	})
+	if err != nil {
+		t.Fatal("worker assignment with master reviewer was blocked", err)
+	}
+}
 
 func workflowTeam() *Team {
 	return &Team{Name: "pool", Members: []Member{

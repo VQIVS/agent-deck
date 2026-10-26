@@ -75,11 +75,28 @@ func rosterParticipants(before, board *TaskBoard, t *Team) error {
 	for i := range board.Tasks {
 		task := &board.Tasks[i]
 		old := previous[task.ID]
+		if err := validateImplementationAssignee(t, old, task); err != nil {
+			return err
+		}
 		for _, name := range []string{task.Assignee, task.Reviewer} {
 			unchanged := old != nil && (name == old.Assignee || name == old.Reviewer)
 			if name != "" && !unchanged && !onRoster(t, name) {
 				return fmt.Errorf("task %s: %q is not a current team member", task.ID, name)
 			}
+		}
+	}
+	return nil
+}
+
+func validateImplementationAssignee(t *Team, old, task *Task) error {
+	if !TaskSchedulable(task) || old != nil && old.Assignee == task.Assignee && TaskSchedulable(old) {
+		return nil
+	}
+	for i := range t.Members {
+		member := &t.Members[i]
+		if member.Name == task.Assignee && member.Role == "master" {
+			return fmt.Errorf("task %s: implementation tasks must be assigned to a worker, not master %q",
+				task.ID, member.Name)
 		}
 	}
 	return nil

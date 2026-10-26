@@ -37,10 +37,3 @@ retry; do not assume both stores were updated or overwrite newer revisions.
 
 On the board, `m` opens configured move destinations. Selecting a shipped destination
 requests the version and optional URL before the guarded move.
-
-## Verification
-
-See [verification commands and coverage](workflow-verification.md) for the isolated
-production CLI/editor PTY smoke, migration/restart tests, authorization checks and
-completion-metric regressions. These tests use scratch teams and private temporary
-state, not live user teams.

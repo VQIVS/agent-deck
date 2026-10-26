@@ -3,6 +3,15 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-10-26
+
+### Added
+
+- Visible message composer pinned to its recipient, with per-recipient drafts and reachable identity details.
+- Clear message-delivery states that preserve failed or uncertain drafts and prevent duplicate sends.
+- Transcript turns with role labels and literal tool states, plus loaded-history navigation with anchors
+  preserved across resize and reflow.
+
 ## [0.5.0] - 2026-10-26
 
 ### Added

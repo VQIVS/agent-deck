@@ -3,6 +3,14 @@
 All notable changes are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-26
+
+### Added
+
+- Structured Summary evidence and coverage panels with member search, filtering and refresh.
+- Clear source status and coverage limits for persisted board, channel and loaded session evidence.
+- Integrated Summary workspace navigation with keyboard and mouse routing and visible active-tab markers.
+
 ## [0.6.1] - 2026-10-26
 
 ### Fixed

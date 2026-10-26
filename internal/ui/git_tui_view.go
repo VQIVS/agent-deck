@@ -62,7 +62,7 @@ func (m *Model) gitTUIView() string {
 	switch {
 	case g.Details:
 		m.gitTUIDetails(f)
-		help = []string{"Esc back to launcher", ""}
+		help = []string{"Esc back to launcher"}
 	case m.h < gitTUIFullHeight:
 		m.gitTUICompact(f)
 		help = help[:1]
@@ -220,11 +220,24 @@ func (m *Model) gitTUIDetails(f *gitFrame) {
 	for i := range g.Clients {
 		lines = append(lines, g.Clients[i].Name+": "+g.Clients[i].Path)
 	}
-	if m.gitTarget() != g.Target {
-		lines = append(lines, "", "Checkout changed since the launcher opened; reopen it.")
+	changed := m.gitTarget() != g.Target
+	if m.h >= gitTUIFullHeight {
+		if changed {
+			lines = append(lines, "", gitTargetChanged)
+		}
+		f.box("Checkout details", lines)
+		return
 	}
-	f.box("Checkout details", lines)
+	// Short terminals drop the frame, show a changed target first and keep the footer on screen.
+	if changed {
+		lines = append([]string{lipgloss.NewStyle().Foreground(m.theme.Warning).Render(gitTargetChanged)}, lines...)
+	}
+	for _, line := range lines[:min(len(lines), max(1, m.h-3))] {
+		f.line(fit(line, f.width))
+	}
 }
+
+const gitTargetChanged = "Checkout changed since the launcher opened; reopen it."
 
 func (m *Model) gitTUIClick(z zone, ok bool) (bool, tea.Cmd) {
 	if m.workspace.View != "git" || !ok || !strings.HasPrefix(z.Action, "gittui:") {

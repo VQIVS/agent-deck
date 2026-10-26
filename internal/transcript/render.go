@@ -232,19 +232,19 @@ func visibleWindow(parts []api.Part, full bool) window {
 	}
 	if user < 0 {
 		if len(parts) > 7 {
-			note := "Available recent content / prompt not in loaded window · z full view"
+			note := "Available recent content / prompt not in loaded window · f loaded history"
 			return window{Indices: all[len(all)-7:], Note: note}
 		}
 		return window{Indices: all}
 	}
 	note := ""
 	if user > 0 {
-		note = "Recent turn / earlier loaded turns hidden · z full view"
+		note = "Recent turn / earlier loaded turns hidden · f loaded history"
 	}
 	turn := all[user:]
 	if len(turn) > 7 {
 		hidden := len(turn) - 7
-		note = fmt.Sprintf("Recent turn / +%d parts in this turn hidden · z full view", hidden)
+		note = fmt.Sprintf("Recent turn / +%d parts in this turn hidden · f loaded history", hidden)
 		turn = append([]int{user}, turn[hidden+1:]...)
 	}
 	return window{Indices: turn, Note: note}

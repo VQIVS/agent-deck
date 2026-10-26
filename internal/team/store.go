@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/vqivs/agent-deck/internal/fsutil"
 )
 
 // Store persists private team files with revision checks and prior-version backups.
@@ -138,33 +140,8 @@ func (s Store) backup(ctx context.Context, name string, old []byte) error {
 }
 
 func (s Store) replace(ctx context.Context, path string, b []byte) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	f, e := os.CreateTemp(s.Root, ".team-*")
-	if e != nil {
-		return fmt.Errorf("create temporary team file: %w", e)
-	}
-	defer func() { _ = os.Remove(f.Name()) }()
-	if e = f.Chmod(0o600); e == nil {
-		_, e = f.Write(b)
-	}
-	if e == nil {
-		e = f.Sync()
-	}
-	ce := f.Close()
-	if e == nil {
-		e = ce
-	}
-	if e != nil {
-		return fmt.Errorf("write temporary team file: %w", e)
-	}
-	if e := os.Rename(f.Name(), path); e != nil {
-		return fmt.Errorf("replace team file: %w", e)
-	}
-	if dir, e := os.Open(s.Root); e == nil {
-		_ = dir.Sync()
-		_ = dir.Close()
+	if err := fsutil.WriteAtomic(ctx, path, b, 0o600, ".team-*"); err != nil {
+		return fmt.Errorf("replace team file: %w", err)
 	}
 	return nil
 }

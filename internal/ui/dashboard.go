@@ -43,6 +43,8 @@ type pane struct {
 	Content       string
 	ContextLimit  int64
 	Messages      []api.Message
+	History       bool
+	Ranges        []transcript.Range
 }
 type streamMsg struct {
 	Dir        string
@@ -561,6 +563,9 @@ func (m *Model) emptyKey(key string) tea.Cmd {
 }
 
 func (m *Model) paneNavigation(key string) bool {
+	if m.historyNavigation(key) {
+		return true
+	}
 	switch key {
 	case "c":
 		m.channel.Open = true
@@ -583,11 +588,10 @@ func (m *Model) paneNavigation(key string) bool {
 	case "esc":
 		m.zoom = false
 	case "pgup":
+		m.panes[m.focus].History = true
 		m.panes[m.focus].View.HalfPageUp()
 	case "pgdown":
 		m.panes[m.focus].View.HalfPageDown()
-	case "end":
-		m.panes[m.focus].View.GotoBottom()
 	default:
 		return false
 	}
@@ -737,6 +741,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 		lipgloss.NewStyle().Foreground(MemberColor(p.Agent.Name)).Render(fit(name, max(1, inner-12)))
 	buttons := m.paneControlRows(controls, &plan, x, inner, i)
 	atBottom := p.View.AtBottom()
+	anchorID, anchorLine := transcriptAnchor(p.Ranges, p.View.YOffset)
 	p.View.Width = inner
 	p.View.Height = body
 	text, ranges := m.transcript.Render(
@@ -745,7 +750,7 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 			Width:     inner,
 			Dir:       p.Agent.Dir,
 			Dark:      m.theme.Dark,
-			Full:      m.zoom,
+			Full:      p.History,
 			Reasoning: m.showReasoning,
 			Expanded:  p.Expanded,
 			Raw:       p.Raw,
@@ -755,10 +760,18 @@ func (m *Model) renderPane(i, x, y, w, h int) string {
 	)
 	p.View.SetContent(text)
 	p.Content = text
-	if atBottom {
+	if p.History {
+		if offset, ok := transcriptAnchorOffset(ranges, anchorID, anchorLine); ok {
+			p.View.SetYOffset(offset)
+		}
+	} else if atBottom {
 		p.View.GotoBottom()
 	}
+	p.Ranges = ranges
 	detail := m.paneHealth(i) + " · tool: " + p.State.Tool()
+	if p.History {
+		detail += " · HISTORY / loaded only · G Latest"
+	}
 	content := header + "\n" + buttons + "\n" + fit(detail, inner) + "\n" + p.View.View() + "\n" + fit(p.Git, inner)
 	if p.State.Waiting() {
 		lines := strings.Split(ansi.Hardwrap(clean(p.State.WaitingText()), inner, true), "\n")

@@ -48,3 +48,7 @@ Obsolete task `worker`, `report`, `measured` and `legacy_completion` fields and 
 Assignments use `assignee`; accepted completion requires a valid review or structured
 report. Planner estimates remain available, while scaling is bounded by worker capacity,
 cooldown and approval policy.
+
+Task estimates remain planner-provided values. Estimation history is no longer
+recorded or included in master prompts; existing `estimation-history.json` files
+are ignored.

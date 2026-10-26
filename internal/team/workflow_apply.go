@@ -57,7 +57,6 @@ func ChangeTasksState(ctx context.Context, store BoardStore, t *Team, actor Task
 		err = store.Save(ctx, &state, state.Revision)
 		if err == nil {
 			notices := TaskNotices(&before, &state.Board, t, actor)
-			notices = append(notices, EstimationHistoryNotices(ctx, store, &state.Board, t)...)
 			return state, notices, nil
 		}
 		if !errors.Is(err, ErrBoardChanged) {

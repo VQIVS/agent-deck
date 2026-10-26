@@ -252,6 +252,27 @@ func TestGitTUIRendersFramedAtAnchorSizes(t *testing.T) {
 	}
 }
 
+func TestGitTUIDetailsWrapAndScrollFullTarget(t *testing.T) {
+	m := gitTUIModel(t, map[string]string{"lazygit": "/bin/lazygit"}, Options{})
+	openLauncher(t, m)
+	m.w, m.h = 80, 12
+	longPath := "/work/" + strings.Repeat("nested-directory/", 30) + "unique-target-end"
+	m.gitTUI.Target.Dir, m.gitTUI.Target.Root = longPath, longPath
+	m.gitTUIKey(gitKey("i"))
+	view := ansi.Strip(m.View())
+	if lipgloss.Height(view) > m.h || m.gitTUI.DetailsTotal <= m.gitTUI.DetailsPage {
+		t.Fatal("details not bounded or long path not wrapped")
+	}
+	for range m.gitTUI.DetailsTotal {
+		if strings.Contains(view, "unique-target-end") {
+			return
+		}
+		m.gitTUIKey(gitKey("j"))
+		view = ansi.Strip(m.View())
+	}
+	t.Fatal("full target suffix cannot be reached by scrolling")
+}
+
 func hasZone(m *Model, action string) bool {
 	return slices.ContainsFunc(m.zones, func(z zone) bool { return z.Action == action })
 }

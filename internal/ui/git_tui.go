@@ -39,6 +39,7 @@ type gitTUIUI struct {
 	Blocked                                      []string
 	Clients                                      []foundGitClient
 	Index, Generation                            int
+	DetailsOffset, DetailsTotal, DetailsPage     int
 	Remembered, Status, Returned                 string
 	LookPath                                     func(string) (string, error)
 }
@@ -168,9 +169,7 @@ func (m *Model) gitViewKey(v tea.KeyMsg) tea.Cmd {
 func (m *Model) gitTUIKey(v tea.KeyMsg) tea.Cmd {
 	g := &m.gitTUI
 	if g.Details {
-		if key := v.String(); key == "esc" || key == "q" || key == "i" {
-			g.Details = false
-		}
+		m.gitDetailsKey(v.String())
 		return nil
 	}
 	switch v.String() {
@@ -184,6 +183,7 @@ func (m *Model) gitTUIKey(v tea.KeyMsg) tea.Cmd {
 		g.Remember = !g.Remember && len(g.Clients) > 0
 	case "i":
 		g.Details = true
+		g.DetailsOffset = 0
 	case "r":
 		if g.Blocked != nil {
 			return m.openGitTUI()
@@ -193,6 +193,28 @@ func (m *Model) gitTUIKey(v tea.KeyMsg) tea.Cmd {
 		return m.launchGitClient()
 	}
 	return nil
+}
+
+func (m *Model) gitDetailsKey(key string) {
+	g := &m.gitTUI
+	step := 0
+	switch key {
+	case "esc", "q", "i":
+		g.Details = false
+	case "j", "down":
+		step = 1
+	case "k", "up":
+		step = -1
+	case "pgdown", "ctrl+d":
+		step = max(1, g.DetailsPage)
+	case "pgup", "ctrl+u":
+		step = -max(1, g.DetailsPage)
+	case "home", "g":
+		g.DetailsOffset = 0
+	case "end", "G":
+		g.DetailsOffset = max(0, g.DetailsTotal-g.DetailsPage)
+	}
+	g.DetailsOffset = max(0, min(g.DetailsOffset+step, max(0, g.DetailsTotal-g.DetailsPage)))
 }
 
 func (m *Model) launchGitClient() tea.Cmd {

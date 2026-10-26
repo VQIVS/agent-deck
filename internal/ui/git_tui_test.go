@@ -266,3 +266,31 @@ func findZone(t *testing.T, m *Model, action string) zone {
 	t.Fatalf("no zone %q in %v", action, m.zones)
 	return zone{}
 }
+
+func TestGitTUICompactKeepsActionsOnShortTerminals(t *testing.T) {
+	for _, size := range [][2]int{{80, 12}, {80, 16}, {45, 12}} {
+		m := gitTUIModel(t, map[string]string{
+			"lazygit": "/usr/local/bin/lazygit", "gitui": "/usr/bin/gitui",
+			"tig": "/usr/bin/tig",
+		}, Options{})
+		m.panes[0].Agent.Dir = "/work/agent-deck"
+		m.changes.Root, m.changes.Directory = "/work/agent-deck", "/work/agent-deck"
+		m.w, m.h = size[0], size[1]
+		openLauncher(t, m)
+		view := m.View()
+		if lines := strings.Split(view, "\n"); len(lines) > size[1] {
+			t.Fatalf("%dx%d rendered %d rows", size[0], size[1], len(lines))
+		}
+		launch := findZone(t, m, "gittui:launch")
+		if launch.Y >= size[1] || !strings.Contains(ansi.Strip(view), "Enter Open lazygit") ||
+			!strings.Contains(ansi.Strip(view), "Dashboard pauses") {
+			t.Fatalf("%dx%d lost the launch action or pause cue:\n%s", size[0], size[1], ansi.Strip(view))
+		}
+		if handled, _ := m.workspaceMouse(findZone(t, m, "gittui:client:2"), true); !handled || m.gitTUI.Index != 2 {
+			t.Fatalf("%dx%d client rows not clickable", size[0], size[1])
+		}
+		if size == [2]int{80, 12} {
+			assertScreenGolden(t, "git_tui_80x12", view)
+		}
+	}
+}

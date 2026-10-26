@@ -1,0 +1,12 @@
+[1 Dashboard] [>2 Git] [3 Summary] [4 Channel] [5 Board] [6 Inbox]
+Git / core-dev                                            [Esc Built-in diff]
+Checkout: /work/agent-deck · core-dev
+Dashboard pauses while Git TUI is open.
+> lazygit  Suggested: Vim-style defaults; q returns · /usr/local/bin/lazygit
+  gitui    Arrow-key defaults; use client help/quit · /usr/bin/gitui
+  tig      Opens status; client quit returns · /usr/bin/tig
+Checked PATH only. No installation, setup or login performed.
+[ ] Remember this choice for this agent-deck run
+[Enter Open lazygit] [Esc Keep built-in diff]
+ GIT TUI  Target is fixed while this launcher is open; rechecked before starti…
+j/k choose  Space remember  Enter open  i checkout  r detect again  Esc cancel

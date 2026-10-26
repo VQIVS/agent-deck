@@ -98,7 +98,7 @@ func TestCustomWorkflowAuthenticatedReleaseAndDiscovery(t *testing.T) {
 		t.Fatal(pending, err)
 	}
 	view, err := call("release-manager", "task_workflow", `{"id":"T-1"}`)
-	if err != nil || !slices.Contains(view.(workflowView).ValidMoves, "Published") {
+	if err != nil || !slices.Contains(view.(team.WorkflowView).ValidMoves, "Published") {
 		t.Fatal(view, err)
 	}
 	if _, err := call("lead", "move_task", `{"id":"T-1","state":"Published","version":"v1.0"}`); err == nil {

@@ -9,13 +9,6 @@ import (
 	"github.com/vqivs/agent-deck/internal/team"
 )
 
-type workflowView struct {
-	Definition             team.WorkflowDefinition `json:"workflow"`
-	Task                   string                  `json:"task,omitempty"`
-	ValidMoves             []string                `json:"valid_moves"`
-	ReleaseVersionRequired bool                    `json:"release_version_required"`
-}
-
 func (t *TaskTools) workflowRead(ctx context.Context, store team.BoardStore, manager *team.Manager,
 	actor team.TaskActor, name string, call *team.WorkflowCall,
 ) (any, error) {
@@ -38,27 +31,10 @@ func (t *TaskTools) workflowRead(ctx context.Context, store team.BoardStore, man
 		}
 		return out, nil
 	}
-	view := workflowView{
-		Definition: state.Board.Workflow.Resolved(), Task: call.ID,
-		ValidMoves: []string{}, ReleaseVersionRequired: true,
-	}
-	if call.ID == "" {
-		return view, nil
-	}
-	found := false
-	for i := range state.Board.Tasks {
-		if state.Board.Tasks[i].ID == call.ID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("unknown task %q", call.ID)
-	}
-	// Observation remains read-only; hypothetical moves evaluate normal actor guards.
 	mutation := team.TaskMutation{Actor: actor, Now: t.now()}
-	for _, stage := range state.Board.ValidMoves(call.ID, mutation) {
-		view.ValidMoves = append(view.ValidMoves, stage.Name)
+	view, err := team.ReadWorkflowView(&state.Board, call.ID, mutation)
+	if err != nil {
+		return nil, fmt.Errorf("read workflow view: %w", err)
 	}
 	return view, nil
 }

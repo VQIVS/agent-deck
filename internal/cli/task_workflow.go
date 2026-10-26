@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/vqivs/agent-deck/internal/team"
@@ -31,24 +30,10 @@ func readTaskWorkflow(ctx context.Context, store team.BoardStore, current *team.
 		}
 		return writeJSON(out, pending)
 	}
-	view := struct {
-		Workflow               team.WorkflowDefinition `json:"workflow"`
-		Task                   string                  `json:"task,omitempty"`
-		ValidMoves             []string                `json:"valid_moves"`
-		ReleaseVersionRequired bool                    `json:"release_version_required"`
-	}{
-		Workflow: state.Board.Workflow.Resolved(), Task: options.Call.ID,
-		ValidMoves: []string{}, ReleaseVersionRequired: true,
-	}
-	if view.Task != "" {
-		found := slices.ContainsFunc(state.Board.Tasks, func(task team.Task) bool { return task.ID == view.Task })
-		if !found {
-			return fmt.Errorf("unknown task %q", view.Task)
-		}
-		mutation := team.TaskMutation{Actor: team.TaskActor{User: true}, Now: time.Now()}
-		for _, stage := range state.Board.ValidMoves(view.Task, mutation) {
-			view.ValidMoves = append(view.ValidMoves, stage.Name)
-		}
+	mutation := team.TaskMutation{Actor: team.TaskActor{User: true}, Now: time.Now()}
+	view, err := team.ReadWorkflowView(&state.Board, options.Call.ID, mutation)
+	if err != nil {
+		return fmt.Errorf("read workflow view: %w", err)
 	}
 	return writeJSON(out, view)
 }

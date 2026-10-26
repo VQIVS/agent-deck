@@ -21,7 +21,7 @@ func (u *teamUI) formScreen() string {
 
 func (m *Model) teamForm() {
 	u := m.teams
-	u.Draft = u.Draft.PrivateCopy()
+	u.Draft = u.Draft.Clone()
 	t := &u.Draft
 	definition, err := FormatTeamDoD(t.DefinitionOfDone)
 	if err != nil {
@@ -46,7 +46,7 @@ func (m *Model) teamForm() {
 
 func (m *Model) memberForm() {
 	u := m.teams
-	u.Draft = u.Draft.PrivateCopy()
+	u.Draft = u.Draft.Clone()
 	member := &u.Draft.Members[u.MemberIndex]
 	u.Advanced = false
 	preset := member.Capability
@@ -116,9 +116,6 @@ func (m *Model) saveForm() tea.Cmd {
 		return nil
 	}
 	u.Manager = &team.Manager{Store: u.Store, Team: u.Draft, Version: v, ReadOnly: m.opts.ReadOnly}
-	if err := u.Manager.ReloadProject(m.context()); err != nil {
-		m.note = err.Error()
-	}
 	u.Screen = "members"
 	m.note = "Saved · select member and Start to create resources"
 	if wasMember && u.Draft.Members[u.MemberIndex].Session == "" {
@@ -144,7 +141,7 @@ func (m *Model) saveTeamDraft(version []byte) ([]byte, error) {
 		return nil, fmt.Errorf("locate member rename board: %w", err)
 	}
 	manager := &team.Manager{
-		Store: u.Store, Team: u.Manager.Team.PrivateCopy(), Version: version, ReadOnly: m.opts.ReadOnly,
+		Store: u.Store, Team: u.Manager.Team.Clone(), Version: version, ReadOnly: m.opts.ReadOnly,
 	}
 	board := team.BoardStore{
 		Root: filepath.Join(root, "boards"), Team: team.Slug(manager.Team.Name), ReadOnly: m.opts.ReadOnly,

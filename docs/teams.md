@@ -316,32 +316,17 @@ worktree-relative; absolute private-path edit rules are not relied upon.
 
 `agent-deck init --dir /path/to/repo --template bugfix-tester` detects the Git root and
 base branch, then saves a private team without creating sessions. `--list-templates`
-lists built-ins and user overrides. `--project FILE` selects portable policy explicitly;
-otherwise a root `agent-deck.yaml` is used when present. Existing teams are never overwritten.
+lists built-ins and user overrides. Existing teams are never overwritten.
 `--team`, `--base`, `--server` and `--model` override detected/default values.
 
-`agent-deck doctor --team NAME [--project FILE] [--dir DIR]` adds repository/base,
-project schema, prompt-file and unapplied-lease checks to server/model diagnostics.
+`agent-deck doctor --team NAME [--dir DIR]` adds repository/base, prompt-file and
+unapplied-lease checks to server/model diagnostics.
 The dashboard no longer automatically approves exact-command allowlists. Permission requests
 remain available for explicit approval or rejection in the selected pane and Inbox.
 Read-only dashboards cannot answer requests.
 
-## Portable project policy and templates
+## Role templates
 
-`internal/team` provides strict version-1 `agent-deck.yaml` project policy and role
-templates. Project policy accepts portable roles, prompts, model, base and capacity;
-it rejects session IDs and workspace bindings. Merging requires
-explicit private local bindings. Opening a saved team merges root `agent-deck.yaml` with
-its private bindings case-insensitively and keeps unmentioned members and local overrides.
-The overlay remains in memory for prompts/display. Forms edit private values; saves and
-session lifecycle operations use the private team, then re-merge repository policy.
-Repository approval/command lists do not enable dashboard auto-approval.
-Repository capabilities can only tighten explicit local tool
-permissions; inherited sessions stay inherited. Repository prompt text is labeled and
-subordinate to private policy. Repository rules/system text still enters prompts; opening
-a repository therefore trusts its instructional content, even though it cannot raise permissions.
-Doctor uses the same overlay. Live session permissions
-still require explicit Apply leases.
 Built-in templates are `upgrade-team`, `review-pair`,
 `bugfix-tester` and `custom`. User YAML templates under the config directory replace an
 entire built-in by name. Advanced worker forms offer **Role template** choices; selecting

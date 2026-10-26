@@ -11,12 +11,8 @@ import (
 )
 
 // projectTeamChecks performs local read-only checks, returning findings compatible with doctor.
-func projectTeamChecks(ctx context.Context, store team.Store, name, project, directory string) []finding {
+func projectTeamChecks(ctx context.Context, store team.Store, name, directory string) []finding {
 	checks := []finding{}
-	if project != "" {
-		_, err := team.LoadProject(ctx, project)
-		checks = append(checks, localCheck("Project policy", project, "Correct the portable project policy", err))
-	}
 	if name == "" {
 		if directory != "" {
 			root, _, err := detectProjectGit(ctx, directory)
@@ -25,9 +21,6 @@ func projectTeamChecks(ctx context.Context, store team.Store, name, project, dir
 		return checks
 	}
 	t, _, err := store.Load(ctx, name)
-	if err == nil {
-		err = mergeProject(ctx, &t)
-	}
 	checks = append(checks, localCheck("Team", name, "Correct or initialize the private team configuration", err))
 	if err != nil {
 		return checks

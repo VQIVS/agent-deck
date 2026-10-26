@@ -45,7 +45,7 @@ func renameFixture(t *testing.T) (*Manager, BoardStore) {
 
 func TestMemberRenamePartialFailureRetainsSavedRevision(t *testing.T) {
 	manager, board := renameFixture(t)
-	candidate := manager.Team.PrivateCopy()
+	candidate := manager.Team.Clone()
 	candidate.Members[1].Name = "saved-before-interrupt"
 	// Cancel once team persistence has happened: the intent must remain repairable.
 	ctx, cancel := context.WithCancel(t.Context())
@@ -85,7 +85,7 @@ func TestMemberRenameOpenTasksAndHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate := manager.Team.PrivateCopy()
+	candidate := manager.Team.Clone()
 	candidate.Members[1].Name = "renamed"
 	if err := SaveMemberChanges(t.Context(), manager, &candidate, board); err != nil {
 		t.Fatal(err)
@@ -129,12 +129,12 @@ func TestMemberRenameOpenTasksAndHistory(t *testing.T) {
 func TestMemberRenameCollisionStaleAndRestartRepair(t *testing.T) {
 	manager, board := renameFixture(t)
 	stale := *manager
-	candidate := manager.Team.PrivateCopy()
+	candidate := manager.Team.Clone()
 	candidate.Members[1].Name = candidate.Members[0].Name
 	if err := SaveMemberChanges(t.Context(), manager, &candidate, board); err == nil {
 		t.Fatal("collision accepted")
 	}
-	candidate = manager.Team.PrivateCopy()
+	candidate = manager.Team.Clone()
 	candidate.Members[1].Name = "renamed"
 	// Simulate a crash after intent/team persistence but before board repair.
 	journal := memberRenameJournal{Pending: []memberRename{{
@@ -187,7 +187,7 @@ func TestMemberRenameFailedIntentDoesNotRenameUnrelatedIdentity(t *testing.T) {
 		t.Fatal("uncommitted intent rewrote owner", err)
 	}
 	manager.ReadOnly = true
-	candidate := manager.Team.PrivateCopy()
+	candidate := manager.Team.Clone()
 	candidate.Members[1].Name = "readonly"
 	if err := SaveMemberChanges(t.Context(), manager, &candidate, board); err == nil {
 		t.Fatal("readonly rename accepted")

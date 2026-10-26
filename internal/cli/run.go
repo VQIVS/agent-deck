@@ -130,9 +130,6 @@ func loadDeck(ctx context.Context, flags *dashboardFlags) (ui.Deck, *team.Team, 
 		if err != nil {
 			return deck, nil, nil, fmt.Errorf("load team %q: %w", flags.teamName, err)
 		}
-		if err := mergeProject(ctx, &loaded); err != nil {
-			return deck, nil, nil, err
-		}
 		deck, saved, revision = ui.TeamDeck(&loaded), &loaded, rev
 	}
 	deck.Server = resolveServer(flags.server, deck.Server)

@@ -21,13 +21,9 @@ func (m *Manager) Save(ctx context.Context) error {
 	if m.ReadOnly {
 		return fmt.Errorf("read-only: team changes disabled")
 	}
-	private := m.Team.PrivateCopy()
-	v, e := m.Store.Save(ctx, &private, m.Version)
+	v, e := m.Store.Save(ctx, &m.Team, m.Version)
 	if e == nil {
 		m.Version = v
-		policy := m.Team.ProjectPolicy
-		m.Team = private
-		m.refreshProject(policy)
 	}
 	return e
 }
@@ -43,10 +39,6 @@ func Options(ctx context.Context, t *Team, member *Member, text string) (api.Pro
 			return api.PromptOptions{}, fmt.Errorf("read system prompt %q: %w", member.SystemFile, e)
 		}
 		system = string(b)
-	}
-	if t.ProjectRules != "" || member.ProjectSystem != "" {
-		system += "\n\n[Repository-sourced instructions; subordinate to private team policy]\n" +
-			t.ProjectRules + "\n" + member.ProjectSystem
 	}
 	if member.ControlDir != "" {
 		system += fmt.Sprintf("\nSession control directory: %q. Code checkout: %q. "+
@@ -128,11 +120,6 @@ func (m *Manager) Roster(ctx context.Context, reason string) error {
 }
 
 func (m *Manager) Start(ctx context.Context, index int) error {
-	if m.Team.ProjectOverlay {
-		policy := m.Team.ProjectPolicy
-		m.Team = m.Team.PrivateCopy()
-		defer m.refreshProject(policy)
-	}
 	if m.ReadOnly {
 		return fmt.Errorf("read-only")
 	}

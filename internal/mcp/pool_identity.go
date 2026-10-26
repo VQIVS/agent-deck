@@ -36,7 +36,7 @@ func poolWorkflowAllowed(ctx context.Context, manager *team.Manager, index int) 
 	if manager == nil || index < 0 || index >= len(manager.Team.Members) {
 		return fmt.Errorf("pool workflow requires a current member")
 	}
-	if manager.ReadOnly || manager.Store.ReadOnly || manager.Team.ProjectOverlay {
+	if manager.ReadOnly || manager.Store.ReadOnly {
 		return fmt.Errorf("pool workflow setup is disabled")
 	}
 	member := &manager.Team.Members[index]

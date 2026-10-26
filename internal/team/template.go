@@ -1,13 +1,17 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // RoleTemplate is a versioned team recipe shared by built-ins and user overrides.
@@ -130,4 +134,54 @@ func loadRoleTemplate(ctx context.Context, filename string) (RoleTemplate, error
 		return t, fmt.Errorf("parse role template %q: %w", filename, err)
 	}
 	return t, nil
+}
+
+// RolePolicy is one role of a team template.
+type RolePolicy struct {
+	Name       string `yaml:"name"`
+	Role       string `yaml:"role"`
+	Capability string `yaml:"capability"`
+	Model      string `yaml:"model,omitempty"`
+	Agent      string `yaml:"agent,omitempty"`
+	System     string `yaml:"system,omitempty"`
+	Brief      string `yaml:"brief,omitempty"`
+}
+
+func validateRoles(roles []RolePolicy) error {
+	masters := 0
+	names := map[string]bool{}
+	for _, role := range roles {
+		if role.Name == "" || Slug(role.Name) != role.Name || names[role.Name] {
+			return fmt.Errorf("role names must be unique nonempty slugs")
+		}
+		names[role.Name] = true
+		if role.Role != "master" && role.Role != "worker" {
+			return fmt.Errorf("role %q must be master or worker", role.Name)
+		}
+		if role.Role == "master" {
+			masters++
+		}
+		switch role.Capability {
+		case "inherited", "reviewer", "coder", "full":
+		default:
+			return fmt.Errorf("role %q needs a known capability", role.Name)
+		}
+	}
+	if masters != 1 {
+		return fmt.Errorf("exactly one master role required")
+	}
+	return nil
+}
+
+func decodePolicy(data []byte, out any) error {
+	d := yaml.NewDecoder(bytes.NewReader(data))
+	d.KnownFields(true)
+	if err := d.Decode(out); err != nil {
+		return fmt.Errorf("decode policy: %w", err)
+	}
+	var extra any
+	if err := d.Decode(&extra); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("policy must contain exactly one YAML document")
+	}
+	return nil
 }

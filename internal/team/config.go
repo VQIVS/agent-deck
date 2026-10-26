@@ -8,56 +8,49 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Member binds a team role to workspace, session, and creation-time policy.
 type Member struct {
-	SchedulingRole       string            `yaml:"scheduling_role,omitempty"`
-	Skills               []string          `yaml:"skills,omitempty"`
-	Areas                Leases            `yaml:"areas,omitempty"`
-	ControlDir           string            `yaml:"control_dir,omitempty"`
-	PreviousSession      string            `yaml:"previous_session,omitempty"`
-	PreviousDir          string            `yaml:"previous_dir,omitempty"`
-	PoolCreated          bool              `yaml:"pool_created,omitempty"`
-	ID                   string            `yaml:"id,omitempty"`
-	Muted                bool              `yaml:"muted,omitempty"`
-	ProjectEditUntrusted bool              `yaml:"-" json:"-"`
-	ProjectSystem        string            `yaml:"-" json:"-"`
-	Nudge                NudgePolicy       `yaml:"nudge,omitempty"`
-	NudgeStatus          NudgeState        `yaml:"nudge_status,omitempty"`
-	StallAfter           *time.Duration    `yaml:"stall_after,omitempty"`
-	LeasePolicy          string            `yaml:"lease_policy,omitempty"`
-	Leases               []string          `yaml:"leases,omitempty"`
-	Capability           string            `yaml:"capability,omitempty"`
-	Name                 string            `yaml:"name"`
-	Role                 string            `yaml:"role"`
-	Model                string            `yaml:"model,omitempty"`
-	Agent                string            `yaml:"agent,omitempty"`
-	System               string            `yaml:"system,omitempty"`
-	SystemFile           string            `yaml:"system_file,omitempty"`
-	Brief                string            `yaml:"brief,omitempty"`
-	Permissions          map[string]string `yaml:"permissions,omitempty"`
-	Mode                 string            `yaml:"mode"`
-	BranchTemplate       string            `yaml:"branch_template,omitempty"`
-	Dir                  string            `yaml:"dir,omitempty"`
-	Branch               string            `yaml:"branch,omitempty"`
-	Session              string            `yaml:"session,omitempty"`
-	Owned                bool              `yaml:"owned_worktree,omitempty"`
+	SchedulingRole  string            `yaml:"scheduling_role,omitempty"`
+	Skills          []string          `yaml:"skills,omitempty"`
+	Areas           Leases            `yaml:"areas,omitempty"`
+	ControlDir      string            `yaml:"control_dir,omitempty"`
+	PreviousSession string            `yaml:"previous_session,omitempty"`
+	PreviousDir     string            `yaml:"previous_dir,omitempty"`
+	PoolCreated     bool              `yaml:"pool_created,omitempty"`
+	ID              string            `yaml:"id,omitempty"`
+	Muted           bool              `yaml:"muted,omitempty"`
+	Nudge           yaml.Node         `yaml:"nudge,omitempty" json:"-"`
+	NudgeStatus     yaml.Node         `yaml:"nudge_status,omitempty" json:"-"`
+	StallAfter      yaml.Node         `yaml:"stall_after,omitempty" json:"-"`
+	LeasePolicy     string            `yaml:"lease_policy,omitempty"`
+	Leases          []string          `yaml:"leases,omitempty"`
+	Capability      string            `yaml:"capability,omitempty"`
+	Name            string            `yaml:"name"`
+	Role            string            `yaml:"role"`
+	Model           string            `yaml:"model,omitempty"`
+	Agent           string            `yaml:"agent,omitempty"`
+	System          string            `yaml:"system,omitempty"`
+	SystemFile      string            `yaml:"system_file,omitempty"`
+	Brief           string            `yaml:"brief,omitempty"`
+	Permissions     map[string]string `yaml:"permissions,omitempty"`
+	Mode            string            `yaml:"mode"`
+	BranchTemplate  string            `yaml:"branch_template,omitempty"`
+	Dir             string            `yaml:"dir,omitempty"`
+	Branch          string            `yaml:"branch,omitempty"`
+	Session         string            `yaml:"session,omitempty"`
+	Owned           bool              `yaml:"owned_worktree,omitempty"`
 }
 
 // Team is a versioned local configuration with exactly one coordinating master.
 type Team struct {
 	Workflow         WorkflowDefinition `yaml:"workflow,omitempty"`
-	ProjectPrivate   *Team              `yaml:"-" json:"-"`
-	ProjectPolicy    *ProjectPolicy     `yaml:"-" json:"-"`
 	DefinitionOfDone DefinitionOfDone   `yaml:"definition_of_done,omitempty"`
-	ProjectOverlay   bool               `yaml:"-" json:"-"`
-	ProjectRules     string             `yaml:"-" json:"-"`
-	Approval         string             `yaml:"approval,omitempty"`
-	SafeCommands     []string           `yaml:"safe_commands,omitempty"`
+	Approval         yaml.Node          `yaml:"approval,omitempty" json:"-"`
+	SafeCommands     yaml.Node          `yaml:"safe_commands,omitempty" json:"-"`
 	LeasePool        bool               `yaml:"lease_pool,omitempty"`
 	Version          int                `yaml:"version"`
 	Name             string             `yaml:"name"`
@@ -71,8 +64,22 @@ type Team struct {
 	Members          []Member           `yaml:"members"`
 }
 
+// Clone copies a team with its own member slice so callers can edit it safely.
+func (t *Team) Clone() Team {
+	c := *t
+	c.Members = append([]Member(nil), t.Members...)
+	return c
+}
+
 func Slug(s string) string {
 	return strings.Trim(regexp.MustCompile(`[^a-zA-Z0-9_-]+`).ReplaceAllString(strings.ToLower(s), "-"), "-")
+}
+
+func (t *Team) validatePolicies() error {
+	if strings.HasPrefix(t.Base, "-") {
+		return fmt.Errorf("base must not start with '-'")
+	}
+	return ValidateLeases(t.Members)
 }
 
 func Preset(name string) map[string]string {

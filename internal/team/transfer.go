@@ -117,7 +117,7 @@ func Export(source *Team, format string, portable bool) ([]byte, error) {
 			m.LeasePolicy = ""
 			m.ID = ""
 			m.ControlDir, m.PreviousSession, m.PreviousDir = "", "", ""
-			m.NudgeStatus = NudgeState{}
+			m.NudgeStatus = yaml.Node{}
 			if m.Mode == "adopt" {
 				m.Mode = "shared"
 			}

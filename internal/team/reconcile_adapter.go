@@ -88,7 +88,7 @@ func (t *LifecycleTransport) Execute(ctx context.Context, request *ReconcileRequ
 }
 
 func (t *LifecycleTransport) writableManager(manager *Manager) bool {
-	return !manager.ReadOnly && !manager.Team.ProjectOverlay && manager.Team.Name == t.Store.Team
+	return !manager.ReadOnly && manager.Team.Name == t.Store.Team
 }
 
 func (t *LifecycleTransport) commitBoard(ctx context.Context, request *ReconcileRequest,

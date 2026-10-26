@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -15,8 +14,8 @@ import (
 )
 
 type initFlags struct {
-	Directory, Name, Template, Templates, Project, Base, Server, Model string
-	ReadOnly, ListTemplates                                            bool
+	Directory, Name, Template, Templates, Base, Server, Model string
+	ReadOnly, ListTemplates                                   bool
 }
 
 func parseInitFlags(args []string) (initFlags, error) {
@@ -27,7 +26,6 @@ func parseInitFlags(args []string) (initFlags, error) {
 	f.StringVar(&opts.Template, "template", "custom", "role template name")
 	f.StringVar(&opts.Templates, "templates-dir", filepath.Join(filepath.Dir(team.DefaultRoot()), "templates"),
 		"user role template directory")
-	f.StringVar(&opts.Project, "project", "", "portable project policy file")
 	f.StringVar(&opts.Base, "base", "", "override detected default branch")
 	f.StringVar(&opts.Server, "server", "", "OpenCode server URL")
 	f.StringVar(&opts.Model, "model", "", "default provider/model")
@@ -67,7 +65,6 @@ func initCommand(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	store := team.Store{Root: team.DefaultRoot()}
-	t.ProjectOverlay = false
 	if _, err := store.Save(ctx, &t, nil); err != nil {
 		return fmt.Errorf("save initialized team: %w", err)
 	}
@@ -83,7 +80,7 @@ func prepareInit(ctx context.Context, opts *initFlags, templates []team.RoleTemp
 	if err != nil {
 		return team.Team{}, err
 	}
-	policy, err := initPolicy(ctx, opts, templates, root)
+	policy, err := initRecipeFor(opts, templates, root)
 	if err != nil {
 		return team.Team{}, err
 	}
@@ -110,53 +107,29 @@ func prepareInit(ctx context.Context, opts *initFlags, templates []team.RoleTemp
 			Capability: role.Capability, Permissions: team.Preset(role.Capability),
 		})
 	}
-	if opts.Project != "" || projectExists(root) {
-		for i := range t.Members {
-			member := &t.Members[i]
-			if member.Capability == "full" {
-				member.Capability = "coder"
-				member.Permissions = team.Preset("coder")
-			}
-		}
-	}
 	if err := t.Validate(); err != nil {
 		return t, fmt.Errorf("validate initialized team: %w", err)
 	}
 	return t, nil
 }
 
-func projectExists(root string) bool {
-	_, err := os.Stat(filepath.Join(root, "agent-deck.yaml"))
-	return err == nil
+// initRecipe is the team shape init builds from a role template.
+type initRecipe struct {
+	Name, Base, Model, Rules string
+	Capacity                 int
+	Members                  []team.RolePolicy
 }
 
-func initPolicy(ctx context.Context, opts *initFlags, templates []team.RoleTemplate, root string,
-) (team.ProjectPolicy, error) {
-	project := opts.Project
-	if project == "" {
-		candidate := filepath.Join(root, "agent-deck.yaml")
-		if _, err := os.Stat(candidate); err == nil {
-			project = candidate
-		} else if !os.IsNotExist(err) {
-			return team.ProjectPolicy{}, fmt.Errorf("inspect project policy: %w", err)
-		}
-	}
-	if project != "" {
-		policy, err := team.LoadProject(ctx, project)
-		if err != nil {
-			return policy, fmt.Errorf("load init project: %w", err)
-		}
-		return policy, nil
-	}
+func initRecipeFor(opts *initFlags, templates []team.RoleTemplate, root string) (initRecipe, error) {
 	for _, template := range templates {
 		if template.Name == opts.Template {
-			return team.ProjectPolicy{
-				Version: 1, Name: team.Slug(filepath.Base(root)), Capacity: max(1, len(template.Members)-1),
+			return initRecipe{
+				Name: team.Slug(filepath.Base(root)), Capacity: max(1, len(template.Members)-1),
 				Members: template.Members,
 			}, nil
 		}
 	}
-	return team.ProjectPolicy{}, fmt.Errorf("unknown template %q; use --list-templates", opts.Template)
+	return initRecipe{}, fmt.Errorf("unknown template %q; use --list-templates", opts.Template)
 }
 
 func projectGit(ctx context.Context, dir string, args ...string) (string, error) {

@@ -67,9 +67,6 @@ func (s Store) List(ctx context.Context) ([]Team, error) {
 
 // Save compares against the version the editor loaded before atomic replacement.
 func (s Store) Save(ctx context.Context, t *Team, expected []byte) ([]byte, error) {
-	if t.ProjectOverlay {
-		return nil, fmt.Errorf("project overlay is read-only; edit private configuration without the project overlay")
-	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

@@ -33,7 +33,6 @@ func doctor(args []string) error {
 	f := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	server := f.String("server", "", "OpenCode server URL")
 	name := f.String("team", "", "check saved team")
-	project := f.String("project", "", "check portable project file")
 	directory := f.String("dir", "", "check project repository")
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("parse doctor flags: %w", err)
@@ -43,7 +42,7 @@ func doctor(args []string) error {
 	checks := newDiagnostics(resolveServer(*server, ""))
 	findings := checks.check(ctx, true)
 	findings = append(findings, projectTeamChecks(ctx, team.Store{Root: team.DefaultRoot(), ReadOnly: true},
-		*name, *project, *directory)...)
+		*name, *directory)...)
 	if printFindings(os.Stdout, findings) {
 		return fmt.Errorf("setup needs attention; run the fix commands above")
 	}

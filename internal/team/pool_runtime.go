@@ -135,11 +135,7 @@ func (p *PoolRuntime) workers(ctx context.Context, manager *Manager, now time.Ti
 		if status.Error != "" && !strings.Contains(status.Error, "is missing") {
 			return nil, fmt.Errorf("observe pool worker %q: %s", member.Name, status.Error)
 		}
-		threshold := member.StallAfter
-		if threshold == nil {
-			threshold = &policy.StallAfter
-		}
-		if status.State == "busy" && stateStalled(threshold, &status, now) {
+		if status.State == "busy" && stateStalled(&policy.StallAfter, &status, now) {
 			status.State = "stalled"
 		}
 		key := member.ID + ":" + member.Session

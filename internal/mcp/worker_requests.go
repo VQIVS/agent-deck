@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,16 +26,18 @@ func (r *Runtime) routeWorkerRequests(ctx context.Context, manager *team.Manager
 	if master == "" {
 		return nil
 	}
-	pending, err := workerRequests(ctx, manager)
-	if err != nil {
-		return err
-	}
+	pending, listErr := workerRequests(ctx, manager)
 	r.mu.Lock()
 	if r.routed == nil {
 		r.routed = map[string]bool{}
 	}
 	var notices []team.TaskNotice
 	current := map[string]bool{}
+	if listErr != nil {
+		for id := range r.routed {
+			current[id] = true
+		}
+	}
 	for i := range pending {
 		request := &pending[i]
 		current[request.permission.ID] = true
@@ -42,12 +45,19 @@ func (r *Runtime) routeWorkerRequests(ctx context.Context, manager *team.Manager
 			notices = append(notices, team.TaskNotice{To: master, Text: requestNotice(request)})
 		}
 	}
+	if len(notices) == 0 {
+		r.routed = current
+		r.mu.Unlock()
+		return listErr
+	}
+	r.mu.Unlock()
+	if err := r.Service.Notify(ctx, notices); err != nil {
+		return errors.Join(listErr, err)
+	}
+	r.mu.Lock()
 	r.routed = current
 	r.mu.Unlock()
-	if len(notices) == 0 {
-		return nil
-	}
-	return r.Service.Notify(ctx, notices)
+	return listErr
 }
 
 type workerRequest struct {
@@ -59,6 +69,7 @@ type workerRequest struct {
 func workerRequests(ctx context.Context, manager *team.Manager) ([]workerRequest, error) {
 	client := api.New(manager.Team.Server, true)
 	listed := map[string][]api.Permission{}
+	var failures []error
 	var out []workerRequest
 	for i := range manager.Team.Members {
 		member := &manager.Team.Members[i]
@@ -70,7 +81,8 @@ func workerRequests(ctx context.Context, manager *team.Manager) ([]workerRequest
 		if !ok {
 			var err error
 			if permissions, err = client.Permissions(ctx, dir); err != nil {
-				return nil, fmt.Errorf("list worker permission requests: %w", err)
+				failures = append(failures, fmt.Errorf("list worker permission requests for %q in %q: %w",
+					member.Name, dir, err))
 			}
 			listed[dir] = permissions
 		}
@@ -80,7 +92,7 @@ func workerRequests(ctx context.Context, manager *team.Manager) ([]workerRequest
 			}
 		}
 	}
-	return out, nil
+	return out, errors.Join(failures...)
 }
 
 func requestNotice(request *workerRequest) string {
@@ -115,10 +127,7 @@ func (t *TaskTools) answerRequest(ctx context.Context, identity Identity, argume
 	if manager.ReadOnly {
 		return nil, fmt.Errorf("read-only: answering requests disabled")
 	}
-	pending, err := workerRequests(ctx, manager)
-	if err != nil {
-		return nil, err
-	}
+	pending, listErr := workerRequests(ctx, manager)
 	for i := range pending {
 		request := &pending[i]
 		if request.permission.ID == input.ID {
@@ -128,6 +137,9 @@ func (t *TaskTools) answerRequest(ctx context.Context, identity Identity, argume
 			}
 			return map[string]string{"request": input.ID, "worker": request.member, "reply": input.Reply}, nil
 		}
+	}
+	if listErr != nil {
+		return nil, listErr
 	}
 	return nil, fmt.Errorf("no pending worker request %q", input.ID)
 }

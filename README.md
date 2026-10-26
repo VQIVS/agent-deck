@@ -53,8 +53,8 @@ and an authorized release-manager or user. See [workflow configuration](docs/wor
   `@member` mentions. `Esc` preserves a draft; failed sends keep it too. `j/k`, `gg/G` and the wheel
   browse history; `o` expands/collapses roster updates. Explicit `@member` mentions queue delivery.
 - **Board (`b`)**: tasks and policy-gated pool proposals with detailed confirmation.
-- **Commands (`Ctrl+P`)**: searchable actions with availability/read-only explanations.
-  Help (`?`) is generated from the same command registry.
+- **Manual nudge (`n`)**: send “continue your task” to the focused session.
+- **Stall badge**: flags busy sessions with no activity for five minutes.
 
 Worker forms show explicit field steps. Pane controls wrap to available width, and the
 header counts waiting sessions separately from permission/question requests.

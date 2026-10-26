@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,10 +25,28 @@ func leaseOriginStore(manager *Manager) BoardStore {
 func loadLeaseOrigins(ctx context.Context, manager *Manager) (map[string]taskLeaseOrigin, error) {
 	origins := map[string]taskLeaseOrigin{}
 	err := leaseOriginStore(manager).read(ctx, "origins.json", &origins)
-	if errors.Is(err, os.ErrNotExist) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if manager.ReadOnly || manager.Store.ReadOnly {
 		return origins, nil
 	}
-	return origins, err
+	var migrated []string
+	for i := range manager.Team.Members {
+		member := &manager.Team.Members[i]
+		if _, known := origins[member.ID]; known || member.ID == "" || member.Role != "worker" || len(member.Leases) == 0 {
+			continue
+		}
+		origins[member.ID] = taskLeaseOrigin{Manual: slices.Clone(member.Leases)}
+		migrated = append(migrated, member.Name)
+	}
+	if len(migrated) > 0 {
+		if err := saveLeaseOrigins(ctx, manager, origins); err != nil {
+			return nil, err
+		}
+		log.Printf("team %q: unknown-origin leases retained as manual for %v", manager.Team.Name, migrated)
+	}
+	return origins, nil
 }
 
 // RecordTaskLeaseGrant records manual ownership before a scheduler changes effective task paths.
@@ -54,6 +73,10 @@ func RecordTaskLeaseGrant(ctx context.Context, manager *Manager, index int, path
 	slices.Sort(origin.Derived)
 	origin.Derived = slices.Compact(origin.Derived)
 	origins[member.ID] = origin
+	return saveLeaseOrigins(ctx, manager, origins)
+}
+
+func saveLeaseOrigins(ctx context.Context, manager *Manager, origins map[string]taskLeaseOrigin) error {
 	store := leaseOriginStore(manager)
 	dir, err := store.directory()
 	if err != nil {

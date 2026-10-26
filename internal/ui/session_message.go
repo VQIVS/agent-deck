@@ -16,6 +16,9 @@ type composerUI struct {
 	Status           string
 	Drafts           map[messageTarget]string
 	Pending          map[messageTarget]string
+	Uncertain        map[messageTarget]bool
+	Identity         bool
+	IdentityOffset   int
 }
 
 type messageSent struct {
@@ -45,6 +48,7 @@ func (m *Model) openComposer(i int) tea.Cmd {
 	}
 	c := &m.composer
 	c.Target, c.Open, c.Discarding, c.Status = m.paneTarget(i), true, false, ""
+	c.Identity, c.IdentityOffset = false, 0
 	m.editing = true
 	m.input.Reset()
 	m.input.Placeholder = "Message for " + c.Target.Member
@@ -84,6 +88,10 @@ func (m *Model) saveDraft() {
 func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 	c := &m.composer
 	key := v.String()
+	if c.Identity {
+		c.identityKey(key)
+		return nil
+	}
 	if c.Discarding {
 		c.Discarding = false
 		if key == "enter" || key == "ctrl+s" {
@@ -95,6 +103,15 @@ func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 	}
 	_, sending := c.Pending[c.Target]
 	switch key {
+	case "ctrl+i":
+		c.Identity, c.IdentityOffset = true, 0
+		return nil
+	case "ctrl+r":
+		if c.Uncertain[c.Target] {
+			delete(c.Uncertain, c.Target)
+			c.Status = "Retry enabled explicitly; sending again may duplicate delivery"
+		}
+		return nil
 	case "esc":
 		m.saveDraft()
 		note := "Draft saved for " + c.Target.Member
@@ -119,6 +136,17 @@ func (m *Model) composeKey(v tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+func (c *composerUI) identityKey(key string) {
+	switch key {
+	case "esc", "ctrl+i":
+		c.Identity = false
+	case "j", "down":
+		c.IdentityOffset++
+	case "k", "up":
+		c.IdentityOffset = max(0, c.IdentityOffset-1)
+	}
+}
+
 func (m *Model) sendComposed() tea.Cmd {
 	c := &m.composer
 	text := strings.TrimSpace(m.input.Value())
@@ -127,6 +155,9 @@ func (m *Model) sendComposed() tea.Cmd {
 		c.Status = "READ ONLY: messaging unavailable"
 		return nil
 	case c.Pending[c.Target] != "":
+		return nil
+	case c.Uncertain[c.Target]:
+		c.Status = "Outcome unknown; check transcript. Ctrl+R enables retry (may duplicate)."
 		return nil
 	case text == "":
 		c.Status = "Type a message"
@@ -159,7 +190,11 @@ func (m *Model) applyMessageSent(v messageSent) {
 			c.Drafts = map[messageTarget]string{}
 		}
 		c.Drafts[v.Target] = draft
-		reason := "Send failed; draft kept: " + v.Err.Error()
+		if c.Uncertain == nil {
+			c.Uncertain = map[messageTarget]bool{}
+		}
+		c.Uncertain[v.Target] = true
+		reason := "Outcome unknown; draft kept. Check transcript before retry: " + v.Err.Error()
 		if current {
 			c.Status = reason
 		} else {

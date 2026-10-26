@@ -308,7 +308,7 @@ func toolPart(p *api.Part, o Options, width int) string {
 func toolMarker(status string, frame int) (marker, color string) {
 	switch status {
 	case "running":
-		return "RUNNING " + []string{"⠋", "⠙", "⠹", "⠸"}[frame%4], "214"
+		return "RUNNING (last reported)", "214"
 	case "pending":
 		return "PENDING", "214"
 	case "error":
@@ -335,7 +335,7 @@ func toolDuration(p *api.Part) string {
 	}
 	end := p.State.Time.End
 	if end == 0 {
-		end = time.Now().UnixMilli()
+		return " / duration unknown"
 	}
 	return " / " + (time.Duration(max(0, end-p.State.Time.Start)) * time.Millisecond).String()
 }

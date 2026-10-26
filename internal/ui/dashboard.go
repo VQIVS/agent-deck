@@ -899,6 +899,10 @@ func (m *Model) overlayView(header string) (string, bool) {
 		m.w = w
 		return m.frameView(body, "  ↑↓ select  ·  Space add/remove  ·  Esc back  ·  Click a session", width), true
 	}
+	if m.editing && m.composer.Open {
+		m.zones = nil
+		return m.composerWorkspaceView(), true
+	}
 	if m.editing || m.rejecting || m.confirm || m.permissionConfirm || m.compactConfirm {
 		m.zones = nil
 		w := m.w

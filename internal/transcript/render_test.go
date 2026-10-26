@@ -129,7 +129,7 @@ func TestToolStateIsLiteralAndStatic(t *testing.T) {
 		p.State.Status = status
 		a, _ := New().Render([]api.Part{p}, Options{Width: 80, Frame: 0})
 		b, _ := New().Render([]api.Part{p}, Options{Width: 80, Frame: 1})
-		if !strings.Contains(ansi.Strip(a), "TOOL read / "+want) || (status != "running") != (a == b) {
+		if !strings.Contains(ansi.Strip(a), "TOOL read / "+want) || a != b {
 			t.Fatalf("status %q rendered %q / animates=%v", status, ansi.Strip(a), a != b)
 		}
 	}

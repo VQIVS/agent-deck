@@ -32,7 +32,7 @@ func TestSummaryChronologyDedupAndProvenance(t *testing.T) {
 		t.Fatalf("bad evidence projection: %+v", entries)
 	}
 	for _, width := range []int{80, 160} {
-		view := RenderSummary(source, &SummaryState{}, width, 48)
+		view := renderSummary(source, &SummaryState{}, width, 48, nil)
 		for _, text := range []string{
 			"Coverage", "30", "unverified", "I think this is done",
 		} {
@@ -53,7 +53,7 @@ func TestSummaryNavigationAndMemberFilter(t *testing.T) {
 	}}
 	state := &SummaryState{}
 	SummaryKey(source, state, key("G"), 8)
-	RenderSummary(source, state, 80, 8)
+	renderSummary(source, state, 80, 8, nil)
 	if state.SelectedID != "channel:b" {
 		t.Fatal("G did not select deterministic unknown-time end")
 	}
@@ -66,7 +66,7 @@ func TestSummaryNavigationAndMemberFilter(t *testing.T) {
 	if state.Member != "alice" {
 		t.Fatal("member cycling failed")
 	}
-	view := RenderSummary(source, state, 80, 80)
+	view := renderSummary(source, state, 80, 80, nil)
 	if strings.Contains(view, "bob-only") {
 		t.Fatal("member filter leaked unrelated entry")
 	}
@@ -95,7 +95,7 @@ func TestSummaryCommentsAndCompleteReportClaims(t *testing.T) {
 		t.Fatalf("lost attribution or chronology: %+v", entries)
 	}
 	state := &SummaryState{Mode: "detail"}
-	view := RenderSummary(source, state, 160, 60)
+	view := renderSummary(source, state, 160, 60, nil)
 	for _, want := range []string{
 		"c1 complete=true", "go test", "FAIL (reported)", "timeout", "broken", "not independently verified",
 	} {
@@ -133,7 +133,7 @@ func TestSummaryEmptySmallTerminalAndPaging(t *testing.T) {
 				state := &SummaryState{}
 				for _, command := range []string{"G", "j", "pgdown", "pgup", "k", "tab", "g", "g"} {
 					SummaryKey(source, state, key(command), height)
-					view := RenderSummary(source, state, width, height)
+					view := renderSummary(source, state, width, height, nil)
 					if state.Offset < 0 || lipgloss.Width(view) > width || lipgloss.Height(view) > height {
 						t.Fatalf("bad bounds %dx%d offset=%d view=%q", width, height, state.Offset, view)
 					}

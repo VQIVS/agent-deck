@@ -149,10 +149,6 @@ func (s *SummaryState) clickIndex(action string) {
 	}
 }
 
-func (m *Model) summaryWheel(delta int) {
-	m.summary.move(delta)
-}
-
 func (m *Model) summaryWheelAt(x, y, delta int) {
 	s := &m.summary
 	y-- // Persistent workspace tab row is outside the Summary body.

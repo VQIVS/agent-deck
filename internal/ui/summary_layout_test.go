@@ -100,10 +100,10 @@ func TestSummaryDesignCaptures(t *testing.T) {
 					state.Mode = variant
 				}
 				view := "1 Dashboard  2 Git  [3 Summary]  4 Channel  5 Board  6 Inbox\n" +
-					RenderSummary(source, state, size[0], size[1]-1)
+					renderSummary(source, state, size[0], size[1]-1, nil)
 				if variant == "session-coverage" {
 					state.DetailOffset = 1 << 25
-					t.Log("Scrolled session coverage:\n" + RenderSummary(source, state, size[0], size[1]-1))
+					t.Log("Scrolled session coverage:\n" + renderSummary(source, state, size[0], size[1]-1, nil))
 				}
 				if lipgloss.Height(view) != size[1] || lipgloss.Width(view) > size[0] {
 					t.Fatalf("bad full-terminal bounds: %dx%d", lipgloss.Width(view), lipgloss.Height(view))
@@ -165,13 +165,13 @@ func summaryCoverageFixture() []SummaryAssistant {
 func TestSummaryAnchorAndScope(t *testing.T) {
 	source := summaryDesignFixture()
 	s := &SummaryState{}
-	RenderSummary(source, s, 80, 23)
+	renderSummary(source, s, 80, 23, nil)
 	SummaryKey(source, s, key("k"), 23)
 	anchor := s.SelectedID
 	source.Channel = append(source.Channel, channel.Record{
 		ID: "new", Sender: "lead", Time: time.Date(2026, 10, 25, 14, 0, 0, 0, time.UTC), Text: "New record",
 	})
-	RenderSummary(source, s, 160, 47)
+	renderSummary(source, s, 160, 47, nil)
 	if s.SelectedID != anchor || s.New != 1 {
 		t.Fatalf("arrival stole anchor: %+v", s)
 	}
@@ -200,7 +200,7 @@ func TestSummaryFetchMetadataKeepsCache(t *testing.T) {
 	source := summaryDesignFixture()
 	source.BoardStatus = loaded
 	s := &SummaryState{}
-	view := RenderSummary(source, s, 80, 23)
+	view := renderSummary(source, s, 80, 23, nil)
 	if !strings.Contains(view, "STALE") || !strings.Contains(view, "REPORT") {
 		t.Fatal("source failure erased healthy evidence")
 	}
@@ -212,7 +212,7 @@ func TestSummaryResponsiveUnicodeBounds(t *testing.T) {
 	source.Channel[0].Text = strings.Repeat("界\x1b[31munsafe\x07 é ", 100)
 	for _, size := range [][2]int{{160, 47}, {120, 39}, {80, 23}, {60, 17}, {40, 11}, {39, 10}, {1, 1}, {0, 0}} {
 		for _, mode := range []string{"", "detail", "coverage", "picker", "help"} {
-			view := RenderSummary(source, &SummaryState{Mode: mode}, size[0], size[1])
+			view := renderSummary(source, &SummaryState{Mode: mode}, size[0], size[1], nil)
 			if size[0] == 0 || size[1] == 0 {
 				if view != "" {
 					t.Fatal("zero dimension must render empty")
@@ -270,7 +270,7 @@ func TestSummaryBoardBoundedAndUnknownTimes(t *testing.T) {
 		ID: "unknown", Sender: "departed", Text: "No timestamp supplied",
 	})
 	s := &SummaryState{}
-	view := RenderSummary(source, s, 80, 23)
+	view := renderSummary(source, s, 80, 23, nil)
 	if !strings.Contains(view, "more tasks") || !strings.Contains(view, "custom-review") ||
 		!strings.Contains(view, "Evidence /") {
 		t.Fatal("large board displaced evidence or hid custom state")
@@ -316,7 +316,7 @@ func TestSummaryMouseSelectionDetailsAndResize(t *testing.T) {
 		t.Fatal("Details action did not open selected item")
 	}
 	selected := m.summary.SelectedID
-	m.summaryWheel(3)
+	m.summaryWheelAt(10, m.summary.contentTop+2, 3)
 	if m.summary.DetailOffset != 3 || m.summary.SelectedID != selected {
 		t.Fatal("detail wheel changed selected evidence")
 	}
@@ -366,14 +366,14 @@ func TestSummaryWholeEventsAndCoverageContext(t *testing.T) {
 	source.Channel = append(source.Channel, channel.Record{
 		ID: "arrival", Sender: "lead", Time: time.Date(2026, 10, 25, 14, 0, 0, 0, time.UTC), Text: "Newest preview",
 	})
-	view := RenderSummary(source, s, 80, 23)
+	view := renderSummary(source, s, 80, 23, nil)
 	if strings.Contains(view, "14:00") && !strings.Contains(view, "Newest preview") {
 		t.Fatal("compact viewport displayed orphan event metadata")
 	}
 	source.Assistants = summaryCoverageFixture()
 	s.Mode = "coverage"
 	s.DetailOffset = 1 << 25
-	view = RenderSummary(source, s, 80, 23)
+	view = renderSummary(source, s, 80, 23, nil)
 	if !strings.Contains(strings.Split(view, "\n")[8], "worker") {
 		t.Fatal("scrolled coverage lost pinned member identity")
 	}

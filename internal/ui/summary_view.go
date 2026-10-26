@@ -217,10 +217,6 @@ func (c *summaryCanvas) body(y int, text string) {
 	c.line(y, "| "+summaryCell(text, max(0, c.width-4))+" |")
 }
 
-func RenderSummary(source *SummarySource, state *SummaryState, width, height int) string {
-	return renderSummary(source, state, width, height, nil)
-}
-
 // renderSummary renders the body below the persistent workspace tab row.
 func renderSummary(source *SummarySource, state *SummaryState, width, height int, theme *Theme) string {
 	if width <= 0 || height <= 0 {

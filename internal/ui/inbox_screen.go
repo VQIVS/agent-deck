@@ -214,25 +214,9 @@ func (m *Model) inboxReply(screen *InboxScreen, entry *InboxEntry, reply, reason
 	}
 	index := m.inboxPane(entry)
 	if index >= 0 {
-		for _, request := range m.panes[index].State.Permissions {
-			if request.ID != entry.RequestID || request.SessionID != entry.Identity.Session {
-				continue
-			}
-			dir, id := entry.Identity.Directory, entry.RequestID
-			if screen.Flights == nil {
-				screen.Flights = &InboxFlights{}
-			}
-			flights, session := screen.Flights, entry.Identity.Session
-			if !flights.Begin(dir, session, id) {
-				m.note = "Permission reply already pending"
-				return nil
-			}
-			return func() tea.Msg {
-				err := m.client.ReplyPermission(m.context(), dir, id, reply, reason)
-				flights.Finish(dir, session, id, err)
-				return permissionReplyMsg{Dir: dir, ID: id, Err: err}
-			}
-		}
+		return m.replyPermissionTarget(permissionTarget{
+			Dir: entry.Identity.Directory, ID: entry.RequestID, Session: entry.Identity.Session,
+		}, reply, reason)
 	}
 	m.note = "Permission is no longer pending for this member"
 	return nil

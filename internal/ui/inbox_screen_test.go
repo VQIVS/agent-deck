@@ -63,7 +63,7 @@ func TestInboxScreenRepliesToStoredRequest(t *testing.T) {
 	if path != "/permission/chosen/reply" || reply != "always" {
 		t.Fatalf("wrong request: %s %s", path, reply)
 	}
-	_, screen = inboxScreenModel(server.URL, false)
+	m, screen = inboxScreenModel(server.URL, false)
 	m.inboxKey(screen, key("x"))
 	m.inboxKey(screen, key("not allowed"))
 	cmd = m.inboxKey(screen, tea.KeyMsg{Type: tea.KeyEnter})

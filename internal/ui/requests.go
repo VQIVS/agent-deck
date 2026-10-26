@@ -21,7 +21,7 @@ type permissionReplyMsg struct {
 	Dir, ID string
 	Err     error
 }
-type permissionTarget struct{ Dir, ID, Description string }
+type permissionTarget struct{ Dir, ID, Description, Session string }
 
 func (m *Model) requests(dir string) tea.Cmd {
 	if _, busy := m.requestEvents[dir]; busy {
@@ -127,7 +127,10 @@ func (m *Model) permissionKey(key string) tea.Cmd {
 		return nil
 	}
 	r := p.State.Permissions[0]
-	m.permissionTarget = permissionTarget{p.Agent.Dir, r.ID, r.Permission + " " + strings.Join(r.Patterns, ", ")}
+	m.permissionTarget = permissionTarget{
+		Dir: p.Agent.Dir, ID: r.ID, Description: r.Permission + " " + strings.Join(r.Patterns, ", "),
+		Session: p.Agent.Session,
+	}
 	switch key {
 	case "y":
 		return m.replyPermission("once", "")
@@ -144,7 +147,10 @@ func (m *Model) permissionKey(key string) tea.Cmd {
 }
 
 func (m *Model) replyPermission(reply, message string) tea.Cmd {
-	target := m.permissionTarget
+	return m.replyPermissionTarget(m.permissionTarget, reply, message)
+}
+
+func (m *Model) replyPermissionTarget(target permissionTarget, reply, message string) tea.Cmd {
 	if m.opts.ReadOnly {
 		m.note = "Read-only: permission replies disabled"
 		return nil
@@ -153,9 +159,9 @@ func (m *Model) replyPermission(reply, message string) tea.Cmd {
 	session := ""
 	for i := range m.panes {
 		p := &m.panes[i]
-		if p.Agent.Dir == target.Dir {
+		if p.Agent.Dir == target.Dir && p.Agent.Session == target.Session {
 			for _, r := range p.State.Permissions {
-				if r.ID == target.ID {
+				if r.ID == target.ID && r.SessionID == target.Session {
 					session = p.Agent.Session
 				}
 			}

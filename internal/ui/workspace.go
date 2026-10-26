@@ -19,10 +19,6 @@ func (m *Model) workspaceGlobalKey(v tea.KeyMsg) (bool, tea.Cmd) {
 		}
 		return m.dialogKey(v)
 	}
-	if v.String() == "ctrl+p" {
-		m.palette.Open = true
-		return true, nil
-	}
 	return false, nil
 }
 
@@ -77,7 +73,7 @@ func (m *Model) workspaceKey(v tea.KeyMsg) (bool, tea.Cmd) {
 }
 
 func (m *Model) workspaceBlocked() bool {
-	return m.modalOpen() || m.searching || m.channel.Editing || m.palette.Open ||
+	return m.modalOpen() || m.searching || m.channel.Editing ||
 		m.board.Form != nil || m.teamModalOpen() ||
 		(m.workspace.View == "summary" && m.summary.Mode == "picker")
 }

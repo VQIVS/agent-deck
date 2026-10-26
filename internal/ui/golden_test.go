@@ -19,7 +19,7 @@ import (
 
 func TestScreenGoldens(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {160, 48}} {
-		for _, screen := range []string{"dashboard", "team", "inbox", "palette"} {
+		for _, screen := range []string{"dashboard", "team", "inbox"} {
 			name := fmt.Sprintf("%s_%dx%d", screen, size[0], size[1])
 			t.Run(name, func(t *testing.T) {
 				m := goldenScreenModel(t, size[0], size[1])
@@ -51,7 +51,7 @@ func goldenScreenModel(t *testing.T, width, height int) *Model {
 			},
 		},
 	}
-	deck := configured.Deck()
+	deck := TeamDeck(&configured)
 	m := New(context.Background(), &deck, Options{NoGit: true, Theme: "dark"})
 	m.w, m.h, m.frame = width, height, 0
 	m.connections = map[string]string{"/workspace/project": "live", "/workspace/review": "live"}
@@ -100,8 +100,6 @@ func goldenScreenView(m *Model, screen string) string {
 		m.teams.Screen = "members"
 	case "inbox":
 		m.inbox.Open = true
-	case "palette":
-		return m.paletteView(&PaletteScreen{Open: true, Query: "permission"})
 	}
 	return m.View()
 }

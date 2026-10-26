@@ -109,19 +109,14 @@ func TestWorkspaceNavigationAndBoundedScreens(t *testing.T) {
 	}
 }
 
-func TestWorkspaceModalAndPalettePrecedence(t *testing.T) {
+func TestWorkspaceModalPrecedenceAndUnboundPaletteKey(t *testing.T) {
 	for _, view := range []string{"git", "summary"} {
 		m := requestModel("http://unused", false)
 		m.workspace.View = view
 		m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-		if !m.palette.Open {
-			t.Fatalf("palette unavailable in %s", view)
+		if m.workspace.View != view || m.modalOpen() {
+			t.Fatalf("unbound key changed %s", view)
 		}
-		m.mouse(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
-		if m.changes.Offset != 0 || m.summary.Offset != 0 {
-			t.Fatal("palette scrolled hidden screen")
-		}
-		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		m.help = true
 		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		if m.help || m.workspace.View != view {
@@ -130,19 +125,31 @@ func TestWorkspaceModalAndPalettePrecedence(t *testing.T) {
 	}
 }
 
-func TestWorkspacePaletteExistingActions(t *testing.T) {
-	for _, view := range []string{"git", "summary"} {
-		m := requestModel("http://unused", false)
-		m.workspace.View = view
-		m.dispatchPalette(&PaletteAction{ID: "i", Server: m.deck.Server})
-		if !m.inbox.Open || m.workspace.View != "dashboard" {
-			t.Fatal("palette inbox swallowed by feature")
-		}
-	}
+func TestWorkspaceBlockedTabAction(t *testing.T) {
 	m := requestModel("http://unused", false)
 	m.searching = true
 	m.clickAction("view:git")
 	if m.workspace.View == "git" {
 		t.Fatal("blocked tab fell through to dashboard action")
+	}
+}
+
+func TestRetainedActionsWithoutPalette(t *testing.T) {
+	for _, key := range []string{"i", "c", "b", "C"} {
+		t.Run(key, func(t *testing.T) {
+			m := requestModel("http://unused", false)
+			m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+			if (key == "i" && !m.inbox.Open) || (key == "c" && !m.channel.Open) ||
+				(key == "b" && !m.board.Open) || (key == "C" && !m.compactConfirm) {
+				t.Fatal("retained action is unreachable")
+			}
+		})
+	}
+	m := requestModel("http://unused", true)
+	if m.sessionKey("n") != nil || m.compact() != nil {
+		t.Fatal("read-only permits nudge or compaction")
+	}
+	if !strings.Contains(m.helpView("Help"), "Ctrl+P unbound") {
+		t.Fatal("removed binding is not documented")
 	}
 }

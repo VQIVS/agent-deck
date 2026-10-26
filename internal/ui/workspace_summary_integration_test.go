@@ -22,8 +22,8 @@ func TestSummaryWorkspacePickerOwnsInputAndMouse(t *testing.T) {
 	}
 	m.summary.Mode = "picker"
 	m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	if !m.palette.Open {
-		t.Fatal("member picker swallowed global command palette")
+	if m.summary.Mode != "picker" || m.workspace.View != "summary" {
+		t.Fatal("unbound key changed member picker or workspace")
 	}
 }
 

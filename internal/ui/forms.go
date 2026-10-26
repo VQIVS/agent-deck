@@ -74,7 +74,6 @@ func (m *Model) memberForm() {
 			Label: "Permission " + k, Value: member.Permissions[k], Choices: []string{"allow", "ask", "deny"},
 		})
 	}
-	u.Fields = append(u.Fields, healthFields(member)...)
 	u.Field = 0
 	u.Screen = "member-form"
 	m.input.SetValue(u.Fields[0].Value)
@@ -213,10 +212,6 @@ func (m *Model) applyMemberValues(values map[string]string) bool {
 	member.System = values["System prompt"]
 	member.SystemFile = values["System prompt file"]
 	member.Brief = values["Brief"]
-	if err := applyHealthValues(member, values); err != nil {
-		m.note = err.Error()
-		return false
-	}
 	member.Leases = parseLeases(values["Leases (one repository-relative glob per line)"])
 	member.Mode = values["Workspace mode"]
 	member.Dir = values["Directory"]

@@ -165,7 +165,7 @@ func (m *Model) loadDashboard() tea.Cmd {
 	}
 	ctx, cancel := context.WithCancel(u.RootContext())
 	u.Cancel = cancel
-	deck := u.Manager.Team.Deck()
+	deck := TeamDeck(&u.Manager.Team)
 	n := New(ctx, &deck, m.opts)
 	n.skipTick = true
 	n.teams = u
@@ -845,9 +845,6 @@ func (m *Model) handleTeams(msg tea.Msg) (bool, tea.Cmd) {
 	}
 	if result, ok := msg.(kanbanResult); ok {
 		return true, m.applyKanbanResult(&result)
-	}
-	if action, ok := msg.(PaletteAction); ok {
-		return true, m.dispatchPalette(&action)
 	}
 	if handled, cmd := m.updateHealth(msg); handled {
 		return true, cmd

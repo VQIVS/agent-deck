@@ -63,7 +63,6 @@ func (m *Model) headerButtons() []button {
 		{"Inbox", "i", false},
 		{"Channel", "c", false},
 		{"Board", "b", false},
-		{"Commands", "ctrl+p", false},
 		{"Refresh", "r", false},
 		{notify, "N", false},
 		{"Help", "?", false},
@@ -119,9 +118,6 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return nil
 	}
-	if m.palette.Open {
-		return m.paletteClick(&m.palette, z, ok)
-	}
 	if handled, cmd := m.workspaceMouse(z, ok); handled {
 		return cmd
 	}
@@ -149,7 +145,7 @@ func (m *Model) workflowMouseTarget(z zone, ok bool) bool {
 }
 
 func (m *Model) mouseWheel(msg tea.MouseMsg, z zone, ok bool) tea.Cmd {
-	if m.palette.Open || m.modalOpen() || m.channel.Editing || m.board.Form != nil {
+	if m.modalOpen() || m.channel.Editing || m.board.Form != nil {
 		return nil
 	}
 	if handled, cmd := m.workspaceWheel(msg); handled {
@@ -293,8 +289,6 @@ func (m *Model) clickAction(action string) tea.Cmd {
 		key.Type = tea.KeyCtrlS
 	case "discard":
 		key.Type = tea.KeyCtrlX
-	case "ctrl+p":
-		key.Type = tea.KeyCtrlP
 	default:
 		key = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(action)}
 	}

@@ -1,10 +1,8 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -52,15 +50,6 @@ func (m *Model) updateHealth(msg tea.Msg) (bool, tea.Cmd) {
 			}
 		}
 		return true, nil
-	case nudgeResult:
-		m.teams.Busy = false
-		m.teams.Manager = v.Manager
-		if v.Err != nil {
-			m.note = v.Err.Error()
-		} else if !v.Skipped {
-			m.note = "Automatic nudge sent"
-		}
-		return true, nil
 	}
 	return false, nil
 }
@@ -74,59 +63,6 @@ func (m *Model) applyBoardResult(result *boardResult) {
 	if result.State.Revision >= m.board.State.Revision && !m.board.Saving {
 		m.board.State, m.board.Actions = result.State, result.Actions
 	}
-}
-
-func (m *Model) healthTick() []tea.Cmd {
-	if m.teams == nil || m.teams.Manager == nil || m.teams.Busy {
-		return nil
-	}
-	manager := m.teams.Manager
-	for i := range manager.Team.Members {
-		member := &manager.Team.Members[i]
-		for j := range m.panes {
-			p := &m.panes[j]
-			if p.Agent.Session != member.Session || p.Agent.Dir != member.SessionDir() {
-				continue
-			}
-			if member.StallAfter != nil {
-				p.State.StallAfter = *member.StallAfter
-			}
-			if member.Nudge.Due(time.Now(), p.State.Since, p.State.DisplayStatus(), m.opts.ReadOnly, member.NudgeStatus) {
-				return []tea.Cmd{m.autoNudge(i)}
-			}
-		}
-	}
-	return nil
-}
-
-func (m *Model) autoNudge(index int) tea.Cmd {
-	u := m.teams
-	u.Busy = true
-	manager := *u.Manager
-	manager.Team.Members = append([]team.Member(nil), manager.Team.Members...)
-	return func() tea.Msg {
-		member := &manager.Team.Members[index]
-		status := manager.Observe(m.context(), index)
-		var err error
-		if status.State != "idle" {
-			return nudgeResult{Manager: &manager, Skipped: true}
-		} else {
-			err = manager.Send(m.context(), index, member.Nudge.Message)
-			if err == nil {
-				member.NudgeStatus.Sent(time.Now())
-				return nudgeResult{Manager: &manager, Err: manager.Save(m.context())}
-			}
-		}
-		member.Nudge.Enabled = false
-		err = errors.Join(err, manager.Save(m.context()))
-		return nudgeResult{Manager: &manager, Err: err}
-	}
-}
-
-type nudgeResult struct {
-	Manager *team.Manager
-	Err     error
-	Skipped bool
 }
 
 func (m *Model) compact() tea.Cmd {
@@ -183,13 +119,5 @@ func (m *Model) compactSession(dir, session string) error {
 func (m *Model) paneHealth(index int) string {
 	p := &m.panes[index]
 	text := m.theme.ContextGauge(p.State.ContextTokens, p.ContextLimit)
-	if m.teams != nil && m.teams.Manager != nil {
-		for i := range m.teams.Manager.Team.Members {
-			member := &m.teams.Manager.Team.Members[i]
-			if member.Session == p.Agent.Session {
-				text += fmt.Sprintf(" · nudges %d/%d", member.NudgeStatus.Count, member.Nudge.MaxNudges)
-			}
-		}
-	}
 	return strings.TrimSpace(text)
 }

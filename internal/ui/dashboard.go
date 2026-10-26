@@ -18,7 +18,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/vqivs/agent-deck/internal/config"
 	"github.com/vqivs/agent-deck/internal/gitinfo"
 	api "github.com/vqivs/agent-deck/internal/opencode"
 	"github.com/vqivs/agent-deck/internal/state"
@@ -32,7 +31,7 @@ type Options struct {
 	Theme                         string
 }
 type pane struct {
-	Agent         config.Agent
+	Agent         Agent
 	State         state.State
 	Git           string
 	View          viewport.Model
@@ -80,10 +79,9 @@ type Model struct {
 	gitTUI                       gitTUIUI
 	composer                     composerUI
 	summary                      SummaryState
-	palette                      PaletteScreen
 	board                        boardUI
 	channel                      channelUI
-	deck                         config.Deck
+	deck                         Deck
 	client                       *api.Client
 	context                      func() context.Context
 	opts                         Options
@@ -115,7 +113,7 @@ type Model struct {
 	theme                        Theme
 }
 
-func New(ctx context.Context, d *config.Deck, opts Options) *Model {
+func New(ctx context.Context, d *Deck, opts Options) *Model {
 	m := &Model{
 		deck:        *d,
 		client:      api.New(d.Server, opts.ReadOnly),
@@ -169,7 +167,9 @@ func (m *Model) wait() tea.Cmd {
 		}
 	})
 }
+
 func tick() tea.Cmd { return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) }) }
+
 func (m *Model) Init() tea.Cmd {
 	if m.teams != nil && m.teams.Screen == "picker" {
 		return tea.Batch(tick(), m.listTeams())
@@ -340,7 +340,6 @@ func (m *Model) updateTick(v tickMsg) []tea.Cmd {
 		cmds = append(cmds, m.readBoard())
 	}
 	cmds = append(cmds, m.safeCommandReplies()...)
-	cmds = append(cmds, m.healthTick()...)
 	second := time.Time(v).Unix()
 	if m.teams != nil && second%3 == 0 {
 		cmds = append(cmds, m.watchTeam())
@@ -463,10 +462,6 @@ func (m *Model) updateKey(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	if handled, cmd := m.workspaceKey(v); handled {
-		return m, cmd
-	}
-	if m.palette.Open {
-		cmd := m.paletteKey(&m.palette, v)
 		return m, cmd
 	}
 	if handled, cmd := m.workspaceGlobalKey(v); handled {
@@ -867,9 +862,6 @@ func (m *Model) cardZones(i, x, bodyY, inner int, ranges []transcript.Range) {
 
 func (m *Model) View() string {
 	m.zones = nil
-	if m.palette.Open {
-		return m.paletteView(&m.palette)
-	}
 	return m.workspaceView()
 }
 
@@ -974,8 +966,10 @@ func (m *Model) overlayView(header string) (string, bool) {
 func (m *Model) helpView(header string) string {
 	return header + "\n" + m.buttonRow([]button{{"Close", "esc", false}}, 0, 1, m.w, -1) + "\n" +
 		"1–6 / Alt+1–6 workspace tabs · 2 Git diff · 3 Summary · 4 Channel\n" +
-		"Ctrl+P command palette · Tab/arrows focus · Enter zoom · Esc back\n" +
-		PaletteHelp(PaletteCommands(), m.paletteContext(), m.w) + "\nEnter sends · Ctrl+J newline · PgUp/PgDn scroll"
+		"Tab/arrows focus · Enter zoom · Esc back · Ctrl+P unbound\n" +
+		"p picker · m message · n nudge · s stop · a attach · i inbox\n" +
+		"y approve once · Y always approve · x reject · C compact · r refresh\n" +
+		"Enter sends · Ctrl+J newline · PgUp/PgDn scroll"
 }
 
 func (m *Model) dashboardView(header, bar string, live int) string {

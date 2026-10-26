@@ -417,9 +417,9 @@ and DONE-card integration remain separate runtime work.
 
 ## Keyboard and mouse screens
 
-`Ctrl+P` opens the command palette: type to search, arrows select, Enter executes, Esc
-closes. Actions are revalidated against the selected session/request and read-only mode.
-Help (`?`) uses the same command registry. Inbox (`i`), Channel (`c`) and Board (`b`) have
+`Ctrl+P` is unbound on dashboard/workspace screens; the command palette has been removed.
+Member forms retain their contextual `Ctrl+P` model picker. Help (`?`) lists the
+retained keyboard actions. Inbox (`i`), Channel (`c`) and Board (`b`) have
 their own navigation; Esc returns to the dashboard. Team/member forms show field steps,
 Previous/Next, Save/Cancel, model choices and Advanced controls. Enter advances fields,
 Ctrl+J inserts a newline and Ctrl+S saves.
@@ -435,14 +435,14 @@ endpoints and a real PTY.
 Private work boards live under `$XDG_STATE_HOME/agent-deck/boards/<team>/`. Configure one
 with `agent-deck team board --team NAME --file board.json`; inspect it with the same command
 without `--file`. Missing boards default to scaling off. Board policy contains min/max
-workers, cooldown, role models, budgets and approval mode (`ask`, `auto`, `off`). Through
+workers, cooldown, role models and approval mode (`ask`, `auto`, `off`). Through
 agent-deck's guarded interfaces only the privileged user can configure policy or approve
 scaling; these are cooperative controls, bypassable by unrestricted same-user bash.
 Repository files cannot raise policy through the supported merge path.
 
 Authenticated masters get `propose_workers`, `assign_task` and `retire_worker` MCP tools.
 Each action is rechecked against current team revision, task dependencies, idle workers,
-lease contention, capacity and budgets before lifecycle effects. Native worker edit/Git
+lease contention and capacity before lifecycle effects. Native worker edit/Git
 rules are applied by the lifecycle adapter. Effects and completion are journaled with
 stable action IDs; uncertain effects stop for inspection rather than being blindly repeated.
 Only worker creation needs `ask` approval; `off` blocks creation but still permits existing
@@ -472,13 +472,9 @@ status, request counts, permission policy and leases with matching three-line cl
 
 Pane badges distinguish **STALLED** from **WAITING**. Busy sessions with no meaningful
 part changes for five minutes become stalled; status polling does not refresh activity.
-Pending permissions/questions always win. Advanced member settings expose the stall
-threshold (`0s` disables) and optional auto-nudge policy: enabled, maximum, interval,
-message, and task-done flag. Nudges default off, target idle sessions only, recheck live
-status, and persist successful-send counts/timestamps. Done, waiting, busy and read-only
-members are never nudged. A member becoming busy during the final check is a silent skip.
-A real submission/save failure disables only that member's nudge policy and persists it;
-the error is shown. Persistence failures are also reported so they can be resolved.
+Pending permissions/questions always win. The dashboard uses the default five-minute
+threshold; member stall controls and automatic nudges have been removed. Press `n`
+to nudge the selected member manually. Read-only blocks nudges.
 
 The pane shows context input + cache-read tokens against the session model's configured
 context limit, or **unknown** when unavailable. Warnings begin at 75%, danger at 90%.
